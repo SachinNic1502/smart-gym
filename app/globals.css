@@ -1,24 +1,48 @@
 @import "tailwindcss";
 
+/* Base Colors */
 :root {
-  --background: #ffffff;
+  --background: #F7F7F7;
+  /* Light premium background */
   --foreground: #171717;
+  /* Dark premium text */
+
+  /* Premium Fitness Theme Colors */
+  --primary: #3A86FF;
+  --secondary: #0A2540;
+  --accent: #4CC9F0;
+
+  --card-bg: #ffffff;
+  --muted: #e5e5e5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+
+  --color-card: var(--card-bg);
+  --color-muted: var(--muted);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+/* DARK MODE */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0A0A0A;
+    --foreground: #EDEDED;
+
+    --card-bg: #0F0F0F;
+    --muted: #303030;
   }
 }
 
+/* Body styling */
 body {
   background: var(--background);
   color: var(--foreground);
