@@ -179,7 +179,7 @@ export default function LoginPage() {
 
                     {/* Member Login */}
                     <TabsContent value="member">
-                        <Card className="border-t-4 border-t-green-500 shadow-xl">
+                        {/* <Card className="border-t-4 border-t-green-500 shadow-xl">
                             <CardHeader>
                                 <CardTitle>Member Portal</CardTitle>
                                 <CardDescription>Access your profile and bookings.</CardDescription>
@@ -205,7 +205,7 @@ export default function LoginPage() {
                                     {isLoading ? "Send OTP" : "Send OTP"} <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
                             </CardFooter>
-                        </Card>
+                        </Card> */}
                     </TabsContent>
                 </Tabs>
 
