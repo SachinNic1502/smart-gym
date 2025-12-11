@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Calendar, Home, User, LogOut, Dumbbell, CreditCard } from "lucide-react";
+import { Calendar, Home, User, CreditCard } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 export default function MemberLayout({
@@ -22,11 +22,14 @@ export default function MemberLayout({
                     <div className="h-8 w-8 bg-primary text-white rounded-lg flex items-center justify-center">SF</div>
                     SmartFit
                 </div>
-                <div className="h-8 w-8 rounded-full bg-gray-200 overflow-hidden cursor-pointer">
-                    <Link href="/portal/profile">
-                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" alt="Profile" />
-                    </Link>
-                </div>
+                <Link href="/portal/profile" className="h-8 w-8 rounded-full bg-gray-200 overflow-hidden cursor-pointer block relative">
+                    <Image 
+                        src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" 
+                        alt="Profile"
+                        fill
+                        className="object-cover"
+                    />
+                </Link>
             </header>
 
             <main className="p-4 md:p-8 max-w-4xl mx-auto">

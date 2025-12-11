@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
+import { useAuth } from "@/hooks/use-auth";
 
 export function Header() {
+    const { logout, user } = useAuth();
     const pathname = usePathname();
     const pathSegments = pathname.split("/").filter(Boolean);
     const currentPage = pathSegments[pathSegments.length - 1];
@@ -22,6 +24,16 @@ export function Header() {
 
     const notificationRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
+
+    const displayName = user?.name || "Admin";
+    const displayEmail = user?.email || "admin@smartfit.com";
+    const avatarSeed = user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`;
+    const initials = displayName
+        .split(" ")
+        .map(part => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
 
     const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value;
@@ -120,8 +132,8 @@ export function Header() {
                         onClick={() => setIsProfileOpen((v) => !v)}
                     >
                         <Avatar className="h-9 w-9 shadow-sm cursor-pointer hover:scale-105 transition">
-                            <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" />
-                            <AvatarFallback>A</AvatarFallback>
+                            <AvatarImage src={avatarSeed} />
+                            <AvatarFallback>{initials}</AvatarFallback>
                         </Avatar>
                     </button>
 
@@ -133,9 +145,9 @@ export function Header() {
                             )}
                         >
                             <div className="px-4 py-2 border-b">
-                                <p className="font-semibold text-sm">Admin</p>
+                                <p className="font-semibold text-sm">{displayName}</p>
                                 <p className="text-xs text-gray-500">
-                                    admin@smartfit.com
+                                    {displayEmail}
                                 </p>
                             </div>
 
@@ -149,7 +161,7 @@ export function Header() {
                                 Settings
                             </button>
 
-                            <button className="flex w-full items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 text-sm">
+                            <button className="flex w-full items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 text-sm" onClick={logout}>
                                 <LogOut className="h-4 w-4" />
                                 Logout
                             </button>

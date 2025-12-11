@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -17,6 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Zap, Building2, Plus } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
+import { paymentsApi, ApiError } from "@/lib/api/client";
+import type { Payment } from "@/lib/types";
 
 type PlanStatus = "Active" | "Draft";
 
@@ -31,48 +34,6 @@ type Plan = {
     popular?: boolean;
     isCustom?: boolean;
 };
-
-const DEFAULT_PLANS: Plan[] = [
-    {
-        id: "starter",
-        name: "Starter",
-        description: "For small individual gyms",
-        monthlyPrice: "999",
-        yearlyPrice: "9999",
-        status: "Active",
-        features: ["Up to 100 Members", "1 Biometric Device", "Basic Reports"],
-    },
-    {
-        id: "growth",
-        name: "Growth",
-        description: "For growing fitness centers",
-        monthlyPrice: "2499",
-        yearlyPrice: "24999",
-        status: "Active",
-        features: [
-            "Up to 500 Members",
-            "3 Biometric Devices",
-            "Advanced Analytics",
-            "WhatsApp Integration",
-        ],
-        popular: true,
-    },
-    {
-        id: "enterprise",
-        name: "Enterprise",
-        description: "For large multi-branch chains",
-        monthlyPrice: "5999",
-        yearlyPrice: "59999",
-        status: "Active",
-        features: [
-            "Unlimited Members",
-            "Unlimited Devices",
-            "Custom Branding",
-            "Dedicated Support",
-            "API Access",
-        ],
-    },
-];
 
 interface PlanCardProps {
     plan: Plan;
@@ -155,9 +116,6 @@ function PlanCard({ plan, billingCycle, onEditClick, onToggleStatus }: PlanCardP
                             Delete
                         </Button>
                     )}
-                    <Button className="w-full" variant="outline">
-                        Edit Plan
-                    </Button>
                 </div>
             </CardContent>
         </Card>
@@ -177,10 +135,61 @@ export default function SaaSPlansPage() {
     const [formErrors, setFormErrors] = useState<{ name?: string; monthlyPrice?: string }>({});
     const toast = useToast();
 
+    const [payments, setPayments] = useState<Payment[]>([]);
+    const [paymentSummary, setPaymentSummary] = useState<{
+        totalAmount: number;
+        completedCount: number;
+        pendingCount: number;
+    } | null>(null);
+    const [paymentsLoading, setPaymentsLoading] = useState(true);
+    const [paymentsError, setPaymentsError] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [periodFilter, setPeriodFilter] = useState<"all" | "this_month">("all");
+    const [page, setPage] = useState(1);
+    const pageSize = 10;
+    const [totalPages, setTotalPages] = useState(1);
+
     const resetPlanForm = () => {
         setPlanForm({ name: "", description: "", monthlyPrice: "", yearlyPrice: "" });
         setFormErrors({});
     };
+
+    useEffect(() => {
+        const fetchPayments = async () => {
+            setPaymentsLoading(true);
+            setPaymentsError(null);
+            try {
+                const params: Record<string, string> = {
+                    page: String(page),
+                    pageSize: String(pageSize),
+                };
+
+                if (statusFilter !== "all") {
+                    params.status = statusFilter;
+                }
+
+                if (periodFilter === "this_month") {
+                    const now = new Date();
+                    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                    params.startDate = start.toISOString();
+                    params.endDate = end.toISOString();
+                }
+
+                const result = await paymentsApi.list(params);
+                setPayments(result.data);
+                setPaymentSummary(result.summary);
+                setTotalPages(result.totalPages);
+            } catch (error) {
+                const message = error instanceof ApiError ? error.message : "Failed to load invoices";
+                setPaymentsError(message);
+            } finally {
+                setPaymentsLoading(false);
+            }
+        };
+
+        fetchPayments();
+    }, [statusFilter, periodFilter, page, pageSize]);
 
     const handleCreatePlan = () => {
         const errors: { name?: string; monthlyPrice?: string } = {};
@@ -307,8 +316,10 @@ export default function SaaSPlansPage() {
                     <CardHeader className="py-3">
                         <CardTitle className="text-sm font-medium text-muted-foreground">Monthly recurring</CardTitle>
                         <CardDescription className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold">₹1,08,000</span>
-                            <span className="text-xs text-muted-foreground">mock MRR</span>
+                            <span className="text-2xl font-bold">
+                                ₹{paymentSummary ? paymentSummary.totalAmount.toLocaleString() : 0}
+                            </span>
+                            <span className="text-xs text-muted-foreground">completed payments total</span>
                         </CardDescription>
                     </CardHeader>
                 </Card>
@@ -316,7 +327,9 @@ export default function SaaSPlansPage() {
                     <CardHeader className="py-3 flex flex-row items-center justify-between">
                         <div>
                             <CardTitle className="text-sm font-medium text-muted-foreground">Pending invoices</CardTitle>
-                            <CardDescription className="text-2xl font-bold text-foreground">3</CardDescription>
+                            <CardDescription className="text-2xl font-bold text-foreground">
+                                {paymentSummary ? paymentSummary.pendingCount : 0}
+                            </CardDescription>
                         </div>
                         <Zap className="h-5 w-5 text-primary" />
                     </CardHeader>
@@ -324,15 +337,6 @@ export default function SaaSPlansPage() {
             </div>
 
             <div className="space-y-6">
-                <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">Default plans</h3>
-                    <div className="grid gap-6 md:grid-cols-3">
-                        {DEFAULT_PLANS.map((plan) => (
-                            <PlanCard key={plan.id} plan={plan} billingCycle={billingCycle} />
-                        ))}
-                    </div>
-                </div>
-
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-semibold text-muted-foreground">Custom plans</h3>
@@ -472,19 +476,47 @@ export default function SaaSPlansPage() {
                         <CardDescription>Latest billing history from your branches.</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
+                        <Select
+                            key={statusFilter}
+                            defaultValue={statusFilter}
+                            onValueChange={(value) => {
+                                setStatusFilter(value);
+                                setPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-[150px] h-8 text-xs">
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All statuses</SelectItem>
+                                <SelectItem value="completed">Paid</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="failed">Failed</SelectItem>
+                                <SelectItem value="refunded">Refunded</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            onClick={() =>
-                                toast({
-                                    title: "Invoice filter",
-                                    description: "Filtering invoices by period is mock-only right now.",
-                                    variant: "info",
-                                })
-                            }
+                            onClick={() => {
+                                setPeriodFilter("this_month");
+                                setPage(1);
+                            }}
                         >
                             This month
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() => {
+                                setStatusFilter("all");
+                                setPeriodFilter("all");
+                                setPage(1);
+                            }}
+                        >
+                            Clear
                         </Button>
                         <Button
                             variant="outline"
@@ -503,29 +535,74 @@ export default function SaaSPlansPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-4">
-                        {[
-                            { id: "INV-001", branch: "FitStop Downtown", date: "Oct 01, 2024", amount: "₹2,499", status: "Paid" },
-                            { id: "INV-002", branch: "Iron Gym East", date: "Oct 01, 2024", amount: "₹999", status: "Paid" },
-                            { id: "INV-003", branch: "Flex Studio", date: "Sep 28, 2024", amount: "₹999", status: "Failed" },
-                        ].map((inv, i) => (
-                            <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
-                                        <Building2 className="h-5 w-5" />
+                    {paymentsError && (
+                        <p className="mb-2 text-xs text-red-500">{paymentsError}</p>
+                    )}
+                    {paymentsLoading ? (
+                        <p className="text-xs text-muted-foreground">Loading invoices...</p>
+                    ) : payments.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No invoices found.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {payments.map((payment) => (
+                                <div
+                                    key={payment.id}
+                                    className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
+                                            <Building2 className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-sm">{payment.memberName}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Invoice #{payment.invoiceNumber || payment.id} •
+                                                {" "}
+                                                {new Date(payment.createdAt).toLocaleString()}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-medium text-sm">{inv.branch}</p>
-                                        <p className="text-xs text-muted-foreground">Invoice #{inv.id} • {inv.date}</p>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-bold">₹{payment.amount.toLocaleString()}</span>
+                                        <Badge
+                                            variant={payment.status === "completed" ? "success" : "destructive"}
+                                        >
+                                            {payment.status === "completed"
+                                                ? "Paid"
+                                                : payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                                        </Badge>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="font-bold">{inv.amount}</span>
-                                    <Badge variant={inv.status === 'Paid' ? 'success' : 'destructive'}>{inv.status}</Badge>
-                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {!paymentsLoading && payments.length > 0 && (
+                        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>
+                                Page {page} of {totalPages}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    type="button"
+                                    disabled={page <= 1}
+                                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    type="button"
+                                    disabled={page >= totalPages}
+                                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                                >
+                                    Next
+                                </Button>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

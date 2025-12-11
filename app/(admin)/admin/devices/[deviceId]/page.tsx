@@ -1,56 +1,48 @@
 "use client";
 
-import { useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Fingerprint, MapPin, Activity, Wifi, RefreshCcw, Server } from "lucide-react";
-
-const MOCK_DEVICES = [
-  {
-    id: "DEV001",
-    name: "Main Entrance A",
-    branch: "FitStop Downtown",
-    ip: "192.168.1.101",
-    status: "Online",
-    model: "ZKTeco F22",
-    sync: "2 mins ago",
-  },
-  {
-    id: "DEV002",
-    name: "Back Validtor",
-    branch: "FitStop Downtown",
-    ip: "192.168.1.102",
-    status: "Online",
-    model: "eSSL uFace",
-    sync: "5 mins ago",
-  },
-  {
-    id: "DEV003",
-    name: "Turnstile 1",
-    branch: "Iron Gym East",
-    ip: "10.0.0.45",
-    status: "Offline",
-    model: "ZKTeco K40",
-    sync: "15 hours ago",
-  },
-];
+import { useDevice } from "@/hooks/use-devices";
 
 export default function DeviceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const deviceId = params?.deviceId as string | undefined;
 
-  const device = useMemo(
-    () => MOCK_DEVICES.find((d) => d.id === deviceId),
-    [deviceId]
-  );
+  const { device, loading, error } = useDevice(deviceId || "");
 
-  if (!device) {
+  if (loading) {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
-        <Button variant="ghost" className="flex items-center gap-2" onClick={() => router.push("/admin/devices")}>
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          onClick={() => router.push("/admin/devices")}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Devices
+        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading device...</CardTitle>
+            <CardDescription>Please wait while we fetch the latest device details.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error || !device) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          onClick={() => router.push("/admin/devices")}
+        >
           <ArrowLeft className="h-4 w-4" />
           Back to Devices
         </Button>
@@ -58,13 +50,32 @@ export default function DeviceDetailPage() {
           <CardHeader>
             <CardTitle>Device not found</CardTitle>
             <CardDescription>
-              We couldn&apos;t find details for this device. Please return to the list and try again.
+              {error || "We couldn&apos;t find details for this device. Please return to the list and try again."}
             </CardDescription>
           </CardHeader>
         </Card>
       </div>
     );
   }
+
+  const statusLabel =
+    device.status === "online"
+      ? "Online"
+      : device.status === "offline"
+      ? "Offline"
+      : "Maintenance";
+
+  const statusVariant =
+    device.status === "online"
+      ? "success"
+      : device.status === "offline"
+      ? "destructive"
+      : "warning";
+
+  const connectionLabel =
+    device.connectionType === "cloud"
+      ? "Cloud"
+      : "LAN (Local Network)";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -86,29 +97,28 @@ export default function DeviceDetailPage() {
             <div>
               <CardTitle>{device.name}</CardTitle>
               <CardDescription className="flex items-center gap-2">
-                <MapPin className="h-3 w-3" /> {device.branch}
+                <MapPin className="h-3 w-3" /> {device.branchName}
               </CardDescription>
             </div>
           </div>
-          <Badge
-            variant={device.status === "Online" ? "success" : "destructive"}
-            className="text-xs px-3 py-1"
-          >
-            {device.status}
+          <Badge variant={statusVariant as any} className="text-xs px-3 py-1">
+            {statusLabel}
           </Badge>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div>
-            <p className="text-xs text-muted-foreground">IP Address</p>
-            <p className="font-mono text-sm">{device.ip}</p>
+            <p className="text-xs text-muted-foreground">Device ID</p>
+            <p className="font-mono text-sm">{device.id}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Model</p>
-            <p className="font-medium">{device.model}</p>
+            <p className="text-xs text-muted-foreground">Model / Firmware</p>
+            <p className="font-medium">{device.model ?? device.firmwareVersion ?? device.type}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Last Sync</p>
-            <p className="font-medium">{device.sync}</p>
+            <p className="font-medium">
+              {device.lastPing ? new Date(device.lastPing).toLocaleString() : "Not synced yet"}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -119,8 +129,27 @@ export default function DeviceDetailPage() {
             <CardTitle className="text-sm font-medium">Connection</CardTitle>
             <Wifi className="h-4 w-4 text-primary" />
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="space-y-3 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Connection type</p>
+              <p className="font-medium">{connectionLabel}</p>
+            </div>
+            {device.connectionType === "cloud" ? (
+              <div>
+                <p className="text-xs text-muted-foreground">Cloud URL</p>
+                <p className="break-all">
+                  {device.cloudUrl || "Not configured"}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs text-muted-foreground">LAN IP Address</p>
+                <p className="font-mono text-sm">
+                  {device.ipAddress || "Not configured"}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
               Connectivity metrics and latency graphs will appear here when backend metrics are connected.
             </p>
           </CardContent>

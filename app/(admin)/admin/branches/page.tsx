@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, MoreHorizontal, Store, MapPin, User, Mail, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, Store, MapPin, User, Mail, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
     Dialog,
@@ -19,56 +19,39 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast-provider";
-
-const MOCK_BRANCHES = [
-    {
-        id: "BR001",
-        name: "FitStop Downtown",
-        location: "New York, NY",
-        admin: "John Doe",
-        adminEmail: "john@fitstop.com",
-        status: "Active",
-        members: 892,
-        revenue: "₹34,50,000",
-    },
-    {
-        id: "BR002",
-        name: "Iron Gym East",
-        location: "Brooklyn, NY",
-        admin: "Sarah Connor",
-        adminEmail: "sarah@irongym.com",
-        status: "Active",
-        members: 650,
-        revenue: "₹24,50,000",
-    },
-    {
-        id: "BR003",
-        name: "Flex Studio",
-        location: "Queens, NY",
-        admin: "Mike Tyson",
-        adminEmail: "mike@flex.com",
-        status: "Pending",
-        members: 0,
-        revenue: "₹0",
-    },
-];
+import { useBranches } from "@/hooks/use-branches";
+import type { Branch } from "@/lib/types";
+import { branchesApi, ApiError } from "@/lib/api/client";
 
 export default function BranchesPage() {
+    const toast = useToast();
     const [searchTerm, setSearchTerm] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
-    const [branches, setBranches] = useState(MOCK_BRANCHES);
-    const toast = useToast();
 
-    // Form State
-    const [formData, setFormData] = useState({ id: "", name: "", location: "", adminName: "", adminEmail: "" });
+    const { branches, loading, error, refetch } = useBranches();
 
-    const filteredBranches = branches.filter((branch) =>
-        branch.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Form State (matches Branch/createBranch schema)
+    const [formData, setFormData] = useState<{
+        id: string;
+        name: string;
+        address: string;
+        city: string;
+        state: string;
+        phone: string;
+        email: string;
+    }>({
+        id: "",
+        name: "",
+        address: "",
+        city: "",
+        state: "",
+        phone: "",
+        email: "",
+    });
 
     const resetForm = () => {
-        setFormData({ id: "", name: "", location: "", adminName: "", adminEmail: "" });
+        setFormData({ id: "", name: "", address: "", city: "", state: "", phone: "", email: "" });
         setIsEditMode(false);
     };
 
@@ -77,57 +60,76 @@ export default function BranchesPage() {
         setIsDialogOpen(true);
     };
 
-    const handleOpenEdit = (branch: any) => {
+    const handleOpenEdit = (branch: Branch) => {
         setFormData({
             id: branch.id,
             name: branch.name,
-            location: branch.location,
-            adminName: branch.admin,
-            adminEmail: branch.adminEmail || ""
+            address: branch.address,
+            city: branch.city,
+            state: branch.state,
+            phone: branch.phone,
+            email: branch.email,
         });
         setIsEditMode(true);
         setIsDialogOpen(true);
     };
 
-    const handleSubmit = () => {
-        if (isEditMode) {
-            // Update existing
-            setBranches(branches.map(b => b.id === formData.id ? { ...b, name: formData.name, location: formData.location, admin: formData.adminName, adminEmail: formData.adminEmail } : b));
-            toast({
-                title: "Branch updated",
-                description: "Branch updated successfully (mock).",
-                variant: "success",
-            });
-        } else {
-            // Create new
-            const newId = `BR00${branches.length + 1}`;
-            setBranches([...branches, {
-                id: newId,
-                name: formData.name,
-                location: formData.location,
-                admin: formData.adminName,
-                adminEmail: formData.adminEmail,
-                members: 0,
-                revenue: "₹0",
-                status: "Pending"
-            }]);
-            toast({
-                title: "Branch created",
-                description: "New branch created successfully (mock).",
-                variant: "success",
-            });
+    const handleSubmit = async () => {
+        try {
+            if (isEditMode) {
+                await branchesApi.update(formData.id, {
+                    name: formData.name,
+                    address: formData.address,
+                    city: formData.city,
+                    state: formData.state,
+                    phone: formData.phone,
+                    email: formData.email,
+                });
+                toast({
+                    title: "Branch updated",
+                    description: "Branch updated successfully.",
+                    variant: "success",
+                });
+            } else {
+                await branchesApi.create({
+                    name: formData.name,
+                    address: formData.address,
+                    city: formData.city,
+                    state: formData.state,
+                    phone: formData.phone,
+                    email: formData.email,
+                    status: "active",
+                });
+                toast({
+                    title: "Branch created",
+                    description: "New branch created successfully.",
+                    variant: "success",
+                });
+            }
+
+            setIsDialogOpen(false);
+            resetForm();
+            await refetch();
+        } catch (error) {
+            const message = error instanceof ApiError ? error.message : "Failed to save branch";
+            toast({ title: "Error", description: message, variant: "destructive" });
         }
-        setIsDialogOpen(false);
     };
 
-    const handleDelete = (id: string) => {
-        if (confirm("Are you sure you want to delete this branch? This action cannot be undone.")) {
-            setBranches(branches.filter(b => b.id !== id));
+    const handleDelete = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this branch? This action cannot be undone.")) return;
+
+        try {
+            await branchesApi.delete(id);
             toast({
                 title: "Branch deleted",
-                description: "Branch removed from the list (mock).",
+                description: "Branch removed successfully.",
                 variant: "destructive",
             });
+            await refetch();
+        } catch (error) {
+            const message = error instanceof ApiError ? error.message : "Failed to delete branch";
+            toast({ title: "Error", description: message, variant: "destructive" });
         }
     };
 
@@ -172,48 +174,68 @@ export default function BranchesPage() {
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="location" className="text-right">
-                                    Location
+                                <Label htmlFor="address" className="text-right">
+                                    Address
                                 </Label>
-                                <div className="col-span-3 relative">
-                                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                <div className="col-span-3">
                                     <Input
-                                        id="location"
-                                        placeholder="City, State"
-                                        className="pl-9"
-                                        value={formData.location}
-                                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                        id="address"
+                                        placeholder="Street address"
+                                        value={formData.address}
+                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                                     />
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="admin" className="text-right">
-                                    Admin Name
+                                <Label htmlFor="city" className="text-right">
+                                    City
                                 </Label>
-                                <div className="col-span-3 relative">
-                                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                <div className="col-span-3">
                                     <Input
-                                        id="admin"
-                                        placeholder="Full Name"
-                                        className="pl-9"
-                                        value={formData.adminName}
-                                        onChange={(e) => setFormData({ ...formData, adminName: e.target.value })}
+                                        id="city"
+                                        placeholder="City"
+                                        value={formData.city}
+                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="state" className="text-right">
+                                    State
+                                </Label>
+                                <div className="col-span-3">
+                                    <Input
+                                        id="state"
+                                        placeholder="State"
+                                        value={formData.state}
+                                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="phone" className="text-right">
+                                    Phone
+                                </Label>
+                                <div className="col-span-3">
+                                    <Input
+                                        id="phone"
+                                        placeholder="Contact phone"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                     />
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="email" className="text-right">
-                                    Admin Email
+                                    Email
                                 </Label>
-                                <div className="col-span-3 relative">
-                                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                <div className="col-span-3">
                                     <Input
                                         id="email"
                                         type="email"
-                                        placeholder="admin@gym.com"
-                                        className="pl-9"
-                                        value={formData.adminEmail}
-                                        onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
+                                        placeholder="branch@gym.com"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                     />
                                 </div>
                             </div>
@@ -246,57 +268,60 @@ export default function BranchesPage() {
                             <TableRow className="hover:bg-transparent">
                                 <TableHead className="font-semibold text-gray-600">Branch Name</TableHead>
                                 <TableHead className="font-semibold text-gray-600">Location</TableHead>
-                                <TableHead className="font-semibold text-gray-600">Admin</TableHead>
                                 <TableHead className="font-semibold text-gray-600">Members</TableHead>
-                                <TableHead className="font-semibold text-gray-600">Revenue (YTD)</TableHead>
+                                <TableHead className="font-semibold text-gray-600">Devices</TableHead>
                                 <TableHead className="font-semibold text-gray-600">Status</TableHead>
                                 <TableHead className="text-right font-semibold text-gray-600">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredBranches.map((branch) => (
-                                <TableRow key={branch.id} className="cursor-pointer hover:bg-gray-50">
-                                    <TableCell className="font-medium text-primary">
-                                        <Link href={`/admin/branches/${branch.id}`} className="hover:underline">
-                                            {branch.name}
-                                        </Link>
-                                    </TableCell>
-                                    <TableCell className="text-gray-500">{branch.location}</TableCell>
-                                    <TableCell className="text-gray-500">{branch.admin}</TableCell>
-                                    <TableCell className="font-medium">{branch.members}</TableCell>
-                                    <TableCell className="font-medium">{branch.revenue}</TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            variant={
-                                                branch.status === "Active" ? "success" : "warning"
-                                            }
-                                            className="px-3 py-1"
-                                        >
-                                            {branch.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="hover:bg-blue-50 text-blue-600 h-8 w-8"
-                                                onClick={() => handleOpenEdit(branch)}
+                            {(loading ? [] : branches)
+                                .filter((branch) =>
+                                    !searchTerm.trim() ||
+                                    branch.name.toLowerCase().includes(searchTerm.toLowerCase())
+                                )
+                                .map((branch) => (
+                                    <TableRow key={branch.id} className="cursor-pointer hover:bg-gray-50">
+                                        <TableCell className="font-medium text-primary">
+                                            <Link href={`/admin/branches/${branch.id}`} className="hover:underline">
+                                                {branch.name}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell className="text-gray-500">
+                                            {branch.city}, {branch.state}
+                                        </TableCell>
+                                        <TableCell className="font-medium">{branch.memberCount}</TableCell>
+                                        <TableCell className="font-medium">{branch.deviceCount}</TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={branch.status === "active" ? "success" : "warning"}
+                                                className="px-3 py-1"
                                             >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="hover:bg-red-50 text-red-600 h-8 w-8"
-                                                onClick={() => handleDelete(branch.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                                                {branch.status === "active" ? "Active" : branch.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="hover:bg-blue-50 text-blue-600 h-8 w-8"
+                                                    onClick={() => handleOpenEdit(branch)}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="hover:bg-red-50 text-red-600 h-8 w-8"
+                                                    onClick={() => handleDelete(branch.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
                         </TableBody>
                     </Table>
                 </CardContent>

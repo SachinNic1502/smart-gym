@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Building2, Users, DollarSign, Activity, TrendingUp, Plus, Bell } from "lucide-react";
 import {
     BarChart,
@@ -14,50 +16,82 @@ import {
     LineChart,
     Line
 } from 'recharts';
+import { dashboardApi, ApiError } from "@/lib/api/client";
 
-const data = [
-    { name: 'Jan', revenue: 4000 },
-    { name: 'Feb', revenue: 3000 },
-    { name: 'Mar', revenue: 2000 },
-    { name: 'Apr', revenue: 2780 },
-    { name: 'May', revenue: 1890 },
-    { name: 'Jun', revenue: 2390 },
-    { name: 'Jul', revenue: 3490 },
-    { name: 'Aug', revenue: 4200 },
-    { name: 'Sep', revenue: 5100 },
-];
+type TrendDirection = "up" | "down";
+
+interface DashboardStatItem {
+    title: string;
+    value: string | number;
+    change: string;
+    trend: TrendDirection;
+    icon: typeof Building2;
+}
+
+interface RevenuePoint {
+    name: string;
+    revenue: number;
+}
+
+interface RecentActivityItem {
+    name: string;
+    action: string;
+    amount: string;
+    time: string;
+}
+
+const ICON_MAP: Record<string, typeof Building2> = {
+    "Total Branches": Building2,
+    "Total Members": Users,
+    "Global Revenue": DollarSign,
+    "Active Devices": Activity,
+};
 
 export default function SuperAdminDashboard() {
-    const stats = [
-        {
-            title: "Total Branches",
-            value: "12",
-            change: "+2 this month",
-            icon: Building2,
-            trend: "up",
-        },
-        {
-            title: "Total Members",
-            value: "3,450",
-            change: "+12% vs last month",
-            icon: Users,
-            trend: "up",
-        },
-        {
-            title: "Global Revenue",
-            value: "₹85,45,000",
-            change: "+8.2% vs last month",
-            icon: DollarSign,
-            trend: "up",
-        },
-        {
-            title: "Active Devices",
-            value: "28/30",
-            change: "2 offline",
-            icon: Activity,
-            trend: "down",
-        },
-    ];
+    const [stats, setStats] = useState<DashboardStatItem[]>([]);
+    const [revenueData, setRevenueData] = useState<RevenuePoint[]>([]);
+    const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
+    const [statsError, setStatsError] = useState<string | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        const fetchStats = async () => {
+            setLoading(true);
+            try {
+                const data = await dashboardApi.getStats("super_admin");
+                const cast = data as {
+                    stats?: { title: string; value: string | number; change: string; trend: TrendDirection }[];
+                    charts?: { revenueByMonth?: RevenuePoint[] };
+                    recentActivity?: RecentActivityItem[];
+                };
+
+                if (cast.stats && Array.isArray(cast.stats)) {
+                    const mapped = cast.stats.map((s) => ({
+                        ...s,
+                        icon: ICON_MAP[s.title] || Building2,
+                    } satisfies DashboardStatItem));
+                    setStats(mapped);
+                }
+
+                if (cast.charts?.revenueByMonth && Array.isArray(cast.charts.revenueByMonth)) {
+                    setRevenueData(cast.charts.revenueByMonth);
+                }
+
+                if (cast.recentActivity && Array.isArray(cast.recentActivity)) {
+                    setRecentActivity(cast.recentActivity);
+                }
+            } catch (error) {
+                const message = error instanceof ApiError ? error.message : "Failed to load dashboard stats";
+                setStatsError(message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStats();
+    }, []);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -69,30 +103,53 @@ export default function SuperAdminDashboard() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition">Download Report</button>
+                    <Button size="sm">Download Report</Button>
                 </div>
             </div>
 
+            {statsError && (
+                <p className="text-[11px] text-red-500">{statsError}</p>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => (
-                    <Card key={stat.title} className="hover:shadow-lg transition-all duration-200 border border-gray-100 bg-white">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                {stat.title}
-                            </CardTitle>
-                            <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                                <stat.icon className="h-4 w-4" />
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stat.value}</div>
-                            <p className="text-xs text-muted-foreground flex items-center mt-1">
-                                {stat.trend === 'up' ? <TrendingUp className="h-3 w-3 text-green-500 mr-1" /> : <Activity className="h-3 w-3 text-red-500 mr-1" />}
-                                <span className={stat.trend === 'up' ? "text-green-600" : "text-red-500"}>{stat.change}</span>
-                            </p>
-                        </CardContent>
-                    </Card>
-                ))}
+                {loading && !stats.length ? (
+                    Array.from({ length: 4 }).map((_, index) => (
+                        <Card key={index} className="border border-gray-100 bg-white shadow-sm animate-pulse">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <div className="h-3 w-24 rounded bg-muted" />
+                                <div className="h-8 w-8 rounded-xl bg-muted" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-7 w-16 rounded bg-muted mb-2" />
+                                <div className="h-3 w-20 rounded bg-muted" />
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : !loading && !stats.length ? (
+                    <p className="text-xs text-muted-foreground">
+                        No overview stats available yet.
+                    </p>
+                ) : (
+                    stats.map((stat) => (
+                        <Card key={stat.title} className="hover:shadow-lg transition-all duration-200 border border-gray-100 bg-white">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    {stat.title}
+                                </CardTitle>
+                                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                    <stat.icon className="h-4 w-4" />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stat.value}</div>
+                                <p className="text-xs text-muted-foreground flex items-center mt-1">
+                                    {stat.trend === 'up' ? <TrendingUp className="h-3 w-3 text-green-500 mr-1" /> : <Activity className="h-3 w-3 text-red-500 mr-1" />}
+                                    <span className={stat.trend === 'up' ? "text-green-600" : "text-red-500"}>{stat.change}</span>
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-4">
@@ -136,32 +193,42 @@ export default function SuperAdminDashboard() {
                         <CardTitle>Revenue Overview</CardTitle>
                     </CardHeader>
                     <CardContent className="pl-2">
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={data}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                                    <XAxis
-                                        dataKey="name"
-                                        stroke="#888888"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                    />
-                                    <YAxis
-                                        stroke="#888888"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tickFormatter={(value) => `₹${value}`}
-                                    />
-                                    <Tooltip
-                                        cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    />
-                                    <Bar dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} barSize={32} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                        {!mounted ? (
+                            <div className="flex h-[300px] items-center justify-center text-xs text-muted-foreground">
+                                Loading revenue chart...
+                            </div>
+                        ) : revenueData.length === 0 ? (
+                            <div className="flex h-[300px] items-center justify-center text-xs text-muted-foreground">
+                                No revenue data available yet.
+                            </div>
+                        ) : (
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={200}>
+                                    <BarChart data={revenueData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                                        <XAxis
+                                            dataKey="name"
+                                            stroke="#888888"
+                                            fontSize={12}
+                                            tickLine={false}
+                                            axisLine={false}
+                                        />
+                                        <YAxis
+                                            stroke="#888888"
+                                            fontSize={12}
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tickFormatter={(value) => `₹${value}`}
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: 'transparent' }}
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        />
+                                        <Bar dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} barSize={32} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -171,14 +238,8 @@ export default function SuperAdminDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-8">
-                            {[
-                                { name: "FitStop Downtown", action: "Subscription Renewal", amount: "+₹24,999", time: "2 min ago" },
-                                { name: "Iron Gym East", action: "New Branch Setup", amount: "+₹1,49,999", time: "1 hour ago" },
-                                { name: "Flex Studio", action: "Device Added", amount: "Active", time: "3 hours ago" },
-                                { name: "FitStop Downtown", action: "Member limit reached", amount: "Alert", time: "5 hours ago" },
-                                { name: "Iron Gym North", action: "Monthly Payment", amount: "+₹24,999", time: "Yesterday" },
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center">
+                            {recentActivity.map((item, i) => (
+                                <div key={`${item.name}-${item.time}-${i}`} className="flex items-center">
                                     <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                                         {item.name.substring(0, 2).toUpperCase()}
                                     </div>

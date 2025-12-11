@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast-provider";
+import { plansApi, ApiError } from "@/lib/api/client";
+import type { MembershipPlan } from "@/lib/types";
 
 const MOCK_MEMBER = {
   id: "MEM001",
@@ -18,6 +21,40 @@ export default function MemberMembershipPage() {
   const params = useParams<{ memberId: string }>();
   const memberId = params?.memberId || MOCK_MEMBER.id;
   const toast = useToast();
+
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
+
+  const getPlanCycle = (durationDays: number): "Monthly" | "Quarterly" | "Yearly" => {
+    if (durationDays <= 31) return "Monthly";
+    if (durationDays <= 120) return "Quarterly";
+    return "Yearly";
+  };
+
+  const getCycleShort = (cycle: "Monthly" | "Quarterly" | "Yearly") => {
+    if (cycle === "Monthly") return "mo";
+    if (cycle === "Quarterly") return "quarter";
+    return "year";
+  };
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      setPlansLoading(true);
+      setPlansError(null);
+      try {
+        const result = await plansApi.getMembershipPlans();
+        setPlans(result.data || []);
+      } catch (error) {
+        const message = error instanceof ApiError ? error.message : "Failed to load membership plans";
+        setPlansError(message);
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+
+    fetchPlans();
+  }, []);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -71,15 +108,26 @@ export default function MemberMembershipPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="plan">Membership plan</Label>
+                {plansError && <p className="text-xs text-red-500">{plansError}</p>}
                 <select
                   id="plan"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
                 >
                   <option value="">Select plan</option>
-                  <option value="gold">Gold Premium (₹2,499 /mo)</option>
-                  <option value="silver">Silver Monthly (₹1,499 /mo)</option>
-                  <option value="basic">Basic (₹799 /mo)</option>
+                  {plansLoading ? (
+                    <option disabled>Loading plans...</option>
+                  ) : (
+                    plans.map((plan) => {
+                      const cycle = getPlanCycle(plan.durationDays);
+                      const cycleShort = getCycleShort(cycle);
+                      return (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.name} (₹{plan.price.toLocaleString()} / {cycleShort})
+                        </option>
+                      );
+                    })
+                  )}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

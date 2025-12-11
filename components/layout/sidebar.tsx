@@ -23,6 +23,7 @@ import {
     Activity,
     Utensils,
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SidebarItem {
     icon: React.ElementType; // Better than 'any', represents a component like Lucide icons
@@ -66,6 +67,7 @@ const BRANCH_ADMIN_ITEMS: SidebarItem[] = [
 ];
 
 export function Sidebar({ role, className }: SidebarProps) {
+    const { logout } = useAuth();
     const pathname = usePathname();
     const items = role === "super_admin" ? SUPER_ADMIN_ITEMS : BRANCH_ADMIN_ITEMS;
 
@@ -111,7 +113,9 @@ export function Sidebar({ role, className }: SidebarProps) {
             </div>
 
             <div className="pt-4 border-t border-gray-100">
-                <Button variant="ghost" className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50">
+                <Button variant="ghost" className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={logout}
+                >
                     <LogOut className="h-5 w-5" />
                     Logout
                 </Button>

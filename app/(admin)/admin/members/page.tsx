@@ -9,17 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Filter, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const MOCK_GLOBAL_MEMBERS = [
-    { id: "MEM001", name: "Alex Johnson", branch: "FitStop Downtown", plan: "Gold Premium", status: "Active", joinDate: "2024-01-15" },
-    { id: "MEM002", name: "Maria Garcia", branch: "Iron Gym East", plan: "Silver", status: "Active", joinDate: "2024-02-10" },
-    { id: "MEM003", name: "Steve Smith", branch: "FitStop Downtown", plan: "Basic", status: "Expired", joinDate: "2023-11-05" },
-    { id: "MEM004", name: "Linda Ray", branch: "Flex Studio", plan: "Gold Premium", status: "Active", joinDate: "2024-03-22" },
-    { id: "MEM005", name: "Robert Downey", branch: "Iron Gym East", plan: "Silver", status: "Active", joinDate: "2024-01-01" },
-];
+import { useMembers } from "@/hooks/use-members";
+import { useBranches } from "@/hooks/use-branches";
 
 export default function GlobalMembersPage() {
     const [searchTerm, setSearchTerm] = useState("");
+
+    const { members, total, loading, error } = useMembers();
+    const { branches } = useBranches();
 
     useEffect(() => {
         const handleGlobalSearch = (event: Event) => {
@@ -40,9 +37,17 @@ export default function GlobalMembersPage() {
         };
     }, []);
 
-    const filteredMembers = MOCK_GLOBAL_MEMBERS.filter(m =>
+    const membersWithBranch = members.map((m) => {
+        const branch = branches.find((b) => b.id === m.branchId);
+        return {
+            ...m,
+            branchName: branch ? branch.name : m.branchId,
+        };
+    });
+
+    const filteredMembers = membersWithBranch.filter((m) =>
         m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.branch.toLowerCase().includes(searchTerm.toLowerCase())
+        m.branchName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -61,7 +66,7 @@ export default function GlobalMembersPage() {
             <Card className="border-t-4 border-t-primary/20">
                 <CardHeader>
                     <div className="flex items-center justify-between gap-4">
-                        <CardTitle>Member Directory ({MOCK_GLOBAL_MEMBERS.length})</CardTitle>
+                        <CardTitle>Member Directory ({total})</CardTitle>
                         <div className="flex w-full justify-end gap-2">
                             <div className="relative w-full max-w-sm">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -79,6 +84,9 @@ export default function GlobalMembersPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
+                    {error && (
+                        <p className="mb-2 text-xs text-red-500">{error}</p>
+                    )}
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -91,44 +99,60 @@ export default function GlobalMembersPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredMembers.map((member) => (
-                                <TableRow key={member.id} className="cursor-pointer hover:bg-gray-50">
-                                    <TableCell>
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8">
-                                                <AvatarFallback>{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                            </Avatar>
-                                            <Link href={`/admin/members/${member.id}`} className="font-medium hover:underline">
-                                                {member.name}
-                                            </Link>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>{member.branch}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">{member.plan}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">{member.joinDate}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={member.status === 'Active' ? 'success' : 'destructive'}>
-                                            {member.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Button asChild variant="outline" size="sm">
-                                                <Link href={`/admin/members/${member.id}`}>
-                                                    View
-                                                </Link>
-                                            </Button>
-                                            <Button asChild variant="ghost" size="sm">
-                                                <Link href={`/admin/members/${member.id}`}>
-                                                    Edit
-                                                </Link>
-                                            </Button>
-                                        </div>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
+                                        Loading members...
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            ) : filteredMembers.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
+                                        No members found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filteredMembers.map((member) => (
+                                    <TableRow key={member.id} className="cursor-pointer hover:bg-gray-50">
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarFallback>{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <Link href={`/admin/members/${member.id}`} className="font-medium hover:underline">
+                                                    {member.name}
+                                                </Link>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{member.branchName}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{member.plan}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground text-sm">
+                                            {new Date(member.createdAt).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={member.status === "Active" ? "success" : "destructive"}>
+                                                {member.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button asChild variant="outline" size="sm">
+                                                    <Link href={`/admin/members/${member.id}`}>
+                                                        View
+                                                    </Link>
+                                                </Button>
+                                                <Button asChild variant="ghost" size="sm">
+                                                    <Link href={`/admin/members/${member.id}`}>
+                                                        Edit
+                                                    </Link>
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,42 +21,66 @@ import {
     Cell
 } from 'recharts';
 import { useToast } from "@/components/ui/toast-provider";
+import { dashboardApi, ApiError } from "@/lib/api/client";
 
-const REVENUE_DATA = [
-    { name: 'Jan', value: 45000 },
-    { name: 'Feb', value: 52000 },
-    { name: 'Mar', value: 48000 },
-    { name: 'Apr', value: 61000 },
-    { name: 'May', value: 55000 },
-    { name: 'Jun', value: 67000 },
-    { name: 'Jul', value: 72000 },
-    { name: 'Aug', value: 85000 },
-    { name: 'Sep', value: 92000 },
-];
+interface DashboardStatItem {
+    title: string;
+    value: string | number;
+    change: string;
+    trend: "up" | "down";
+}
 
-const CHURN_DATA = [
-    { name: 'Active', value: 850, color: '#22c55e' },
-    { name: 'Churned', value: 45, color: '#ef4444' },
-    { name: 'Expired', value: 120, color: '#f97316' },
-];
-
-const NEW_MEMBERS_DATA = [
-    { month: 'Jan', newMembers: 210, churned: 18 },
-    { month: 'Feb', newMembers: 240, churned: 20 },
-    { month: 'Mar', newMembers: 260, churned: 22 },
-    { month: 'Apr', newMembers: 280, churned: 25 },
-    { month: 'May', newMembers: 310, churned: 28 },
-];
-
-const BRANCH_RANKING = [
-    { name: 'FitStop Downtown', revenue: '₹9,20,000', members: 892 },
-    { name: 'Iron Gym East', revenue: '₹7,80,000', members: 650 },
-    { name: 'Flex Studio', revenue: '₹5,40,000', members: 410 },
-];
+const MEMBER_COMPOSITION_COLORS = ["#22c55e", "#ef4444", "#f97316", "#6366f1"];
 
 export default function ReportsPage() {
     const router = useRouter();
     const toast = useToast();
+    const [superStats, setSuperStats] = useState<DashboardStatItem[] | null>(null);
+    const [statsError, setStatsError] = useState<string | null>(null);
+    const [revenueData, setRevenueData] = useState<{ name: string; revenue: number }[]>([]);
+    const [newVsChurned, setNewVsChurned] = useState<{ month: string; newMembers: number; churned: number }[]>([]);
+    const [memberComposition, setMemberComposition] = useState<{ name: string; value: number }[]>([]);
+    const [topBranches, setTopBranches] = useState<{ name: string; revenue: number; members: number }[]>([]);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const data = await dashboardApi.getStats("super_admin");
+                const cast = data as {
+                    stats?: DashboardStatItem[];
+                    charts?: {
+                        revenueByMonth?: { name: string; revenue: number }[];
+                        newVsChurnedByMonth?: { month: string; newMembers: number; churned: number }[];
+                        memberComposition?: { name: string; value: number }[];
+                        topBranches?: { name: string; revenue: number; members: number }[];
+                    };
+                };
+                if (cast.stats && Array.isArray(cast.stats)) {
+                    setSuperStats(cast.stats);
+                }
+                if (cast.charts?.revenueByMonth && Array.isArray(cast.charts.revenueByMonth)) {
+                    setRevenueData(cast.charts.revenueByMonth);
+                }
+                if (cast.charts?.newVsChurnedByMonth && Array.isArray(cast.charts.newVsChurnedByMonth)) {
+                    setNewVsChurned(cast.charts.newVsChurnedByMonth);
+                }
+                if (cast.charts?.memberComposition && Array.isArray(cast.charts.memberComposition)) {
+                    setMemberComposition(cast.charts.memberComposition);
+                }
+                if (cast.charts?.topBranches && Array.isArray(cast.charts.topBranches)) {
+                    setTopBranches(cast.charts.topBranches);
+                }
+            } catch (error) {
+                const message = error instanceof ApiError ? error.message : "Failed to load reports";
+                setStatsError(message);
+            }
+        };
+
+        fetchStats();
+    }, []);
+
+    const totalRevenueStat = superStats?.find((s) => s.title === "Global Revenue");
+    const totalMembersStat = superStats?.find((s) => s.title === "Total Members");
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -100,8 +125,14 @@ export default function ReportsPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₹85,45,000</div>
-                        <p className="text-xs text-muted-foreground text-green-600">+15% from last year</p>
+                        <div className="text-2xl font-bold">
+                            {typeof totalRevenueStat?.value === "string" || typeof totalRevenueStat?.value === "number"
+                                ? String(totalRevenueStat.value)
+                                : "₹85,45,000"}
+                        </div>
+                        <p className="text-xs text-muted-foreground text-green-600">
+                            {totalRevenueStat?.change || "+15% from last year"}
+                        </p>
                         <button
                             type="button"
                             className="mt-1 text-[11px] text-primary hover:underline"
@@ -117,8 +148,14 @@ export default function ReportsPage() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">3,450</div>
-                        <p className="text-xs text-muted-foreground text-green-600">+124 new this month</p>
+                        <div className="text-2xl font-bold">
+                            {typeof totalMembersStat?.value === "string" || typeof totalMembersStat?.value === "number"
+                                ? String(totalMembersStat.value)
+                                : "3,450"}
+                        </div>
+                        <p className="text-xs text-muted-foreground text-green-600">
+                            {totalMembersStat?.change || "+124 new this month"}
+                        </p>
                         <button
                             type="button"
                             className="mt-1 text-[11px] text-primary hover:underline"
@@ -176,9 +213,12 @@ export default function ReportsPage() {
                 </Card>
             </div>
 
+            {statsError && (
+                <p className="text-[11px] text-red-500">{statsError}</p>
+            )}
             <p className="text-[11px] text-muted-foreground">
-                All metrics and charts below use sample mock data for demo purposes. Connect your real data
-                sources to power production reports.
+                Some charts below still use sample data for demo purposes. Summary stats and revenue trend come from the
+                live dashboard API.
             </p>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -188,18 +228,24 @@ export default function ReportsPage() {
                         <CardDescription>Net growth across the last 5 months.</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[280px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={NEW_MEMBERS_DATA}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}
-                                />
-                                <Line type="monotone" dataKey="newMembers" stroke="#22c55e" strokeWidth={2} />
-                                <Line type="monotone" dataKey="churned" stroke="#ef4444" strokeWidth={2} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                        {newVsChurned.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                                No membership trend data available yet.
+                            </p>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={newVsChurned}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}
+                                    />
+                                    <Line type="monotone" dataKey="newMembers" stroke="#22c55e" strokeWidth={2} />
+                                    <Line type="monotone" dataKey="churned" stroke="#ef4444" strokeWidth={2} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -209,22 +255,28 @@ export default function ReportsPage() {
                         <CardDescription>Ranked by monthly revenue and member base.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3 text-sm">
-                            {BRANCH_RANKING.map((b, index) => (
-                                <div
-                                    key={b.name}
-                                    className="flex items-center justify-between rounded-md border px-3 py-2 hover:bg-gray-50"
-                                >
-                                    <div>
-                                        <p className="font-medium">
-                                            #{index + 1} {b.name}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">{b.members} members</p>
+                        {topBranches.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                                No branch ranking data available yet.
+                            </p>
+                        ) : (
+                            <div className="space-y-3 text-sm">
+                                {topBranches.map((b, index) => (
+                                    <div
+                                        key={b.name}
+                                        className="flex items-center justify-between rounded-md border px-3 py-2 hover:bg-gray-50"
+                                    >
+                                        <div>
+                                            <p className="font-medium">
+                                                #{index + 1} {b.name}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{b.members} members</p>
+                                        </div>
+                                        <span className="text-sm font-semibold">₹{b.revenue.toLocaleString()}</span>
                                     </div>
-                                    <span className="text-sm font-semibold">{b.revenue}</span>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -237,15 +289,21 @@ export default function ReportsPage() {
                         <CardDescription>Monthly revenue across all branches</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={REVENUE_DATA}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#888' }} />
-                                <YAxis axisLine={false} tickLine={false} fontSize={12} tickFormatter={(val) => `₹${val / 1000}k`} tick={{ fill: '#888' }} />
-                                <Tooltip cursor={{ fill: '#f0f0f0' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {revenueData.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                                No revenue data available yet.
+                            </p>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={revenueData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} tick={{ fill: '#888' }} />
+                                    <YAxis axisLine={false} tickLine={false} fontSize={12} tickFormatter={(val) => `₹${val / 1000}k`} tick={{ fill: '#888' }} />
+                                    <Tooltip cursor={{ fill: '#f0f0f0' }} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+                                    <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -256,32 +314,44 @@ export default function ReportsPage() {
                         <CardDescription>Distribution of active vs churned members</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={CHURN_DATA}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={100}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {CHURN_DATA.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                        {memberComposition.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                                No member composition data available yet.
+                            </p>
+                        ) : (
+                            <>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={memberComposition}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={100}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                            nameKey="name"
+                                        >
+                                            {memberComposition.map((entry, index) => (
+                                                <Cell key={entry.name} fill={MEMBER_COMPOSITION_COLORS[index % MEMBER_COMPOSITION_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="flex justify-center gap-4 text-sm mt-4">
+                                    {memberComposition.map((item, index) => (
+                                        <div key={item.name} className="flex items-center gap-2">
+                                            <div
+                                                className="w-3 h-3 rounded-full"
+                                                style={{ backgroundColor: MEMBER_COMPOSITION_COLORS[index % MEMBER_COMPOSITION_COLORS.length] }}
+                                            ></div>
+                                            <span>{item.name}: {item.value}</span>
+                                        </div>
                                     ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex justify-center gap-4 text-sm mt-4">
-                            {CHURN_DATA.map((item) => (
-                                <div key={item.name} className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                                    <span>{item.name}: {item.value}</span>
                                 </div>
-                            ))}
-                        </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
             </div>

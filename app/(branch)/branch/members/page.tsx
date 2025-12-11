@@ -13,17 +13,32 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, CalendarCheck, User, X } from "lucide-react";
+import { CreditCard, CalendarCheck, User } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
-const MOCK_MEMBERS = [
+// Types
+interface MemberData {
+    id: string;
+    name: string;
+    email: string;
+    plan: string;
+    status: "Active" | "Expired";
+    expiry: string;
+    lastVisit: string;
+    image: string;
+}
+
+interface MemberProgram {
+    workoutPlan: string;
+    dietPlan: string;
+}
+
+const MOCK_MEMBERS: MemberData[] = [
     {
         id: "MEM001",
         name: "Alex Johnson",
@@ -65,12 +80,12 @@ export default function MembersPage() {
     );
 
     // Member State
-    const [selectedMember, setSelectedMember] = useState<any>(null);
-    const [memberPrograms, setMemberPrograms] = useState<Record<string, { workoutPlan: string; dietPlan: string }>>({});
+    const [selectedMember, setSelectedMember] = useState<MemberData | null>(null);
+    const [memberPrograms, setMemberPrograms] = useState<Record<string, MemberProgram>>({});
     const [programSaveMessage, setProgramSaveMessage] = useState<string | null>(null);
     const toast = useToast();
 
-    const handleManageMember = (member: any) => {
+    const handleManageMember = (member: MemberData) => {
         setSelectedMember(member);
         setProgramSaveMessage(null);
     };

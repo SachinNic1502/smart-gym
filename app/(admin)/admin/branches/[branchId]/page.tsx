@@ -1,62 +1,53 @@
 "use client";
 
-import { useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users, MapPin, Activity, DollarSign, Fingerprint } from "lucide-react";
-
-const MOCK_BRANCHES = [
-  {
-    id: "BR001",
-    name: "FitStop Downtown",
-    location: "New York, NY",
-    admin: "John Doe",
-    status: "Active",
-    members: 892,
-    revenueYtd: "₹34,50,000",
-    todayCheckins: 145,
-    devicesOnline: 5,
-  },
-  {
-    id: "BR002",
-    name: "Iron Gym East",
-    location: "Brooklyn, NY",
-    admin: "Sarah Connor",
-    status: "Active",
-    members: 650,
-    revenueYtd: "₹24,50,000",
-    todayCheckins: 102,
-    devicesOnline: 3,
-  },
-  {
-    id: "BR003",
-    name: "Flex Studio",
-    location: "Queens, NY",
-    admin: "Mike Tyson",
-    status: "Pending",
-    members: 0,
-    revenueYtd: "₹0",
-    todayCheckins: 0,
-    devicesOnline: 0,
-  },
-];
+import { useBranch } from "@/hooks/use-branches";
+import { useDevices } from "@/hooks/use-devices";
 
 export default function BranchDetailPage() {
   const params = useParams();
   const router = useRouter();
   const branchId = params?.branchId as string | undefined;
+  const { branch, loading, error } = useBranch(branchId || "");
+  const {
+    devices,
+    loading: devicesLoading,
+    error: devicesError,
+  } = useDevices(branchId ? { branchId } : undefined);
 
-  const branch = useMemo(
-    () => MOCK_BRANCHES.find((b) => b.id === branchId),
-    [branchId]
-  );
-
-  if (!branch) {
+  if (loading) {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
-        <Button variant="ghost" className="flex items-center gap-2" onClick={() => router.push("/admin/branches")}>
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          onClick={() => router.push("/admin/branches")}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Branches
+        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading branch...</CardTitle>
+            <CardDescription>Please wait while we fetch the latest branch details.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error || !branch) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          onClick={() => router.push("/admin/branches")}
+        >
           <ArrowLeft className="h-4 w-4" />
           Back to Branches
         </Button>
@@ -88,17 +79,17 @@ export default function BranchDetailPage() {
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
             {branch.name}
             <Badge
-              variant={branch.status === "Active" ? "success" : "warning"}
+              variant={branch.status === "active" ? "success" : "warning"}
               className="text-xs px-3 py-1"
             >
-              {branch.status}
+              {branch.status === "active" ? "Active" : branch.status}
             </Badge>
           </h2>
           <p className="text-muted-foreground flex items-center gap-2 mt-1">
-            <MapPin className="h-4 w-4" /> {branch.location}
+            <MapPin className="h-4 w-4" /> {branch.address}, {branch.city}, {branch.state}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Managed by <span className="font-medium">{branch.admin}</span>
+            Branch ID: <span className="font-medium">{branch.id}</span>
           </p>
         </div>
       </div>
@@ -110,7 +101,7 @@ export default function BranchDetailPage() {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{branch.members}</div>
+            <div className="text-2xl font-bold">{branch.memberCount}</div>
             <p className="text-xs text-muted-foreground">Total members in this branch</p>
           </CardContent>
         </Card>
@@ -120,8 +111,11 @@ export default function BranchDetailPage() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{branch.revenueYtd}</div>
-            <p className="text-xs text-muted-foreground">From memberships and add-ons</p>
+            <div className="text-2xl font-bold">
+              {/* TODO: Replace with real revenue when payments are wired */}
+              0
+            </div>
+            <p className="text-xs text-muted-foreground">Revenue (placeholder)</p>
           </CardContent>
         </Card>
         <Card>
@@ -133,11 +127,11 @@ export default function BranchDetailPage() {
             <div className="flex justify-between text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Check-ins</p>
-                <p className="text-xl font-semibold">{branch.todayCheckins}</p>
+                <p className="text-xl font-semibold">0</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground text-right">Devices Online</p>
-                <p className="text-xl font-semibold text-right">{branch.devicesOnline}</p>
+                <p className="text-xl font-semibold text-right">{branch.deviceCount}</p>
               </div>
             </div>
           </CardContent>
@@ -172,22 +166,49 @@ export default function BranchDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {["Main Entrance A", "Turnstile 1"].map((deviceName, index) => (
-                <div key={deviceName} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Fingerprint className="h-4 w-4 text-primary" />
+              {devicesError && (
+                <p className="text-xs text-red-500">Failed to load devices for this branch.</p>
+              )}
+              {devicesLoading ? (
+                <p className="text-xs text-muted-foreground">Loading devices...</p>
+              ) : devices.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No devices found for this branch.</p>
+              ) : (
+                devices.map((device) => (
+                  <div key={device.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Fingerprint className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{device.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Last sync{" "}
+                          {device.lastPing
+                            ? new Date(device.lastPing).toLocaleString()
+                            : "not yet synced"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">{deviceName}</p>
-                      <p className="text-xs text-muted-foreground">Last sync {index === 0 ? "2 mins" : "1 hour"} ago</p>
-                    </div>
+                    <Badge
+                      variant={
+                        device.status === "online"
+                          ? "success"
+                          : device.status === "offline"
+                          ? "destructive"
+                          : "warning"
+                      }
+                      className="text-xs"
+                    >
+                      {device.status === "online"
+                        ? "Online"
+                        : device.status === "offline"
+                        ? "Offline"
+                        : "Maintenance"}
+                    </Badge>
                   </div>
-                  <Badge variant={index === 0 ? "success" : "warning"} className="text-xs">
-                    {index === 0 ? "Online" : "Degraded"}
-                  </Badge>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Lock, Bell, LogOut, Camera } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function MemberProfilePage() {
+    const { logout, user } = useAuth();
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20 md:pb-0">
             <div>
@@ -29,12 +31,14 @@ export default function MemberProfilePage() {
                                 <Camera className="h-4 w-4" />
                             </Button>
                         </div>
-                        <h2 className="mt-4 text-xl font-bold">Alex Johnson</h2>
+                        <h2 className="mt-4 text-xl font-bold">{user?.name ?? "Member"}</h2>
                         <p className="text-sm text-muted-foreground">Gold Premium Member</p>
                         <p className="text-xs text-muted-foreground mt-1">Member since Jan 2024</p>
 
                         <div className="w-full mt-6 space-y-2">
-                            <Button variant="outline" className="w-full text-red-500 hover:text-red-600 hover:bg-red-50">
+                            <Button variant="outline" className="w-full text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={logout}
+                            >
                                 <LogOut className="mr-2 h-4 w-4" /> Sign Out
                             </Button>
                         </div>
