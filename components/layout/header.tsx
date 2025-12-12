@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type ChangeEvent } from "react";
-import { Bell, Search, LogOut, User as UserIcon, Settings } from "lucide-react";
+import { Bell, Search, LogOut, User as UserIcon, Settings, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,7 +9,11 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { useAuth } from "@/hooks/use-auth";
 
-export function Header() {
+interface HeaderProps {
+    onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
     const { logout, user } = useAuth();
     const pathname = usePathname();
     const pathSegments = pathname.split("/").filter(Boolean);
@@ -68,13 +72,26 @@ export function Header() {
     }, []);
 
     return (
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white px-6 shadow-sm">
-            <h1 className="text-lg font-semibold md:text-xl capitalize hidden md:block text-gray-800">
-                {formattedTitle.replace(/-/g, " ")}
-            </h1>
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white px-4 md:px-6 shadow-sm">
+            <div className="flex items-center gap-2">
+                {onMenuClick && (
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={onMenuClick}
+                        className="md:hidden hover:bg-gray-100 transition-colors"
+                        aria-label="Open sidebar"
+                    >
+                        <Menu className="h-5 w-5 text-gray-700" />
+                    </Button>
+                )}
+                <h1 className="text-lg font-semibold md:text-xl capitalize hidden md:block text-gray-800">
+                    {formattedTitle.replace(/-/g, " ")}
+                </h1>
+            </div>
 
             {/* SEARCH */}
-            <div className="relative w-full max-w-sm mx-auto">
+            <div className="relative w-full max-w-sm mx-auto flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                     type="search"

@@ -3,15 +3,22 @@ import { successResponse, errorResponse, getPaginationParams, parseBody } from "
 import { deviceService, auditService } from "@/modules/services";
 import { deviceSchema } from "@/lib/validations/auth";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 // GET /api/devices - List all devices
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
-    
+
+    const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
+    if ("response" in scoped) return scoped.response;
+
     const filters = {
-      branchId: searchParams.get("branchId") || undefined,
+      branchId: scoped.branchId,
       status: searchParams.get("status") || undefined,
       type: searchParams.get("type") || undefined,
     };
@@ -29,6 +36,9 @@ export async function GET(request: NextRequest) {
 // POST /api/devices - Create a new device
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const body = await parseBody<Record<string, unknown>>(request);
 
     if (!body) {
@@ -41,7 +51,13 @@ export async function POST(request: NextRequest) {
       return errorResponse(issues[0]?.message || "Validation failed", 422);
     }
 
-    const result = await deviceService.createDevice(validation.data);
+    const scoped = resolveBranchScope(auth.session, validation.data.branchId);
+    if ("response" in scoped) return scoped.response;
+
+    const result = await deviceService.createDevice({
+      ...validation.data,
+      branchId: scoped.branchId ?? validation.data.branchId,
+    });
 
     if (!result.success) {
       const status = result.error === "Branch not found" ? 404 : 409;

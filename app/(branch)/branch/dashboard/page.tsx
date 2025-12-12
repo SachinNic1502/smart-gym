@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +27,51 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { useToast } from "@/components/ui/toast-provider";
+import { dashboardApi, ApiError } from "@/lib/api/client";
+import { useAuth } from "@/hooks/use-auth";
 
-const attendanceData = [
+interface BranchStatsResponse {
+    stats: {
+        title: string;
+        value: string | number;
+        sub: string;
+        color: string;
+    }[];
+    charts: {
+        attendanceTrend: { time: string; users: number }[];
+    };
+    recentCheckIns: {
+        name: string;
+        time: string;
+        method: string;
+        status: string;
+    }[];
+    expiringMembers: {
+        name: string;
+        days: number;
+    }[];
+}
+
+interface StatItem {
+    title: string;
+    value: string | number;
+    sub: string;
+    icon: typeof Users;
+    color: string;
+}
+
+const STAT_ICON_MAP: Record<string, typeof Users> = {
+    "Live Check-ins": UserCheck,
+    "Today's Collections": Wallet,
+    "Active Members": Users,
+    "Expiring Soon": CalendarDays,
+    "Today Plan Expiry": Clock,
+    "Today's Attendance": Users,
+    "Week Collection": Wallet,
+    "Month Renewals": Users,
+};
+
+const DEFAULT_ATTENDANCE_DATA = [
     { time: '6am', users: 12 },
     { time: '8am', users: 45 },
     { time: '10am', users: 30 },
@@ -39,67 +83,129 @@ const attendanceData = [
     { time: '10pm', users: 15 },
 ];
 
+const DEFAULT_RECENT_CHECKINS = [
+    { name: "Mike Ross", time: "10:30 AM", method: "Fingerprint", status: "success" },
+    { name: "Rachel Green", time: "10:28 AM", method: "QR Code", status: "success" },
+    { name: "Harvey Specter", time: "10:25 AM", method: "Fingerprint", status: "success" },
+    { name: "Louis Litt", time: "10:22 AM", method: "Denied", status: "failed" },
+    { name: "Donna Paulsen", time: "10:15 AM", method: "Fingerprint", status: "success" },
+];
+
+const DEFAULT_EXPIRING_MEMBERS = [
+    { name: 'Vijay M.', days: 0 },
+    { name: 'Sneha K.', days: 2 },
+    { name: 'Rahul S.', days: 5 },
+];
+
+const DEFAULT_STATS: StatItem[] = [
+    {
+        title: "Live Check-ins",
+        value: "42",
+        sub: "Members currently inside",
+        icon: UserCheck,
+        color: "bg-green-100 text-green-600",
+    },
+    {
+        title: "Today's Collections",
+        value: "₹75,500",
+        sub: "12 payments received",
+        icon: Wallet,
+        color: "bg-blue-100 text-blue-600",
+    },
+    {
+        title: "Active Members",
+        value: "892",
+        sub: "+5 new joinees today",
+        icon: Users,
+        color: "bg-purple-100 text-purple-600",
+    },
+    {
+        title: "Expiring Soon",
+        value: "15",
+        sub: "Within next 3 days",
+        icon: CalendarDays,
+        color: "bg-orange-100 text-orange-600",
+    },
+    {
+        title: "Today Plan Expiry",
+        value: "7",
+        sub: "Memberships ending today",
+        icon: Clock,
+        color: "bg-amber-100 text-amber-600",
+    },
+    {
+        title: "Pending Balance",
+        value: "₹12,500",
+        sub: "Across 5 members",
+        icon: AlertTriangle,
+        color: "bg-rose-100 text-rose-600",
+    },
+    {
+        title: "Week Collection",
+        value: "₹3,40,000",
+        sub: "This week's collections",
+        icon: Wallet,
+        color: "bg-emerald-100 text-emerald-600",
+    },
+    {
+        title: "Month Renewals",
+        value: "38",
+        sub: "Renewals in current month",
+        icon: Users,
+        color: "bg-indigo-100 text-indigo-600",
+    },
+];
+
 export default function BranchDashboard() {
     const router = useRouter();
     const toast = useToast();
-    const stats = [
-        {
-            title: "Live Check-ins",
-            value: "42",
-            sub: "Members currently inside",
-            icon: UserCheck,
-            color: "bg-green-100 text-green-600",
-        },
-        {
-            title: "Today's Collections",
-            value: "₹75,500",
-            sub: "12 payments received",
-            icon: Wallet,
-            color: "bg-blue-100 text-blue-600",
-        },
-        {
-            title: "Active Members",
-            value: "892",
-            sub: "+5 new joinees today",
-            icon: Users,
-            color: "bg-purple-100 text-purple-600",
-        },
-        {
-            title: "Expiring Soon",
-            value: "15",
-            sub: "Within next 3 days",
-            icon: CalendarDays,
-            color: "bg-orange-100 text-orange-600",
-        },
-        {
-            title: "Today Plan Expiry",
-            value: "7",
-            sub: "Memberships ending today",
-            icon: Clock,
-            color: "bg-amber-100 text-amber-600",
-        },
-        {
-            title: "Pending Balance",
-            value: "₹12,500",
-            sub: "Across 5 members",
-            icon: AlertTriangle,
-            color: "bg-rose-100 text-rose-600",
-        },
-        {
-            title: "Week Collection",
-            value: "₹3,40,000",
-            sub: "This week's collections",
-            icon: Wallet,
-            color: "bg-emerald-100 text-emerald-600",
-        },
-        {
-            title: "Month Renewals",
-            value: "38",
-            sub: "Renewals in current month",
-            icon: Users,
-            color: "bg-indigo-100 text-indigo-600",
-        },
-    ];
+    const { user } = useAuth();
+    const branchId = user?.branchId;
+    const [branchStats, setBranchStats] = useState<BranchStatsResponse | null>(null);
+    const [loadingStats, setLoadingStats] = useState<boolean>(true);
+    const [statsError, setStatsError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            if (!branchId) {
+                setLoadingStats(false);
+                return;
+            }
+            setLoadingStats(true);
+            setStatsError(null);
+            try {
+                const data = await dashboardApi.getStats("branch_admin", branchId);
+                setBranchStats(data as BranchStatsResponse);
+            } catch (error) {
+                const message = error instanceof ApiError ? error.message : "Failed to load branch stats";
+                setStatsError(message);
+                toast({
+                    title: "Error",
+                    description: message,
+                    variant: "destructive",
+                });
+            } finally {
+                setLoadingStats(false);
+            }
+        };
+
+        fetchStats();
+    }, [branchId, toast]);
+
+    const mappedStats: StatItem[] | null = branchStats
+        ? branchStats.stats.map((s) => ({
+            title: s.title,
+            value: s.value,
+            sub: s.sub,
+            color: s.color,
+            icon: STAT_ICON_MAP[s.title] ?? Users,
+        }))
+        : null;
+
+    const stats: StatItem[] = mappedStats ?? DEFAULT_STATS;
+    const attendanceData = branchStats?.charts.attendanceTrend ?? DEFAULT_ATTENDANCE_DATA;
+    const recentCheckIns = branchStats?.recentCheckIns ?? DEFAULT_RECENT_CHECKINS;
+    const expiringMembers = branchStats?.expiringMembers ?? DEFAULT_EXPIRING_MEMBERS;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -221,14 +327,8 @@ export default function BranchDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-6">
-                            {[
-                                { name: "Mike Ross", time: "10:30 AM", method: "Fingerprint", status: "success" },
-                                { name: "Rachel Green", time: "10:28 AM", method: "QR Code", status: "success" },
-                                { name: "Harvey Specter", time: "10:25 AM", method: "Fingerprint", status: "success" },
-                                { name: "Louis Litt", time: "10:22 AM", method: "Denied", status: "failed" },
-                                { name: "Donna Paulsen", time: "10:15 AM", method: "Fingerprint", status: "success" },
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center justify-between">
+                            {recentCheckIns.map((item, i) => (
+                                <div key={`${item.name}-${item.time}-${i}`} className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div
                                             className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -287,11 +387,7 @@ export default function BranchDashboard() {
                                 <span className="text-xs text-muted-foreground">Today & next 7 days</span>
                             </div>
                             <div className="space-y-3 text-sm">
-                                {[ 
-                                    { name: 'Vijay M.', days: 0 },
-                                    { name: 'Sneha K.', days: 2 },
-                                    { name: 'Rahul S.', days: 5 },
-                                ].map((m) => (
+                                {expiringMembers.map((m) => (
                                     <div key={m.name} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <CalendarDays className="h-4 w-4 text-amber-500" />

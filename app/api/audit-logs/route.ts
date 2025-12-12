@@ -1,10 +1,14 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, getPaginationParams } from "@/lib/api/utils";
 import { auditRepository } from "@/modules/database";
+import { requireSession } from "@/lib/api/require-auth";
 
 // GET /api/audit-logs - List audit logs
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
     

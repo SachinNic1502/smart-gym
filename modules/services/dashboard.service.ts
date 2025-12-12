@@ -57,16 +57,16 @@ export const dashboardService = {
   /**
    * Get super admin dashboard stats
    */
-  getSuperAdminStats(): SuperAdminStats {
-    const branches = branchRepository.findAll();
+  async getSuperAdminStats(): Promise<SuperAdminStats> {
+    const branches = await branchRepository.findAllAsync();
     const activeBranches = branches.data.filter(b => b.status === "active").length;
     
-    const members = memberRepository.findAll();
+    const members = await memberRepository.findAllAsync();
     const activeMembers = members.data.filter(m => m.status === "Active").length;
     
-    const deviceStats = deviceRepository.getStats();
+    const deviceStats = await deviceRepository.getStatsAsync();
 
-    const allPayments = paymentRepository.findAll().data;
+    const allPayments = (await paymentRepository.findAllAsync()).data;
     const now = new Date();
     const thirtyDaysAgoIso = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const last30Completed = allPayments.filter(
@@ -80,6 +80,30 @@ export const dashboardService = {
     const churnedCount = members.data.filter(
       m => m.status === "Cancelled" || m.status === "Frozen"
     ).length;
+
+    const churnRatePercent =
+      members.total > 0 ? (churnedCount / members.total) * 100 : 0;
+
+    // Avg attendance (last 30 days): average daily unique check-ins / active members
+    const attendanceRecords = (await attendanceRepository.findAllAsync()).data;
+    const daysWindow = 30;
+    const dailyUnique = new Map<string, Set<string>>();
+    attendanceRecords
+      .filter(r => r.status === "success" && r.checkInTime >= thirtyDaysAgoIso)
+      .forEach(r => {
+        const dayKey = r.checkInTime.slice(0, 10);
+        const set = dailyUnique.get(dayKey) ?? new Set<string>();
+        set.add(r.memberId);
+        dailyUnique.set(dayKey, set);
+      });
+
+    const totalUniqueAcrossDays = Array.from(dailyUnique.values()).reduce(
+      (sum, set) => sum + set.size,
+      0,
+    );
+    const avgDailyUnique = totalUniqueAcrossDays / daysWindow;
+    const avgAttendancePercent =
+      activeCount > 0 ? Math.min(100, (avgDailyUnique / activeCount) * 100) : 0;
 
     const memberComposition = [
       { name: "Active", value: activeCount },
@@ -164,6 +188,18 @@ export const dashboardService = {
           trend: "up",
         },
         {
+          title: "Churn Rate",
+          value: `${churnRatePercent.toFixed(1)}%`,
+          change: `${churnedCount} churned`,
+          trend: churnRatePercent <= 5 ? "up" : "down",
+        },
+        {
+          title: "Avg. Attendance",
+          value: `${avgAttendancePercent.toFixed(0)}%`,
+          change: "Last 30 days",
+          trend: avgAttendancePercent >= 50 ? "up" : "down",
+        },
+        {
           title: "Active Devices",
           value: `${deviceStats.online}/${deviceStats.total}`,
           change: `${deviceStats.offline} offline`,
@@ -171,31 +207,31 @@ export const dashboardService = {
         },
       ],
       charts: {
-        revenueByMonth: this.getRevenueByMonth(),
+        revenueByMonth: await this.getRevenueByMonth(),
         newVsChurnedByMonth,
         memberComposition,
         topBranches,
       },
-      recentActivity: this.getRecentActivity(),
+      recentActivity: await this.getRecentActivity(),
     };
   },
 
   /**
    * Get branch dashboard stats
    */
-  getBranchStats(branchId: string): BranchStats {
-    const members = memberRepository.findByBranch(branchId);
+  async getBranchStats(branchId: string): Promise<BranchStats> {
+    const members = await memberRepository.findByBranchAsync(branchId);
     const activeMembers = members.filter(m => m.status === "Active").length;
     
-    const liveCheckIns = attendanceRepository.getLiveCount(branchId);
-    const todayCollection = paymentRepository.getTodayTotal(branchId);
-    const weekCollection = paymentRepository.getWeekTotal(branchId);
-    const monthRenewals = paymentRepository.getMonthRenewals(branchId);
+    const liveCheckIns = await attendanceRepository.getLiveCountAsync(branchId);
+    const todayCollection = await paymentRepository.getTodayTotalAsync(branchId);
+    const weekCollection = await paymentRepository.getWeekTotalAsync(branchId);
+    const monthRenewals = await paymentRepository.getMonthRenewalsAsync(branchId);
     
-    const expiringSoon = memberRepository.getExpiringSoon(branchId, 7);
-    const expiringToday = memberRepository.getExpiringToday(branchId);
+    const expiringSoon = await memberRepository.getExpiringSoonAsync(branchId, 7);
+    const expiringToday = await memberRepository.getExpiringTodayAsync(branchId);
 
-    const todayAttendanceCount = attendanceRepository.getTodayCount(branchId);
+    const todayAttendanceCount = await attendanceRepository.getTodayCountAsync(branchId);
 
     return {
       stats: [
@@ -249,16 +285,16 @@ export const dashboardService = {
         },
       ],
       charts: {
-        attendanceTrend: this.getAttendanceTrend(branchId),
+        attendanceTrend: await this.getAttendanceTrend(branchId),
       },
-      recentCheckIns: this.getRecentCheckIns(branchId),
-      expiringMembers: this.getExpiringMembers(branchId),
+      recentCheckIns: await this.getRecentCheckIns(branchId),
+      expiringMembers: await this.getExpiringMembers(branchId),
     };
   },
 
   // Helper methods
-  getRevenueByMonth() {
-    const payments = paymentRepository.findAll().data.filter(p => p.status === "completed");
+  async getRevenueByMonth() {
+    const payments = (await paymentRepository.findAllAsync()).data.filter(p => p.status === "completed");
     const monthMap = new Map<string, number>();
 
     payments.forEach(p => {
@@ -288,9 +324,9 @@ export const dashboardService = {
     }));
   },
 
-  getAttendanceTrend(branchId: string) {
+  async getAttendanceTrend(branchId: string) {
     const today = new Date().toISOString().split("T")[0];
-    const result = attendanceRepository.findAll({ branchId, date: today });
+    const result = await attendanceRepository.findAllAsync({ branchId, date: today });
     const records = result.data;
 
     const buckets = new Map<string, number>();
@@ -310,8 +346,8 @@ export const dashboardService = {
     }));
   },
 
-  getRecentActivity() {
-    const payments = paymentRepository.findAll().data
+  async getRecentActivity() {
+    const payments = (await paymentRepository.findAllAsync()).data
       .filter(p => p.status === "completed")
       .slice(0, 5);
 
@@ -323,8 +359,8 @@ export const dashboardService = {
     }));
   },
 
-  getRecentCheckIns(branchId: string) {
-    const records = attendanceRepository.getRecentByBranch(branchId, 5);
+  async getRecentCheckIns(branchId: string) {
+    const records = await attendanceRepository.getRecentByBranchAsync(branchId, 5);
 
     return records.map(r => ({
       name: r.memberName,
@@ -338,8 +374,14 @@ export const dashboardService = {
     }));
   },
 
-  getExpiringMembers(branchId: string) {
-    const members = memberRepository.getExpiringSoon(branchId, 7);
+  async getExpiringMembers(branchId: string) {
+    const members = await (async () => {
+      try {
+        return await memberRepository.getExpiringSoonAsync(branchId, 7);
+      } catch {
+        return memberRepository.getExpiringSoon(branchId, 7);
+      }
+    })();
     const today = new Date();
 
     return members.slice(0, 5).map(m => {

@@ -2,10 +2,14 @@ import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { communicationRepository } from "@/modules/database";
 import type { BroadcastMessage, MessageChannel } from "@/lib/types";
+import { requireSession } from "@/lib/api/require-auth";
 
 // GET /api/communications - List communications
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
     
@@ -26,6 +30,9 @@ export async function GET(request: NextRequest) {
 // POST /api/communications - Create broadcast message
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const body = await parseBody<Partial<BroadcastMessage>>(request);
     
     if (!body) {

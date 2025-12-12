@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { authService } from "@/modules/services";
 import { connectToDatabase } from "@/modules/database/mongoose";
 import { UserModel } from "@/modules/database/models";
 import { hashPassword } from "@/modules/database/password";
+import { requireSession } from "@/lib/api/require-auth";
+import type { User } from "@/lib/types";
 
 interface RouteParams {
   params: Promise<{ userId: string }>;
@@ -13,13 +14,8 @@ interface RouteParams {
 // PUT /api/admin/users/[userId] - Update an admin user (super admin only)
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
-    const session = token ? authService.validateSession(token) : null;
-
-    if (!session || session.role !== "super_admin") {
-      return errorResponse("Forbidden", 403);
-    }
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
 
     const { userId } = await params;
     const body = await parseBody<{
@@ -76,7 +72,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       name: user.name,
       email: user.email,
       phone: user.phone,
-      role: user.role as any,
+      role: user.role as User["role"],
       avatar: user.avatar,
       branchId: user.branchId,
       createdAt: user.createdAt,

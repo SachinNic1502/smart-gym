@@ -1,11 +1,14 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Fingerprint, MapPin, Activity, Wifi, RefreshCcw, Server } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { devicesApi, ApiError } from "@/lib/api/client";
+import type { Device } from "@/lib/types";
+import type { BadgeProps } from "@/components/ui/badge";
 import { useDevice } from "@/hooks/use-devices";
+import { Activity, ArrowLeft, Fingerprint, MapPin, RefreshCcw, Server, Wifi } from "lucide-react";
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -58,14 +61,9 @@ export default function DeviceDetailPage() {
     );
   }
 
-  const statusLabel =
-    device.status === "online"
-      ? "Online"
-      : device.status === "offline"
-      ? "Offline"
-      : "Maintenance";
+  const statusLabel = device.status.charAt(0).toUpperCase() + device.status.slice(1);
 
-  const statusVariant =
+  const statusVariant: BadgeProps["variant"] =
     device.status === "online"
       ? "success"
       : device.status === "offline"
@@ -101,7 +99,7 @@ export default function DeviceDetailPage() {
               </CardDescription>
             </div>
           </div>
-          <Badge variant={statusVariant as any} className="text-xs px-3 py-1">
+          <Badge variant={statusVariant} className="text-xs px-3 py-1">
             {statusLabel}
           </Badge>
         </CardHeader>

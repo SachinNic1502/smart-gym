@@ -3,15 +3,22 @@ import { successResponse, errorResponse, parseBody, getPaginationParams } from "
 import { addMemberSchema } from "@/lib/validations/auth";
 import { memberService, auditService } from "@/modules/services";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 // GET /api/members - List all members with pagination and filters
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
+
+    const scope = resolveBranchScope(auth.session, searchParams.get("branchId"));
+    if ("response" in scope) return scope.response;
     
     const filters = {
-      branchId: searchParams.get("branchId") || undefined,
+      branchId: scope.branchId,
       status: searchParams.get("status") || undefined,
       plan: searchParams.get("plan") || undefined,
       search: searchParams.get("search") || undefined,
@@ -29,6 +36,9 @@ export async function GET(request: NextRequest) {
 // POST /api/members - Create a new member
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const body = await parseBody<Record<string, unknown>>(request);
     
     if (!body) {
@@ -42,13 +52,19 @@ export async function POST(request: NextRequest) {
       return errorResponse(issues[0]?.message || "Validation failed", 422);
     }
 
+    const requestedBranchId = typeof body.branchId === "string" ? body.branchId : undefined;
+    const scope = resolveBranchScope(auth.session, requestedBranchId);
+    if ("response" in scope) return scope.response;
+
+    const branchId = scope.branchId ?? requestedBranchId ?? "BRN_001";
+
     const result = await memberService.createMember({
       name: validation.data.name,
       phone: validation.data.phone,
       email: validation.data.email,
       dateOfBirth: validation.data.dateOfBirth,
       address: validation.data.address,
-      branchId: (body.branchId as string) || "BRN_001",
+      branchId,
       referralSource: validation.data.referralSource,
       notes: validation.data.notes,
     });

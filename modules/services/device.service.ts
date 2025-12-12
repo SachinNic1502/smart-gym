@@ -42,7 +42,7 @@ export const deviceService = {
    */
   async getDevices(filters?: DeviceFilters, pagination?: PaginationOptions): Promise<DeviceListResult> {
     const result = await deviceRepository.findAllAsync(filters, pagination);
-    const stats = deviceRepository.getStats(filters?.branchId);
+    const stats = await deviceRepository.getStatsAsync(filters?.branchId);
     return { ...result, stats };
   },
 

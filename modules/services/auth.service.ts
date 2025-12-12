@@ -7,6 +7,7 @@ import type { User } from "@/lib/types";
 import { connectToDatabase } from "@/modules/database/mongoose";
 import { UserModel } from "@/modules/database/models";
 import { verifyPassword as verifyPasswordHash } from "@/modules/database/password";
+import { signSessionJwt, verifySessionJwt, type JwtSessionPayload, type JwtRole } from "@/lib/auth/jwt";
 
 export interface LoginResult {
   success: boolean;
@@ -22,6 +23,17 @@ export interface OtpResult {
   error?: string;
 }
 
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (secret && secret.length >= 16) return secret;
+
+  if (process.env.NODE_ENV !== "production") {
+    return "dev_session_secret_change_me";
+  }
+
+  throw new Error("SESSION_SECRET is not defined (or too short). Please set it in your environment.");
+}
+
 export const authService = {
   /**
    * Authenticate admin/branch user with email and password
@@ -33,7 +45,7 @@ export const authService = {
       const dbUser = await UserModel.findOne({ email }).exec();
 
       if (dbUser && (dbUser.role === "super_admin" || dbUser.role === "branch_admin")) {
-        const passwordHash = (dbUser as any).passwordHash as string | undefined;
+        const passwordHash = (dbUser as unknown as { passwordHash?: string }).passwordHash;
 
         if (passwordHash) {
           const isValid = await verifyPasswordHash(password, passwordHash);
@@ -159,27 +171,32 @@ export const authService = {
   /**
    * Create session token
    */
-  createSessionToken(userId: string, role: string, expiresInHours: number = 24): string {
-    return Buffer.from(JSON.stringify({
-      userId,
-      role,
-      exp: Date.now() + expiresInHours * 60 * 60 * 1000,
-    })).toString("base64");
+  async createSessionToken(
+    user: { id: string; role: JwtRole; name?: string | null; email?: string; phone?: string; avatar?: string; branchId?: string },
+    expiresInHours: number = 24,
+  ): Promise<string> {
+    const secret = getSessionSecret();
+    return signSessionJwt(
+      {
+        sub: user.id,
+        role: user.role,
+        name: user.name ?? null,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+        branchId: user.branchId,
+      },
+      secret,
+      expiresInHours * 60 * 60,
+    );
   },
 
   /**
    * Decode and validate session token
    */
-  validateSession(token: string): { userId: string; role: string } | null {
-    try {
-      const session = JSON.parse(Buffer.from(token, "base64").toString());
-      if (session.exp < Date.now()) {
-        return null;
-      }
-      return { userId: session.userId, role: session.role };
-    } catch {
-      return null;
-    }
+  async validateSession(token: string): Promise<JwtSessionPayload | null> {
+    const secret = getSessionSecret();
+    return verifySessionJwt(token, secret);
   },
 
   /**

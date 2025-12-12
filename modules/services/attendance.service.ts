@@ -25,14 +25,14 @@ export const attendanceService = {
   /**
    * Get attendance records with filters and pagination
    */
-  getAttendance(filters?: AttendanceFilters, pagination?: PaginationOptions): PaginatedResult<AttendanceRecord> {
-    return attendanceRepository.findAll(filters, pagination);
+  async getAttendance(filters?: AttendanceFilters, pagination?: PaginationOptions): Promise<PaginatedResult<AttendanceRecord>> {
+    return attendanceRepository.findAllAsync(filters, pagination);
   },
 
   /**
    * Record a check-in or check-out
    */
-  checkIn(data: CheckInData): ServiceResult<AttendanceRecord> {
+  async checkIn(data: CheckInData): Promise<ServiceResult<AttendanceRecord>> {
     const { memberId, branchId, method, deviceId } = data;
 
     // Validate member
@@ -44,7 +44,7 @@ export const attendanceService = {
     // Check if member is active
     if (member.status !== "Active") {
       // Record failed attempt
-      const record = attendanceRepository.create({
+      const record = await attendanceRepository.createAsync({
         memberId,
         memberName: member.name,
         branchId,
@@ -57,14 +57,14 @@ export const attendanceService = {
     }
 
     // Check if already checked in today (for check-out)
-    const existingCheckIn = attendanceRepository.findTodayByMember(memberId);
+    const existingCheckIn = await attendanceRepository.findTodayByMemberAsync(memberId);
     if (existingCheckIn) {
-      const record = attendanceRepository.checkOut(existingCheckIn.id);
+      const record = await attendanceRepository.checkOutAsync(existingCheckIn.id);
       return { success: true, data: record, message: "Checked out successfully" };
     }
 
     // Create new check-in
-    const record = attendanceRepository.create({
+    const record = await attendanceRepository.createAsync({
       memberId,
       memberName: member.name,
       branchId,
@@ -75,7 +75,11 @@ export const attendanceService = {
     });
 
     // Update member's last visit
-    memberRepository.update(memberId, { lastVisit: record.checkInTime });
+    try {
+      await memberRepository.updateAsync(memberId, { lastVisit: record.checkInTime });
+    } catch {
+      memberRepository.update(memberId, { lastVisit: record.checkInTime });
+    }
 
     return { success: true, data: record, message: "Checked in successfully" };
   },
@@ -83,14 +87,14 @@ export const attendanceService = {
   /**
    * Get live check-in count for a branch
    */
-  getLiveCount(branchId: string): number {
-    return attendanceRepository.getLiveCount(branchId);
+  async getLiveCount(branchId: string): Promise<number> {
+    return attendanceRepository.getLiveCountAsync(branchId);
   },
 
   /**
    * Get recent check-ins for a branch
    */
-  getRecentCheckIns(branchId: string, limit: number = 5): AttendanceRecord[] {
-    return attendanceRepository.getRecentByBranch(branchId, limit);
+  async getRecentCheckIns(branchId: string, limit: number = 5): Promise<AttendanceRecord[]> {
+    return attendanceRepository.getRecentByBranchAsync(branchId, limit);
   },
 };

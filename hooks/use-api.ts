@@ -54,7 +54,7 @@ export function useApi<T, P extends unknown[] = []>(
  */
 export function useFetch<T>(
   apiFunction: () => Promise<T>,
-  dependencies: unknown[] = []
+  _dependencies: unknown[] = []
 ) {
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
@@ -71,7 +71,7 @@ export function useFetch<T>(
       const message = err instanceof Error ? err.message : "An error occurred";
       setState(prev => ({ ...prev, loading: false, error: message }));
     }
-  }, [apiFunction, ...dependencies]);
+  }, [apiFunction]);
 
   return { ...state, refetch };
 }

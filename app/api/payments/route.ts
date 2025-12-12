@@ -3,22 +3,29 @@ import { successResponse, errorResponse, parseBody, getPaginationParams } from "
 import { paymentService, auditService } from "@/modules/services";
 import type { PaymentMethod } from "@/lib/types";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 // GET /api/payments - List payments
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
+
+    const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
+    if ("response" in scoped) return scoped.response;
     
     const filters = {
-      branchId: searchParams.get("branchId") || undefined,
+      branchId: scoped.branchId,
       memberId: searchParams.get("memberId") || undefined,
       status: searchParams.get("status") || undefined,
       startDate: searchParams.get("startDate") || undefined,
       endDate: searchParams.get("endDate") || undefined,
     };
 
-    const result = paymentService.getPayments(filters, pagination);
+    const result = await paymentService.getPayments(filters, pagination);
     return successResponse(result);
 
   } catch (error) {
@@ -39,6 +46,9 @@ interface PaymentRequest {
 // POST /api/payments - Create a new payment
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const body = await parseBody<PaymentRequest>(request);
     
     if (!body) {
@@ -47,13 +57,16 @@ export async function POST(request: NextRequest) {
 
     const { memberId, branchId, planId, amount, method, description } = body;
 
-    if (!memberId || !branchId || !planId || !amount || !method) {
+    const scoped = resolveBranchScope(auth.session, branchId);
+    if ("response" in scoped) return scoped.response;
+
+    if (!memberId || !scoped.branchId || !planId || !amount || !method) {
       return errorResponse("memberId, branchId, planId, amount, and method are required");
     }
 
-    const result = paymentService.createPayment({
+    const result = await paymentService.createPayment({
       memberId,
-      branchId,
+      branchId: scoped.branchId,
       planId,
       amount,
       method,

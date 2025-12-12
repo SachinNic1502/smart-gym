@@ -81,6 +81,8 @@ export default function ReportsPage() {
 
     const totalRevenueStat = superStats?.find((s) => s.title === "Global Revenue");
     const totalMembersStat = superStats?.find((s) => s.title === "Total Members");
+    const churnRateStat = superStats?.find((s) => s.title === "Churn Rate");
+    const avgAttendanceStat = superStats?.find((s) => s.title === "Avg. Attendance");
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -103,13 +105,7 @@ export default function ReportsPage() {
                     <Button
                         variant="outline"
                         type="button"
-                        onClick={() =>
-                            toast({
-                                title: "Export PDF",
-                                description: "Report export is mock-only right now.",
-                                variant: "info",
-                            })
-                        }
+                        disabled
                     >
                         <Download className="mr-2 h-4 w-4" />
                         Export PDF
@@ -128,10 +124,10 @@ export default function ReportsPage() {
                         <div className="text-2xl font-bold">
                             {typeof totalRevenueStat?.value === "string" || typeof totalRevenueStat?.value === "number"
                                 ? String(totalRevenueStat.value)
-                                : "₹85,45,000"}
+                                : "—"}
                         </div>
                         <p className="text-xs text-muted-foreground text-green-600">
-                            {totalRevenueStat?.change || "+15% from last year"}
+                            {totalRevenueStat?.change || ""}
                         </p>
                         <button
                             type="button"
@@ -151,10 +147,10 @@ export default function ReportsPage() {
                         <div className="text-2xl font-bold">
                             {typeof totalMembersStat?.value === "string" || typeof totalMembersStat?.value === "number"
                                 ? String(totalMembersStat.value)
-                                : "3,450"}
+                                : "—"}
                         </div>
                         <p className="text-xs text-muted-foreground text-green-600">
-                            {totalMembersStat?.change || "+124 new this month"}
+                            {totalMembersStat?.change || ""}
                         </p>
                         <button
                             type="button"
@@ -171,15 +167,21 @@ export default function ReportsPage() {
                         <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">4.2%</div>
-                        <p className="text-xs text-muted-foreground text-red-500">+0.8% increase</p>
+                        <div className="text-2xl font-bold">
+                            {typeof churnRateStat?.value === "string" || typeof churnRateStat?.value === "number"
+                                ? String(churnRateStat.value)
+                                : "—"}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {churnRateStat?.change || ""}
+                        </p>
                         <button
                             type="button"
                             className="mt-1 text-[11px] text-primary hover:underline"
                             onClick={() =>
                                 toast({
                                     title: "Churn insights",
-                                    description: "Detailed churn breakdown will be available once analytics are connected (mock).",
+                                    description: "Churn breakdown will be added in a dedicated analytics view.",
                                     variant: "info",
                                 })
                             }
@@ -194,15 +196,21 @@ export default function ReportsPage() {
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">68%</div>
-                        <p className="text-xs text-muted-foreground text-green-600">Daily active users</p>
+                        <div className="text-2xl font-bold">
+                            {typeof avgAttendanceStat?.value === "string" || typeof avgAttendanceStat?.value === "number"
+                                ? String(avgAttendanceStat.value)
+                                : "—"}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {avgAttendanceStat?.change || ""}
+                        </p>
                         <button
                             type="button"
                             className="mt-1 text-[11px] text-primary hover:underline"
                             onClick={() =>
                                 toast({
                                     title: "Attendance analytics",
-                                    description: "Richer attendance trends across branches will be added later (mock-only).",
+                                    description: "Attendance trend breakdown will be added in a dedicated analytics view.",
                                     variant: "info",
                                 })
                             }
@@ -216,10 +224,6 @@ export default function ReportsPage() {
             {statsError && (
                 <p className="text-[11px] text-red-500">{statsError}</p>
             )}
-            <p className="text-[11px] text-muted-foreground">
-                Some charts below still use sample data for demo purposes. Summary stats and revenue trend come from the
-                live dashboard API.
-            </p>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

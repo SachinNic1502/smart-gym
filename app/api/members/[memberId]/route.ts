@@ -3,6 +3,7 @@ import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { memberService, auditService } from "@/modules/services";
 import type { Member } from "@/lib/types";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession } from "@/lib/api/require-auth";
 
 interface RouteParams {
   params: Promise<{ memberId: string }>;
@@ -11,11 +12,18 @@ interface RouteParams {
 // GET /api/members/[memberId] - Get a single member
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { memberId } = await params;
     const result = await memberService.getMember(memberId);
     
     if (!result.success) {
       return errorResponse(result.error || "Member not found", 404);
+    }
+
+    if (auth.session.role === "branch_admin" && result.data?.branchId && auth.session.branchId !== result.data.branchId) {
+      return errorResponse("Forbidden", 403);
     }
 
     return successResponse(result.data);
@@ -29,11 +37,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/members/[memberId] - Update a member
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { memberId } = await params;
     const body = await parseBody<Partial<Member>>(request);
     
     if (!body) {
       return errorResponse("Invalid request body");
+    }
+
+    if (auth.session.role === "branch_admin") {
+      const existing = await memberService.getMember(memberId);
+      if (!existing.success || !existing.data) {
+        return errorResponse(existing.error || "Member not found", 404);
+      }
+      if (!auth.session.branchId || existing.data.branchId !== auth.session.branchId) {
+        return errorResponse("Forbidden", 403);
+      }
+
+      if (body.branchId && body.branchId !== auth.session.branchId) {
+        return errorResponse("Forbidden", 403);
+      }
     }
 
     const result = await memberService.updateMember(memberId, body);
@@ -73,7 +98,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/members/[memberId] - Delete a member
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { memberId } = await params;
+
+    if (auth.session.role === "branch_admin") {
+      const existing = await memberService.getMember(memberId);
+      if (!existing.success || !existing.data) {
+        return errorResponse(existing.error || "Member not found", 404);
+      }
+      if (!auth.session.branchId || existing.data.branchId !== auth.session.branchId) {
+        return errorResponse("Forbidden", 403);
+      }
+    }
+
     const result = await memberService.deleteMember(memberId);
     
     if (!result.success) {

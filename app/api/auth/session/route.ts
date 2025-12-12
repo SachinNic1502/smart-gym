@@ -12,27 +12,21 @@ export async function GET() {
     }
 
     // Validate session token
-    const session = authService.validateSession(sessionCookie.value);
+    const session = await authService.validateSession(sessionCookie.value);
     if (!session) {
       cookieStore.delete("session");
       return unauthorizedResponse("Session expired or invalid");
     }
 
-    // Find user
-    const user = authService.getUserById(session.userId);
-    if (!user) {
-      return unauthorizedResponse("User not found");
-    }
-
     return successResponse({
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        avatar: user.avatar,
-        branchId: user.branchId,
+        id: session.sub,
+        name: session.name ?? "",
+        email: session.email ?? "",
+        phone: session.phone,
+        role: session.role,
+        avatar: session.avatar,
+        branchId: session.branchId,
       },
     });
 

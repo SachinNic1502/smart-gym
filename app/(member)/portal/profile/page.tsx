@@ -11,6 +11,18 @@ import { useAuth } from "@/hooks/use-auth";
 
 export default function MemberProfilePage() {
     const { logout, user } = useAuth();
+    const fullName = user?.name || "Alex Johnson";
+    const nameParts = fullName.split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ");
+    const initials = user?.name
+        ? user.name
+            .split(" ")
+            .map((part) => part[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase()
+        : "AJ";
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20 md:pb-0">
             <div>
@@ -24,14 +36,14 @@ export default function MemberProfilePage() {
                     <CardContent className="pt-6 flex flex-col items-center text-center">
                         <div className="relative">
                             <Avatar className="h-24 w-24">
-                                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" />
-                                <AvatarFallback>AJ</AvatarFallback>
+                                <AvatarImage src={user?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"} />
+                                <AvatarFallback>{initials}</AvatarFallback>
                             </Avatar>
                             <Button size="icon" variant="secondary" className="absolute bottom-0 right-0 h-8 w-8 rounded-full shadow-md">
                                 <Camera className="h-4 w-4" />
                             </Button>
                         </div>
-                        <h2 className="mt-4 text-xl font-bold">{user?.name ?? "Member"}</h2>
+                        <h2 className="mt-4 text-xl font-bold">{fullName}</h2>
                         <p className="text-sm text-muted-foreground">Gold Premium Member</p>
                         <p className="text-xs text-muted-foreground mt-1">Member since Jan 2024</p>
 
@@ -64,15 +76,15 @@ export default function MemberProfilePage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="firstName">First Name</Label>
-                                            <Input id="firstName" defaultValue="Alex" />
+                                            <Input id="firstName" defaultValue={firstName} />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="lastName">Last Name</Label>
-                                            <Input id="lastName" defaultValue="Johnson" />
+                                            <Input id="lastName" defaultValue={lastName || ""} />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="email">Email</Label>
-                                            <Input id="email" type="email" defaultValue="alex@example.com" />
+                                            <Input id="email" type="email" defaultValue={user?.email || "alex@example.com"} />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="phone">Phone</Label>

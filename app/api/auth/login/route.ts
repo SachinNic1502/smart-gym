@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { loginSchema } from "@/lib/validations/auth";
 import { authService } from "@/modules/services";
+import { rateLimit } from "@/lib/api/rate-limit";
 
 interface LoginRequest {
   email: string;
@@ -11,6 +12,9 @@ interface LoginRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = rateLimit(request, "auth:login");
+    if (limited) return limited;
+
     const body = await parseBody<LoginRequest>(request);
     
     if (!body) {
@@ -35,10 +39,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create session token
-    const sessionToken = authService.createSessionToken(
-      result.user!.id,
-      result.user!.role,
-      24
+    const sessionToken = await authService.createSessionToken(
+      {
+        id: result.user!.id,
+        role: result.user!.role,
+        name: result.user!.name,
+        email: result.user!.email,
+        phone: result.user!.phone,
+        avatar: result.user!.avatar,
+        branchId: result.user!.branchId,
+      },
+      24,
     );
 
     // Set cookie

@@ -7,6 +7,10 @@ import { hashPassword } from "@/modules/database/password";
 // Development-only endpoint to ensure the default super admin exists in MongoDB.
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ status: "error", message: "Not found" }, { status: 404 });
+    }
+
     await connectToDatabase();
 
     const email = "admin@smartfit.com";

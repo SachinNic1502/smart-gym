@@ -67,6 +67,22 @@ export const deviceRepository = {
     };
   },
 
+  async getStatsAsync(branchId?: string) {
+    await connectToDatabase();
+
+    const baseQuery: Record<string, unknown> = {};
+    if (branchId) baseQuery.branchId = branchId;
+
+    const [total, online, offline, maintenance] = await Promise.all([
+      DeviceModel.countDocuments(baseQuery).exec(),
+      DeviceModel.countDocuments({ ...baseQuery, status: "online" }).exec(),
+      DeviceModel.countDocuments({ ...baseQuery, status: "offline" }).exec(),
+      DeviceModel.countDocuments({ ...baseQuery, status: "maintenance" }).exec(),
+    ]);
+
+    return { total, online, offline, maintenance };
+  },
+
   create(data: Omit<Device, "id" | "createdAt">): Device {
     const store = getStore();
     const device: Device = {

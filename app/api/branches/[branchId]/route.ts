@@ -3,6 +3,7 @@ import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { branchService, auditService } from "@/modules/services";
 import type { Branch } from "@/lib/types";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 interface RouteParams {
   params: Promise<{ branchId: string }>;
@@ -12,6 +13,13 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { branchId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const scoped = resolveBranchScope(auth.session, branchId);
+    if ("response" in scoped) return scoped.response;
+
     const result = await branchService.getBranch(branchId);
     
     if (!result.success) {
@@ -30,6 +38,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { branchId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const scoped = resolveBranchScope(auth.session, branchId);
+    if ("response" in scoped) return scoped.response;
+
     const body = await parseBody<Partial<Branch>>(request);
     
     if (!body) {
@@ -69,6 +84,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { branchId } = await params;
+
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
+
     const result = await branchService.deleteBranch(branchId);
     
     if (!result.success) {

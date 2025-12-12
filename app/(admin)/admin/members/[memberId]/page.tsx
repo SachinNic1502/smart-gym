@@ -1,32 +1,103 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Users, ArrowLeft, CalendarDays, CreditCard, Activity } from "lucide-react";
+import { Users, ArrowLeft, CreditCard, Activity } from "lucide-react";
 
-const MOCK_MEMBERS = [
-  { id: "MEM001", name: "Alex Johnson", branch: "FitStop Downtown", plan: "Gold Premium", status: "Active", joinDate: "2024-01-15", visitsThisMonth: 12, outstandingBalance: "₹0" },
-  { id: "MEM002", name: "Maria Garcia", branch: "Iron Gym East", plan: "Silver", status: "Active", joinDate: "2024-02-10", visitsThisMonth: 9, outstandingBalance: "₹499" },
-  { id: "MEM003", name: "Steve Smith", branch: "FitStop Downtown", plan: "Basic", status: "Expired", joinDate: "2023-11-05", visitsThisMonth: 0, outstandingBalance: "₹1,999" },
-  { id: "MEM004", name: "Linda Ray", branch: "Flex Studio", plan: "Gold Premium", status: "Active", joinDate: "2024-03-22", visitsThisMonth: 7, outstandingBalance: "₹0" },
-  { id: "MEM005", name: "Robert Downey", branch: "Iron Gym East", plan: "Silver", status: "Active", joinDate: "2024-01-01", visitsThisMonth: 15, outstandingBalance: "₹0" },
-];
+import { attendanceApi, branchesApi, membersApi, paymentsApi, ApiError } from "@/lib/api/client";
+import type { Branch, Member, Payment } from "@/lib/types";
 
 export default function GlobalMemberDetailPage() {
   const params = useParams();
   const router = useRouter();
   const memberId = params?.memberId as string | undefined;
+  const [member, setMember] = useState<Member | null>(null);
+  const [branch, setBranch] = useState<Branch | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const member = useMemo(
-    () => MOCK_MEMBERS.find((m) => m.id === memberId),
-    [memberId]
-  );
+  const [visitsToday, setVisitsToday] = useState<number>(0);
+  const [pendingBalance, setPendingBalance] = useState<number>(0);
+  const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
 
-  if (!member) {
+  useEffect(() => {
+    const load = async () => {
+      if (!memberId) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const m = await membersApi.get(memberId);
+        setMember(m);
+
+        try {
+          const b = await branchesApi.get(m.branchId);
+          setBranch(b);
+        } catch {
+          setBranch(null);
+        }
+
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const dd = String(today.getDate()).padStart(2, "0");
+        const date = `${yyyy}-${mm}-${dd}`;
+
+        const [attendanceResult, pendingPaymentsResult, recentPaymentsResult] = await Promise.all([
+          attendanceApi.list({ memberId, branchId: m.branchId, date }),
+          paymentsApi.list({ memberId, branchId: m.branchId, status: "pending" }),
+          paymentsApi.list({ memberId, branchId: m.branchId, page: "1", pageSize: "5" }),
+        ]);
+
+        setVisitsToday(attendanceResult.total || 0);
+
+        const pending = (pendingPaymentsResult.data || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        setPendingBalance(pending);
+        setRecentPayments(recentPaymentsResult.data || []);
+      } catch (e) {
+        const message = e instanceof ApiError ? e.message : "Failed to load member";
+        setError(message);
+        setMember(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [memberId]);
+
+  const branchName = useMemo(() => branch?.name || member?.branchId || "—", [branch?.name, member?.branchId]);
+  const joinDate = useMemo(() => {
+    if (!member?.createdAt) return "—";
+    try {
+      return new Date(member.createdAt).toLocaleDateString();
+    } catch {
+      return member.createdAt;
+    }
+  }, [member?.createdAt]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <Button variant="ghost" className="flex items-center gap-2" onClick={() => router.push("/admin/members")}>
+          <ArrowLeft className="h-4 w-4" />
+          Back to Members
+        </Button>
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading member...</CardTitle>
+            <CardDescription>Please wait while we fetch the latest member details.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error || !member) {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
         <Button variant="ghost" className="flex items-center gap-2" onClick={() => router.push("/admin/members")}>
@@ -37,7 +108,7 @@ export default function GlobalMemberDetailPage() {
           <CardHeader>
             <CardTitle>Member not found</CardTitle>
             <CardDescription>
-              We couldn&apos;t find details for this member. Please return to the directory and try again.
+              {error || "We couldn&apos;t find details for this member. Please return to the directory and try again."}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -69,14 +140,14 @@ export default function GlobalMemberDetailPage() {
               </Badge>
             </CardTitle>
             <CardDescription>
-              {member.plan} • {member.branch}
+              {member.plan} • {branchName}
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground">Home Branch</p>
-            <p className="font-medium">{member.branch}</p>
+            <p className="font-medium">{branchName}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Plan</p>
@@ -84,7 +155,7 @@ export default function GlobalMemberDetailPage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Joined On</p>
-            <p className="font-medium">{member.joinDate}</p>
+            <p className="font-medium">{joinDate}</p>
           </div>
         </CardContent>
       </Card>
@@ -92,12 +163,12 @@ export default function GlobalMemberDetailPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Visits This Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Visits Today</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{member.visitsThisMonth}</div>
-            <p className="text-xs text-muted-foreground">Gym entries recorded</p>
+            <div className="text-2xl font-bold">{visitsToday}</div>
+            <p className="text-xs text-muted-foreground">Attendance records (today)</p>
           </CardContent>
         </Card>
         <Card>
@@ -106,7 +177,7 @@ export default function GlobalMemberDetailPage() {
             <CreditCard className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{member.outstandingBalance}</div>
+            <div className="text-2xl font-bold">₹{pendingBalance.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">Pending invoices or dues</p>
           </CardContent>
         </Card>
@@ -125,24 +196,26 @@ export default function GlobalMemberDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity (sample)</CardTitle>
-          <CardDescription>Example events for visualization only.</CardDescription>
+          <CardTitle>Recent Payments</CardTitle>
+          <CardDescription>Latest payment attempts for this member.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              { label: "Check-in", detail: "Morning workout", when: "Today, 7:32 AM" },
-              { label: "Payment", detail: "Monthly renewal", when: "Last week" },
-              { label: "Class", detail: "HIIT Session", when: "2 weeks ago" },
-            ].map((item) => (
-              <div key={item.when} className="flex items-center justify-between text-sm">
-                <div>
-                  <p className="font-medium">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">{item.detail}</p>
+            {recentPayments.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No payment activity yet.</p>
+            ) : (
+              recentPayments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between text-sm">
+                  <div>
+                    <p className="font-medium">₹{p.amount.toLocaleString()} • {p.status}</p>
+                    <p className="text-xs text-muted-foreground">{p.method} • {p.description}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "—"}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground">{item.when}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

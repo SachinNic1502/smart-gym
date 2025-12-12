@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { authService, auditService } from "@/modules/services";
 import { connectToDatabase } from "@/modules/database/mongoose";
@@ -8,17 +7,13 @@ import { hashPassword } from "@/modules/database/password";
 import { generateId } from "@/modules/database/repositories/base.repository";
 import { createBranchAdminSchema } from "@/lib/validations/auth";
 import { getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession } from "@/lib/api/require-auth";
 
 // GET /api/admin/users - List admin users (super + branch admins)
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
-    const session = token ? authService.validateSession(token) : null;
-
-    if (!session || session.role !== "super_admin") {
-      return errorResponse("Forbidden", 403);
-    }
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
 
     await connectToDatabase();
 
@@ -47,13 +42,8 @@ export async function GET() {
 // Only accessible to super admin
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
-    const session = token ? authService.validateSession(token) : null;
-
-    if (!session || session.role !== "super_admin") {
-      return errorResponse("Forbidden", 403);
-    }
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
 
     const body = await parseBody<unknown>(request);
     if (!body) {
@@ -92,7 +82,7 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     });
 
-    const actorUserId = session.userId;
+    const actorUserId = auth.session.sub;
     const actor = authService.getUserById(actorUserId);
     const ipAddress = getRequestIp(request);
 
@@ -119,7 +109,7 @@ export async function POST(request: NextRequest) {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        role: user.role as any,
+        role: "branch_admin",
         avatar: user.avatar,
         branchId: user.branchId,
         createdAt: user.createdAt,

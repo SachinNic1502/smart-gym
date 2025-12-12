@@ -7,20 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Filter, Download } from "lucide-react";
+import { Search, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMembers } from "@/hooks/use-members";
 import { useBranches } from "@/hooks/use-branches";
 
 export default function GlobalMembersPage() {
     const [searchTerm, setSearchTerm] = useState("");
-
-    const { members, total, loading, error } = useMembers();
+    const { members, total, loading, error, filters, updateFilters } = useMembers({ page: 1, pageSize: 25 });
     const { branches } = useBranches();
 
     useEffect(() => {
         const handleGlobalSearch = (event: Event) => {
-            const custom = event as CustomEvent<any>;
+            const custom = event as CustomEvent<{ value?: unknown }>;
             if (custom.detail && typeof custom.detail.value === "string") {
                 setSearchTerm(custom.detail.value);
             }
@@ -44,6 +43,10 @@ export default function GlobalMembersPage() {
             branchName: branch ? branch.name : m.branchId,
         };
     });
+
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 25;
+    const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
 
     const filteredMembers = membersWithBranch.filter((m) =>
         m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -74,12 +77,42 @@ export default function GlobalMembersPage() {
                                     placeholder="Search member or branch..."
                                     className="pl-9"
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setSearchTerm(value);
+                                        updateFilters({ search: value || undefined, page: 1 });
+                                    }}
                                 />
                             </div>
-                            <Button variant="outline" size="icon">
-                                <Filter className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>Branch</span>
+                                <select
+                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs min-w-[140px]"
+                                    value={filters.branchId || ""}
+                                    onChange={(e) => updateFilters({ branchId: e.target.value || undefined, page: 1 })}
+                                >
+                                    <option value="">All branches</option>
+                                    {branches.map((branch) => (
+                                        <option key={branch.id} value={branch.id}>
+                                            {branch.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>Status</span>
+                                <select
+                                    className="h-9 rounded-md border border-input bg-background px-2 text-xs min-w-[120px]"
+                                    value={filters.status || ""}
+                                    onChange={(e) => updateFilters({ status: e.target.value || undefined, page: 1 })}
+                                >
+                                    <option value="">All</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Expired">Expired</option>
+                                    <option value="Frozen">Frozen</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
@@ -105,14 +138,14 @@ export default function GlobalMembersPage() {
                                         Loading members...
                                     </TableCell>
                                 </TableRow>
-                            ) : filteredMembers.length === 0 ? (
+                            ) : membersWithBranch.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
                                         No members found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredMembers.map((member) => (
+                                membersWithBranch.map((member) => (
                                     <TableRow key={member.id} className="cursor-pointer hover:bg-gray-50">
                                         <TableCell>
                                             <div className="flex items-center gap-3">
@@ -155,6 +188,33 @@ export default function GlobalMembersPage() {
                             )}
                         </TableBody>
                     </Table>
+                    {!loading && membersWithBranch.length > 0 && (
+                        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>
+                                Page {page} of {totalPages}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    type="button"
+                                    disabled={page <= 1}
+                                    onClick={() => updateFilters({ page: Math.max(1, page - 1) })}
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    type="button"
+                                    disabled={page >= totalPages}
+                                    onClick={() => updateFilters({ page: Math.min(totalPages, page + 1) })}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { memberService } from "@/modules/services";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 interface RouteParams {
   params: Promise<{ memberId: string }>;
@@ -15,6 +16,18 @@ interface ProgramsRequest {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { memberId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const member = await memberService.getMember(memberId);
+    if (!member.success || !member.data) {
+      return errorResponse(member.error || "Member not found", 404);
+    }
+
+    const scoped = resolveBranchScope(auth.session, member.data.branchId);
+    if ("response" in scoped) return scoped.response;
+
     const result = await memberService.getMemberPrograms(memberId);
     
     if (!result.success) {
@@ -33,6 +46,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { memberId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const member = await memberService.getMember(memberId);
+    if (!member.success || !member.data) {
+      return errorResponse(member.error || "Member not found", 404);
+    }
+
+    const scoped = resolveBranchScope(auth.session, member.data.branchId);
+    if ("response" in scoped) return scoped.response;
+
     const body = await parseBody<ProgramsRequest>(request);
     
     if (!body) {

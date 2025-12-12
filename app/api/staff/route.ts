@@ -2,15 +2,22 @@ import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { staffRepository } from "@/modules/database";
 import type { Staff, StaffRole } from "@/lib/types";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 // GET /api/staff - List staff
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
+
+    const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
+    if ("response" in scoped) return scoped.response;
     
     const filters = {
-      branchId: searchParams.get("branchId") || undefined,
+      branchId: scoped.branchId,
       role: (searchParams.get("role") as StaffRole) || undefined,
       status: (searchParams.get("status") as "active" | "inactive") || undefined,
       search: searchParams.get("search") || undefined,
@@ -28,13 +35,19 @@ export async function GET(request: NextRequest) {
 // POST /api/staff - Create staff member
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const body = await parseBody<Partial<Staff>>(request);
     
     if (!body) {
       return errorResponse("Invalid request body");
     }
 
-    if (!body.name || !body.email || !body.phone || !body.role || !body.branchId) {
+    const scoped = resolveBranchScope(auth.session, body.branchId);
+    if ("response" in scoped) return scoped.response;
+
+    if (!body.name || !body.email || !body.phone || !body.role || !scoped.branchId) {
       return errorResponse("name, email, phone, role, and branchId are required");
     }
 
@@ -49,7 +62,7 @@ export async function POST(request: NextRequest) {
       email: body.email,
       phone: body.phone,
       role: body.role,
-      branchId: body.branchId,
+      branchId: scoped.branchId,
       branchName: body.branchName,
       salary: body.salary,
       joiningDate: body.joiningDate || new Date().toISOString().split("T")[0],

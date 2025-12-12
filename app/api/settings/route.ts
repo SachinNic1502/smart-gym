@@ -9,9 +9,13 @@ import { settingsService, auditService } from "@/modules/services";
 import { success, error } from "@/lib/api/utils";
 import type { SystemSettings } from "@/lib/types";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession } from "@/lib/api/require-auth";
 
 export async function GET() {
   try {
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
+
     const settings = settingsService.getSettings();
     return success<SystemSettings>(settings);
   } catch (err) {
@@ -22,7 +26,10 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const body = await req.json();
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const body = (await req.json()) as Partial<SystemSettings>;
     const updated = settingsService.updateSettings(body);
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(req);

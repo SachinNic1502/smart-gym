@@ -3,10 +3,34 @@ import { successResponse, errorResponse, parseBody, getPaginationParams } from "
 import { addBranchSchema } from "@/lib/validations/auth";
 import { branchService, auditService } from "@/modules/services";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { requireSession } from "@/lib/api/require-auth";
 
 // GET /api/branches - List all branches
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    if (auth.session.role === "branch_admin") {
+      const branchId = auth.session.branchId;
+      if (!branchId) {
+        return errorResponse("Branch not assigned", 403);
+      }
+
+      const result = await branchService.getBranch(branchId);
+      if (!result.success || !result.data) {
+        return errorResponse(result.error || "Branch not found", 404);
+      }
+
+      return successResponse({
+        data: [result.data],
+        total: 1,
+        page: 1,
+        pageSize: 1,
+        totalPages: 1,
+      });
+    }
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
     
@@ -27,6 +51,9 @@ export async function GET(request: NextRequest) {
 // POST /api/branches - Create a new branch
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin"]);
+    if ("response" in auth) return auth.response;
+
     const body = await parseBody<Record<string, unknown>>(request);
     
     if (!body) {

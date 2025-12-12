@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/modules/database/mongoose";
+import { requireSession } from "@/lib/api/require-auth";
 
 export async function GET() {
   try {
+    const isProd = process.env.NODE_ENV === "production";
+    if (isProd) {
+      const auth = await requireSession(["super_admin"]);
+      if ("response" in auth) return auth.response;
+    }
+
     const mongoUrl = process.env.MONGODB_URI;
 
     if (!mongoUrl) {
@@ -21,14 +28,19 @@ export async function GET() {
     const dbState =
       mongoose.connection.readyState === 1 ? "connected" : "disconnected";
 
+    const databaseInfo =
+      isProd
+        ? { status: dbState }
+        : {
+            status: dbState,
+            name: mongoose.connection.name,
+            host: mongoose.connection.host,
+          };
+
     return NextResponse.json({
       status: "ok",
       service: "Smart Gym Management System",
-      database: {
-        status: dbState,
-        name: mongoose.connection.name,
-        host: mongoose.connection.host,
-      },
+      database: databaseInfo,
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
     });

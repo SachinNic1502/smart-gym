@@ -50,7 +50,7 @@ export const branchService = {
     }
 
     const members = await memberRepository.findByBranchAsync(id);
-    const deviceStats = deviceRepository.getStats(id);
+    const deviceStats = await deviceRepository.getStatsAsync(id);
     const activeMembers = members.filter(m => m.status === "Active").length;
     const expiredMembers = members.filter(m => m.status === "Expired").length;
 

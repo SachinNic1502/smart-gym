@@ -3,6 +3,8 @@
  */
 
 import { getStore } from "../store";
+import { connectToDatabase } from "../mongoose";
+import { AttendanceModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
 import type { AttendanceRecord } from "@/lib/types";
 
@@ -94,5 +96,146 @@ export const attendanceRepository = {
     return getStore().attendance
       .filter(a => a.branchId === branchId)
       .slice(0, limit);
+  },
+
+  // ============================================
+  // Mongo-backed async methods (real database)
+  // ============================================
+
+  async findAllAsync(filters?: AttendanceFilters, pagination?: PaginationOptions): Promise<PaginatedResult<AttendanceRecord>> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findAll(filters, pagination);
+    }
+
+    const query: Record<string, unknown> = {};
+    if (filters?.branchId) query.branchId = filters.branchId;
+    if (filters?.memberId) query.memberId = filters.memberId;
+    if (filters?.status) query.status = filters.status;
+    if (filters?.date) {
+      query.checkInTime = { $regex: `^${filters.date}` };
+    }
+
+    const total = await AttendanceModel.countDocuments(query).exec();
+
+    if (pagination) {
+      const { page, pageSize } = pagination;
+      const docs = await AttendanceModel.find(query)
+        .sort({ checkInTime: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .lean<AttendanceRecord[]>();
+
+      return {
+        data: docs,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    }
+
+    const docs = await AttendanceModel.find(query)
+      .sort({ checkInTime: -1 })
+      .lean<AttendanceRecord[]>();
+
+    return {
+      data: docs,
+      total,
+      page: 1,
+      pageSize: docs.length,
+      totalPages: 1,
+    };
+  },
+
+  async findTodayByMemberAsync(memberId: string): Promise<AttendanceRecord | undefined> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findTodayByMember(memberId);
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const doc = await AttendanceModel.findOne({
+      memberId,
+      status: "success",
+      checkInTime: { $regex: `^${today}` },
+      checkOutTime: { $exists: false },
+    }).lean<AttendanceRecord | null>();
+    return doc ?? undefined;
+  },
+
+  async createAsync(data: Omit<AttendanceRecord, "id">): Promise<AttendanceRecord> {
+    const record = this.create(data);
+
+    try {
+      await connectToDatabase();
+      await AttendanceModel.create(record);
+    } catch {
+      // ignore
+    }
+
+    return record;
+  },
+
+  async checkOutAsync(id: string): Promise<AttendanceRecord | undefined> {
+    const updated = this.checkOut(id);
+
+    try {
+      await connectToDatabase();
+      await AttendanceModel.updateOne({ id }, { $set: { checkOutTime: formatDate() } }).exec();
+    } catch {
+      // ignore
+    }
+
+    return updated;
+  },
+
+  async getLiveCountAsync(branchId: string): Promise<number> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.getLiveCount(branchId);
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const count = await AttendanceModel.countDocuments({
+      branchId,
+      status: "success",
+      checkInTime: { $regex: `^${today}` },
+      checkOutTime: { $exists: false },
+    }).exec();
+    return count;
+  },
+
+  async getTodayCountAsync(branchId: string): Promise<number> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.getTodayCount(branchId);
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const count = await AttendanceModel.countDocuments({
+      branchId,
+      status: "success",
+      checkInTime: { $regex: `^${today}` },
+    }).exec();
+    return count;
+  },
+
+  async getRecentByBranchAsync(branchId: string, limit: number = 5): Promise<AttendanceRecord[]> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.getRecentByBranch(branchId, limit);
+    }
+
+    const docs = await AttendanceModel.find({ branchId })
+      .sort({ checkInTime: -1 })
+      .limit(limit)
+      .lean<AttendanceRecord[]>();
+    return docs;
   },
 };

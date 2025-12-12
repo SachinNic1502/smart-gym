@@ -96,6 +96,9 @@ export default function AdminSettingsPage() {
       await settingsApi.update({
         publicApiBaseUrl: settings.publicApiBaseUrl,
         webhookUrl: settings.webhookUrl,
+        apiRateLimitEnabled: settings.apiRateLimitEnabled,
+        apiRateLimitWindowSeconds: settings.apiRateLimitWindowSeconds,
+        apiRateLimitMaxRequests: settings.apiRateLimitMaxRequests,
       });
       toast({ title: "API settings saved", variant: "success" });
     } catch (err) {
@@ -251,6 +254,60 @@ export default function AdminSettingsPage() {
                 <Label>Webhook URL</Label>
                 <Input placeholder="https://your-server.com/webhooks/smartfit" value={settings.webhookUrl ?? ""} onChange={(e) => setSettings({ ...settings, webhookUrl: e.target.value })} />
               </div>
+
+              <div className="mt-6 border-t pt-6 space-y-4">
+                <div>
+                  <p className="text-sm font-semibold">Rate Limiting</p>
+                  <p className="text-xs text-muted-foreground">Protect APIs from abuse by limiting requests per IP.</p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Enable Rate Limiting (0 = disabled)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={settings.apiRateLimitEnabled ? 1 : 0}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        apiRateLimitEnabled: Number(e.target.value) > 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Window (seconds)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={settings.apiRateLimitWindowSeconds ?? 60}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          apiRateLimitWindowSeconds: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Max Requests / Window</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={settings.apiRateLimitMaxRequests ?? 60}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          apiRateLimitMaxRequests: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
               <Button className="mt-4" onClick={handleSaveApi} disabled={saving}>
                 {saving ? "Saving..." : "Save API Settings"}
               </Button>

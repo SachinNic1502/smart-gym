@@ -4,7 +4,7 @@
 
 import { paymentRepository, memberRepository, planRepository } from "@/modules/database";
 import { formatDate, addDays } from "@/modules/database/repositories/base.repository";
-import type { Payment, PaymentMethod } from "@/lib/types";
+import type { Member, Payment, PaymentMethod } from "@/lib/types";
 import type { PaymentFilters, PaginationOptions, PaginatedResult } from "@/modules/database";
 
 export interface CreatePaymentData {
@@ -43,10 +43,10 @@ export const paymentService = {
   /**
    * Get payments with filters and pagination
    */
-  getPayments(filters?: PaymentFilters, pagination?: PaginationOptions): PaymentListResult {
-    const result = paymentRepository.findAll(filters, pagination);
-    
-    const allFiltered = paymentRepository.findAll(filters).data;
+  async getPayments(filters?: PaymentFilters, pagination?: PaginationOptions): Promise<PaymentListResult> {
+    const result = await paymentRepository.findAllAsync(filters, pagination);
+
+    const allFiltered = (await paymentRepository.findAllAsync(filters)).data;
     const totalAmount = allFiltered
       .filter(p => p.status === "completed")
       .reduce((sum, p) => sum + p.amount, 0);
@@ -64,23 +64,30 @@ export const paymentService = {
   /**
    * Create a new payment (membership purchase/renewal)
    */
-  createPayment(data: CreatePaymentData): PaymentResult {
+  async createPayment(data: CreatePaymentData): Promise<PaymentResult> {
     const { memberId, branchId, planId, amount, method, description } = data;
 
     // Validate member
-    const member = memberRepository.findById(memberId);
+    const member = await (async () => {
+      try {
+        return await memberRepository.findByIdAsync(memberId);
+      } catch {
+        return memberRepository.findById(memberId);
+      }
+    })();
     if (!member) {
       return { success: false, error: "Member not found" };
     }
 
     // Validate plan
-    const plan = planRepository.findMembershipPlanById(planId);
+    const plan = await planRepository.findMembershipPlanByIdAsync(planId);
     if (!plan) {
       return { success: false, error: "Plan not found" };
     }
 
     // Create payment
-    const payment = paymentRepository.create({
+    const invoiceNumber = await paymentRepository.generateInvoiceNumberAsync();
+    const payment = await paymentRepository.createAsync({
       memberId,
       memberName: member.name,
       branchId,
@@ -89,7 +96,7 @@ export const paymentService = {
       status: "completed",
       method,
       description: description || `${plan.name} - ${plan.durationDays} days`,
-      invoiceNumber: paymentRepository.generateInvoiceNumber(),
+      invoiceNumber,
     });
 
     // Update member's plan and expiry
@@ -97,11 +104,18 @@ export const paymentService = {
     const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
     const newExpiry = addDays(baseDate, plan.durationDays);
 
-    const updatedMember = memberRepository.update(memberId, {
+    const memberUpdate: Partial<Member> = {
       plan: plan.name,
       status: "Active",
       expiryDate: formatDate(newExpiry),
-    });
+    };
+    const updatedMember = await (async () => {
+      try {
+        return await memberRepository.updateAsync(memberId, memberUpdate);
+      } catch {
+        return memberRepository.update(memberId, memberUpdate);
+      }
+    })();
 
     return {
       success: true,
@@ -121,14 +135,14 @@ export const paymentService = {
   /**
    * Get today's collection for a branch
    */
-  getTodayCollection(branchId: string) {
-    return paymentRepository.getTodayTotal(branchId);
+  async getTodayCollection(branchId: string) {
+    return paymentRepository.getTodayTotalAsync(branchId);
   },
 
   /**
    * Get week's collection for a branch
    */
-  getWeekCollection(branchId: string): number {
-    return paymentRepository.getWeekTotal(branchId);
+  async getWeekCollection(branchId: string): Promise<number> {
+    return paymentRepository.getWeekTotalAsync(branchId);
   },
 };

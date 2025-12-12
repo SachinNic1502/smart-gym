@@ -419,6 +419,10 @@ export interface SystemSettings {
   allowedIpRange?: string;
   publicApiBaseUrl?: string;
   webhookUrl?: string;
+
+  apiRateLimitEnabled?: boolean;
+  apiRateLimitWindowSeconds?: number;
+  apiRateLimitMaxRequests?: number;
 }
 
 // ============================================

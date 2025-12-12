@@ -2,15 +2,22 @@ import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { leadSchema } from "@/lib/validations/auth";
 import { leadService } from "@/modules/services";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 // GET /api/leads - List leads
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
+
+    const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
+    if ("response" in scoped) return scoped.response;
     
     const filters = {
-      branchId: searchParams.get("branchId") || undefined,
+      branchId: scoped.branchId,
       status: searchParams.get("status") || undefined,
       search: searchParams.get("search") || undefined,
     };
@@ -27,6 +34,9 @@ export async function GET(request: NextRequest) {
 // POST /api/leads - Create a new lead
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const body = await parseBody<Record<string, unknown>>(request);
     
     if (!body) {
@@ -39,13 +49,21 @@ export async function POST(request: NextRequest) {
       return errorResponse(issues[0]?.message || "Validation failed", 422);
     }
 
+    const requestedBranchId = typeof body.branchId === "string" ? body.branchId : undefined;
+    const scoped = resolveBranchScope(auth.session, requestedBranchId);
+    if ("response" in scoped) return scoped.response;
+
+    if (!scoped.branchId) {
+      return errorResponse("branchId is required", 422);
+    }
+
     const result = leadService.createLead({
       name: validation.data.name,
       phone: validation.data.phone,
       email: validation.data.email,
       source: validation.data.source,
       notes: validation.data.notes,
-      branchId: (body.branchId as string) || "BRN_001",
+      branchId: scoped.branchId,
     });
 
     if (!result.success) {

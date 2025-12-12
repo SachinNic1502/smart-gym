@@ -185,6 +185,9 @@ const seedSettings: SystemSettings = {
   allowedIpRange: "",
   publicApiBaseUrl: "https://api.smartfit.saashost.com",
   webhookUrl: "",
+  apiRateLimitEnabled: false,
+  apiRateLimitWindowSeconds: 60,
+  apiRateLimitMaxRequests: 60,
 };
 
 const seedPlans: MembershipPlan[] = [

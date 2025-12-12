@@ -54,7 +54,7 @@ async function request<T>(
 // Auth API
 // ============================================
 
-import type { User, Member, Branch, Device, Payment, MembershipPlan, AuditLog, SystemSettings } from "@/lib/types";
+import type { User, Member, Branch, Device, Payment, MembershipPlan, AuditLog, SystemSettings, BroadcastMessage, MessageChannel } from "@/lib/types";
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -207,6 +207,35 @@ export const paymentsApi = {
 };
 
 // ============================================
+// Communications API
+// ============================================
+
+export const communicationsApi = {
+  list: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : "";
+    return request<{
+      data: BroadcastMessage[];
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/communications${query}`);
+  },
+
+  create: (data: {
+    title: string;
+    content: string;
+    channel: MessageChannel;
+    status?: "sent" | "scheduled" | "draft";
+    recipientCount?: number;
+  }) =>
+    request<BroadcastMessage>("/communications", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// ============================================
 // Leads API
 // ============================================
 
@@ -278,6 +307,44 @@ export const plansApi = {
 
   getDietPlans: () =>
     request<{ data: unknown[]; total: number }>("/plans?type=diet"),
+};
+
+// ============================================
+// Admin Plans API (Super Admin only)
+// ============================================
+
+export const adminPlansApi = {
+  list: (params?: { activeOnly?: boolean }) => {
+    const query = params ? `?${new URLSearchParams({
+      activeOnly: String(Boolean(params.activeOnly)),
+    })}` : "";
+    return request<{ data: MembershipPlan[]; total: number }>(`/admin/plans${query}`);
+  },
+
+  create: (data: {
+    name: string;
+    description: string;
+    durationDays: number;
+    price: number;
+    currency?: string;
+    features?: string[];
+    isActive?: boolean;
+  }) =>
+    request<MembershipPlan>("/admin/plans", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<Omit<MembershipPlan, "id">>) =>
+    request<MembershipPlan>(`/admin/plans/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    request<{ id: string }>(`/admin/plans/${id}`, {
+      method: "DELETE",
+    }),
 };
 
 // ============================================

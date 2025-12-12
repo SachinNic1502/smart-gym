@@ -16,16 +16,14 @@ export async function getRequestUser(): Promise<RequestUser> {
     return { userId: null, userName: null, role: null };
   }
 
-  const session = authService.validateSession(token);
+  const session = await authService.validateSession(token);
   if (!session) {
     return { userId: null, userName: null, role: null };
   }
 
-  const user = authService.getUserById(session.userId);
-
   return {
-    userId: session.userId,
-    userName: user?.name ?? null,
+    userId: session.sub,
+    userName: session.name ?? null,
     role: session.role ?? null,
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Users, MapPin, Activity, DollarSign, Fingerprint } from "lucide-react";
 import { useBranch } from "@/hooks/use-branches";
 import { useDevices } from "@/hooks/use-devices";
+import { attendanceApi, membersApi, paymentsApi } from "@/lib/api/client";
+import type { Member } from "@/lib/types";
 
 export default function BranchDetailPage() {
   const params = useParams();
@@ -18,6 +21,47 @@ export default function BranchDetailPage() {
     loading: devicesLoading,
     error: devicesError,
   } = useDevices(branchId ? { branchId } : undefined);
+
+  const [checkInsToday, setCheckInsToday] = useState<number>(0);
+  const [revenueYtd, setRevenueYtd] = useState<number>(0);
+  const [keyMembers, setKeyMembers] = useState<Member[]>([]);
+
+  const todayDateParam = useMemo(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  const ytdStartParam = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-01-01`;
+  }, []);
+
+  useEffect(() => {
+    const loadBranchMetrics = async () => {
+      if (!branchId) return;
+      try {
+        const [attendanceRes, paymentsRes, membersRes] = await Promise.all([
+          attendanceApi.list({ branchId, date: todayDateParam, page: "1", pageSize: "1" }),
+          paymentsApi.list({ branchId, status: "completed", startDate: ytdStartParam, page: "1", pageSize: "1000" }),
+          membersApi.list({ branchId, status: "Active", page: "1", pageSize: "3" }),
+        ]);
+
+        setCheckInsToday(attendanceRes.total || 0);
+        const total = (paymentsRes.data || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+        setRevenueYtd(total);
+        setKeyMembers(membersRes.data || []);
+      } catch {
+        setCheckInsToday(0);
+        setRevenueYtd(0);
+        setKeyMembers([]);
+      }
+    };
+
+    loadBranchMetrics();
+  }, [branchId, todayDateParam, ytdStartParam]);
 
   if (loading) {
     return (
@@ -112,10 +156,9 @@ export default function BranchDetailPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {/* TODO: Replace with real revenue when payments are wired */}
-              0
+              ₹{revenueYtd.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">Revenue (placeholder)</p>
+            <p className="text-xs text-muted-foreground">Completed payments since {ytdStartParam}</p>
           </CardContent>
         </Card>
         <Card>
@@ -127,7 +170,7 @@ export default function BranchDetailPage() {
             <div className="flex justify-between text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Check-ins</p>
-                <p className="text-xl font-semibold">0</p>
+                <p className="text-xl font-semibold">{checkInsToday}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground text-right">Devices Online</p>
@@ -141,20 +184,24 @@ export default function BranchDetailPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Key Members (sample)</CardTitle>
-            <CardDescription>Recently active or high-value members at this branch.</CardDescription>
+            <CardTitle>Key Members</CardTitle>
+            <CardDescription>Recently active members in this branch.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {["Alex Johnson", "Maria Garcia", "Steve Smith"].map((name) => (
-                <div key={name} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">{name}</p>
-                    <p className="text-xs text-muted-foreground">Gold Plan • Attended 4x this week</p>
+              {keyMembers.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No active members found.</p>
+              ) : (
+                keyMembers.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{m.name}</p>
+                      <p className="text-xs text-muted-foreground">{m.plan}</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">{m.status}</Badge>
                   </div>
-                  <Badge variant="outline" className="text-xs">Active</Badge>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

@@ -1,29 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { verifySessionJwt, type JwtSessionPayload } from "@/lib/auth/jwt";
 
-interface SessionPayload {
-  userId: string;
-  role: "super_admin" | "branch_admin" | "member";
-  exp: number;
-}
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (secret && secret.length >= 16) return secret;
 
-function parseSessionToken(token: string | undefined): SessionPayload | null {
-  if (!token) return null;
-  try {
-    // Token is created as Buffer.from(JSON.stringify(payload)).toString("base64")
-    const json = typeof atob === "function" ? atob(token) : Buffer.from(token, "base64").toString();
-    const session = JSON.parse(json) as SessionPayload;
-    if (!session.exp || session.exp < Date.now()) return null;
-    if (!session.userId || !session.role) return null;
-    return session;
-  } catch {
-    return null;
+  if (process.env.NODE_ENV !== "production") {
+    return "dev_session_secret_change_me";
   }
+
+  throw new Error("SESSION_SECRET is not defined (or too short). Please set it in your environment.");
 }
 
-export function middleware(request: NextRequest) {
+async function getSessionFromCookie(token: string | undefined): Promise<JwtSessionPayload | null> {
+  if (!token) return null;
+  const secret = getSessionSecret();
+  return verifySessionJwt(token, secret);
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get("session")?.value;
-  const session = parseSessionToken(sessionCookie);
+  const session = await getSessionFromCookie(sessionCookie);
 
   const isLoginPage = pathname === "/login";
   const isAdminRoute = pathname.startsWith("/admin");

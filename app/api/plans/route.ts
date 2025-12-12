@@ -1,10 +1,15 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/utils";
 import { planRepository } from "@/modules/database";
+import { requireSession } from "@/lib/api/require-auth";
+import { connectToDatabase } from "@/modules/database/mongoose";
 
 // GET /api/plans - List all plans (membership, workout, diet)
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession(["super_admin", "branch_admin", "member"]);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type"); // membership, workout, diet
 
@@ -25,7 +30,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: membership plans
-    const plans = planRepository.findAllMembershipPlans(true);
+    try {
+      await connectToDatabase();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Database connection failed";
+      return errorResponse(message, 500);
+    }
+
+    const plans = await planRepository.findAllMembershipPlansAsync(true);
     
     return successResponse({
       data: plans,

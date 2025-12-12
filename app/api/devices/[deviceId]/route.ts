@@ -3,6 +3,8 @@ import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { deviceService, auditService } from "@/modules/services";
 import { deviceSchema } from "@/lib/validations/auth";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
+import { forbiddenResponse } from "@/lib/api/utils";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 interface RouteParams {
   params: Promise<{ deviceId: string }>;
@@ -12,10 +14,20 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { deviceId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
     const result = await deviceService.getDevice(deviceId);
 
     if (!result.success || !result.data) {
       return errorResponse(result.error || "Device not found", 404);
+    }
+
+    if (auth.session.role === "branch_admin" && auth.session.branchId) {
+      if (result.data.branchId !== auth.session.branchId) {
+        return forbiddenResponse("Forbidden");
+      }
     }
 
     return successResponse(result.data);
@@ -29,6 +41,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { deviceId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const existing = await deviceService.getDevice(deviceId);
+    if (!existing.success || !existing.data) {
+      return errorResponse(existing.error || "Device not found", 404);
+    }
+
+    if (auth.session.role === "branch_admin" && auth.session.branchId) {
+      if (existing.data.branchId !== auth.session.branchId) {
+        return forbiddenResponse("Forbidden");
+      }
+    }
     const body = await parseBody<Record<string, unknown>>(request);
 
     if (!body) {
@@ -41,7 +67,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return errorResponse(issues[0]?.message || "Validation failed", 422);
     }
 
-    const result = await deviceService.updateDevice(deviceId, validation.data);
+    const requestedBranchId = validation.data.branchId ?? existing.data.branchId;
+    const scoped = resolveBranchScope(auth.session, requestedBranchId);
+    if ("response" in scoped) return scoped.response;
+
+    const result = await deviceService.updateDevice(deviceId, {
+      ...validation.data,
+      branchId: scoped.branchId ?? validation.data.branchId,
+    });
 
     if (!result.success || !result.data) {
       const status =
@@ -77,6 +110,21 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { deviceId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const existing = await deviceService.getDevice(deviceId);
+    if (!existing.success || !existing.data) {
+      return errorResponse(existing.error || "Device not found", 404);
+    }
+
+    if (auth.session.role === "branch_admin" && auth.session.branchId) {
+      if (existing.data.branchId !== auth.session.branchId) {
+        return forbiddenResponse("Forbidden");
+      }
+    }
+
     const result = await deviceService.deleteDevice(deviceId);
 
     if (!result.success || !result.data) {

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, getPaginationParams } from "@/lib/api/utils";
 import { branchService } from "@/modules/services";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 
 interface RouteParams {
   params: Promise<{ branchId: string }>;
@@ -10,6 +11,13 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { branchId } = await params;
+
+    const auth = await requireSession(["super_admin", "branch_admin"]);
+    if ("response" in auth) return auth.response;
+
+    const scoped = resolveBranchScope(auth.session, branchId);
+    if ("response" in scoped) return scoped.response;
+
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
 
