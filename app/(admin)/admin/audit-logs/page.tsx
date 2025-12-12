@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auditLogsApi, ApiError } from "@/lib/api/client";
@@ -103,110 +102,103 @@ export default function AuditLogsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-1 flex-wrap items-center gap-2">
-              <div className="w-full md:w-64">
+          <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="sm:col-span-2 lg:col-span-2">
                 <Input
                   placeholder="Search by actor, action, resource, or ID..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Resource</span>
-                <Select
-                  key={resourceFilter || "all"}
-                  defaultValue={resourceFilter}
-                  onValueChange={(value) => setResourceFilter(value)}
+              <div className="space-y-1">
+                <span className="block text-xs text-muted-foreground">Resource</span>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+                  value={resourceFilter}
+                  onChange={(e) => setResourceFilter(e.target.value)}
                 >
-                  <SelectTrigger className="h-8 w-32">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All</SelectItem>
-                    {resourceOptions.map((resource) => (
-                      <SelectItem key={resource} value={resource}>
-                        {resource}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">All</option>
+                  {resourceOptions.map((resource) => (
+                    <option key={resource} value={resource}>
+                      {resource}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Action</span>
-                <Select
-                  key={actionFilter || "all"}
-                  defaultValue={actionFilter}
-                  onValueChange={(value) => setActionFilter(value)}
+              <div className="space-y-1">
+                <span className="block text-xs text-muted-foreground">Action</span>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
+                  value={actionFilter}
+                  onChange={(e) => setActionFilter(e.target.value)}
                 >
-                  <SelectTrigger className="h-8 w-36">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All</SelectItem>
-                    {actionOptions.map((action) => (
-                      <SelectItem key={action} value={action}>
-                        {action}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">All</option>
+                  {actionOptions.map((action) => (
+                    <option key={action} value={action}>
+                      {action}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">From</span>
+              <div className="space-y-1">
+                <span className="block text-xs text-muted-foreground">From</span>
                 <Input
                   type="date"
-                  className="h-8 w-36"
+                  className="h-9"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">To</span>
+              <div className="space-y-1">
+                <span className="block text-xs text-muted-foreground">To</span>
                 <Input
                   type="date"
-                  className="h-8 w-36"
+                  className="h-9"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               {total !== null && (
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground sm:order-1">
                   Showing {filteredLogs.length} of {total} entries
                 </span>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={handleClearFilters}
-                disabled={loading}
-              >
-                Clear
-              </Button>
-              <Button
-                size="sm"
-                type="button"
-                onClick={() => void loadLogs()}
-                disabled={loading}
-              >
-                Apply
-              </Button>
+              <div className="flex items-center gap-2 sm:order-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={handleClearFilters}
+                  disabled={loading}
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  type="button"
+                  onClick={() => void loadLogs()}
+                  disabled={loading}
+                >
+                  Apply
+                </Button>
+              </div>
             </div>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Type</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <div className="overflow-x-auto">
+            <Table className="min-w-[720px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Actor</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Target</TableHead>
+                  <TableHead>Type</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
               {error ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-6 text-center text-xs text-red-500">
@@ -278,8 +270,9 @@ export default function AuditLogsPage() {
                   );
                 })
               )}
-            </TableBody>
-          </Table>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

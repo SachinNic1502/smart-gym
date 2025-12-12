@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RefreshCcw, Power, Wifi, Fingerprint, Plus, Pencil, Trash2 } from "lucide-react";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -237,22 +236,16 @@ export default function DevicesPage() {
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Type</Label>
                                 <div className="col-span-3">
-                                    <Select
-                                        defaultValue={formData.type}
-                                        onValueChange={(value) =>
-                                            setFormData({ ...formData, type: value as DeviceType })
-                                        }
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value as DeviceType })}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="fingerprint">Fingerprint</SelectItem>
-                                            <SelectItem value="qr_scanner">QR Scanner</SelectItem>
-                                            <SelectItem value="face_recognition">Face Recognition</SelectItem>
-                                            <SelectItem value="turnstile">Turnstile</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        <option value="fingerprint">Fingerprint</option>
+                                        <option value="qr_scanner">QR Scanner</option>
+                                        <option value="face_recognition">Face Recognition</option>
+                                        <option value="turnstile">Turnstile</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -299,48 +292,32 @@ export default function DevicesPage() {
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Status</Label>
                                 <div className="col-span-3">
-                                    <Select
-                                        defaultValue={formData.status}
-                                        onValueChange={(value) =>
-                                            setFormData({ ...formData, status: value as DeviceStatus })
-                                        }
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({ ...formData, status: e.target.value as DeviceStatus })}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="online">Online</SelectItem>
-                                            <SelectItem value="offline">Offline</SelectItem>
-                                            <SelectItem value="maintenance">Maintenance</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        <option value="online">Online</option>
+                                        <option value="offline">Offline</option>
+                                        <option value="maintenance">Maintenance</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Connection</Label>
                                 <div className="col-span-3">
-                                    <Select
-                                        defaultValue={formData.connectionType || "lan"}
-                                        onValueChange={(value) => {
-                                            setFormData({
-                                                ...formData,
-                                                connectionType: value as DeviceConnectionType,
-                                            });
-                                            setFormErrors((prev) => ({
-                                                ...prev,
-                                                ipAddress: undefined,
-                                                cloudUrl: undefined,
-                                            }));
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={formData.connectionType || "lan"}
+                                        onChange={(e) => {
+                                            const value = e.target.value as DeviceConnectionType;
+                                            setFormData({ ...formData, connectionType: value });
+                                            setFormErrors((prev) => ({ ...prev, ipAddress: undefined, cloudUrl: undefined }));
                                         }}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select connection" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="lan">LAN (Local Network)</SelectItem>
-                                            <SelectItem value="cloud">Cloud</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        <option value="lan">LAN (Local Network)</option>
+                                        <option value="cloud">Cloud</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -355,24 +332,23 @@ export default function DevicesPage() {
                                             }
                                         </div>
                                     ) : (
-                                        <Select
-                                            defaultValue={formData.branchId}
-                                            onValueChange={(value) => {
-                                                setFormData({ ...formData, branchId: value });
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            value={formData.branchId}
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, branchId: e.target.value });
                                                 setFormErrors((prev) => ({ ...prev, branchId: undefined }));
                                             }}
                                         >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select branch" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {branches.map((branch) => (
-                                                    <SelectItem key={branch.id} value={branch.id}>
-                                                        {branch.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            <option value="" disabled>
+                                                Select branch
+                                            </option>
+                                            {branches.map((branch) => (
+                                                <option key={branch.id} value={branch.id}>
+                                                    {branch.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     )}
                                     {formErrors.branchId && !isBranchAdmin && (
                                         <p className="mt-1 text-xs text-red-500">{formErrors.branchId}</p>
@@ -475,25 +451,18 @@ export default function DevicesPage() {
                                 <div className="flex items-center gap-2">
                                     <span>Branch</span>
                                     <div className="w-40 md:w-48">
-                                        <Select
-                                            key={filters.branchId || "all"}
-                                            defaultValue={filters.branchId || ""}
-                                            onValueChange={(value) => {
-                                                updateFilters({ branchId: value || undefined });
-                                            }}
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            value={filters.branchId || ""}
+                                            onChange={(e) => updateFilters({ branchId: e.target.value || undefined })}
                                         >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="All branches" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="">All branches</SelectItem>
-                                                {branches.map((branch) => (
-                                                    <SelectItem key={branch.id} value={branch.id}>
-                                                        {branch.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            <option value="">All branches</option>
+                                            {branches.map((branch) => (
+                                                <option key={branch.id} value={branch.id}>
+                                                    {branch.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             )}
@@ -501,47 +470,33 @@ export default function DevicesPage() {
                             <div className="flex items-center gap-2">
                                 <span>Status</span>
                                 <div className="w-28">
-                                    <Select
-                                        key={filters.status || "all"}
-                                        defaultValue={filters.status || ""}
-                                        onValueChange={(value) => {
-                                            updateFilters({ status: value || undefined });
-                                        }}
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={filters.status || ""}
+                                        onChange={(e) => updateFilters({ status: e.target.value || undefined })}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="">All</SelectItem>
-                                            <SelectItem value="online">Online</SelectItem>
-                                            <SelectItem value="offline">Offline</SelectItem>
-                                            <SelectItem value="maintenance">Maintenance</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        <option value="">All</option>
+                                        <option value="online">Online</option>
+                                        <option value="offline">Offline</option>
+                                        <option value="maintenance">Maintenance</option>
+                                    </select>
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-2">
                                 <span>Type</span>
                                 <div className="w-32">
-                                    <Select
-                                        key={filters.type || "all"}
-                                        defaultValue={filters.type || ""}
-                                        onValueChange={(value) => {
-                                            updateFilters({ type: value || undefined });
-                                        }}
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        value={filters.type || ""}
+                                        onChange={(e) => updateFilters({ type: e.target.value || undefined })}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All types" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="">All types</SelectItem>
-                                            <SelectItem value="fingerprint">Fingerprint</SelectItem>
-                                            <SelectItem value="qr_scanner">QR Scanner</SelectItem>
-                                            <SelectItem value="face_recognition">Face</SelectItem>
-                                            <SelectItem value="turnstile">Turnstile</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        <option value="">All types</option>
+                                        <option value="fingerprint">Fingerprint</option>
+                                        <option value="qr_scanner">QR Scanner</option>
+                                        <option value="face_recognition">Face</option>
+                                        <option value="turnstile">Turnstile</option>
+                                    </select>
                                 </div>
                             </div>
 
