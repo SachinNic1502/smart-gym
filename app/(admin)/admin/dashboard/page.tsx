@@ -95,15 +95,15 @@ export default function SuperAdminDashboard() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Overview</h2>
                     <p className="text-muted-foreground mt-1">
                         Welcome back, Super Admin. Here's what's happening today.
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button size="sm">Download Report</Button>
+                <div className="flex w-full gap-2 sm:w-auto sm:justify-end">
+                    <Button size="sm" className="w-full sm:w-auto">Download Report</Button>
                 </div>
             </div>
 
@@ -114,14 +114,21 @@ export default function SuperAdminDashboard() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {loading && !stats.length ? (
                     Array.from({ length: 4 }).map((_, index) => (
-                        <Card key={index} className="border border-gray-100 bg-white shadow-sm animate-pulse">
+                        <Card
+                            key={index}
+                            className="relative overflow-hidden border border-slate-200/70 bg-white/70 shadow-sm ring-1 ring-black/5 backdrop-blur supports-[backdrop-filter]:bg-white/60 animate-pulse"
+                        >
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
+                            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-indigo-500/25 via-fuchsia-500/20 to-transparent blur-2xl" />
+                            <div className="pointer-events-none absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-gradient-to-br from-emerald-400/25 via-teal-400/15 to-transparent blur-2xl" />
+                            <div className="pointer-events-none absolute right-8 bottom-6 h-10 w-10 rounded-full bg-gradient-to-br from-amber-400/25 via-orange-400/15 to-transparent blur-xl" />
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <div className="h-3 w-24 rounded bg-muted" />
-                                <div className="h-8 w-8 rounded-xl bg-muted" />
+                                <div className="h-3 w-24 rounded bg-slate-200/70" />
+                                <div className="h-8 w-8 rounded-xl bg-slate-200/70" />
                             </CardHeader>
                             <CardContent>
-                                <div className="h-7 w-16 rounded bg-muted mb-2" />
-                                <div className="h-3 w-20 rounded bg-muted" />
+                                <div className="h-7 w-16 rounded bg-slate-200/70 mb-2" />
+                                <div className="h-3 w-20 rounded bg-slate-200/70" />
                             </CardContent>
                         </Card>
                     ))
@@ -131,12 +138,19 @@ export default function SuperAdminDashboard() {
                     </p>
                 ) : (
                     stats.map((stat) => (
-                        <Card key={stat.title} className="hover:shadow-lg transition-all duration-200 border border-gray-100 bg-white">
+                        <Card
+                            key={stat.title}
+                            className="relative overflow-hidden border border-slate-200/70 bg-white shadow-sm ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-transparent" />
+                            <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-gradient-to-br from-indigo-500/25 via-fuchsia-500/20 to-transparent blur-2xl" />
+                            <div className="pointer-events-none absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-gradient-to-br from-emerald-400/25 via-teal-400/15 to-transparent blur-2xl" />
+                            <div className="pointer-events-none absolute right-8 bottom-6 h-10 w-10 rounded-full bg-gradient-to-br from-amber-400/25 via-orange-400/15 to-transparent blur-xl" />
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium text-muted-foreground">
                                     {stat.title}
                                 </CardTitle>
-                                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                <div className="p-2 rounded-xl bg-primary/10 text-primary ring-1 ring-primary/10">
                                     <stat.icon className="h-4 w-4" />
                                 </div>
                             </CardHeader>
@@ -152,7 +166,7 @@ export default function SuperAdminDashboard() {
                 )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Link href="/admin/branches" className="block">
                     <Card className="hover:bg-gray-50 transition-colors cursor-pointer border-dashed">
                         <CardContent className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground hover:text-primary">
@@ -188,11 +202,11 @@ export default function SuperAdminDashboard() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4 shadow-sm">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-4 shadow-sm">
                     <CardHeader>
                         <CardTitle>Revenue Overview</CardTitle>
                     </CardHeader>
-                    <CardContent className="pl-2">
+                    <CardContent className="pl-0 sm:pl-2">
                         {!mounted ? (
                             <div className="flex h-[300px] items-center justify-center text-xs text-muted-foreground">
                                 Loading revenue chart...
@@ -232,29 +246,33 @@ export default function SuperAdminDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card className="col-span-3 shadow-sm">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 shadow-sm">
                     <CardHeader>
                         <CardTitle>Recent Activity</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-8">
-                            {recentActivity.map((item, i) => (
-                                <div key={`${item.name}-${item.time}-${i}`} className="flex items-center">
-                                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                                        {item.name.substring(0, 2).toUpperCase()}
+                            {recentActivity.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">No recent activity yet.</p>
+                            ) : (
+                                recentActivity.map((item, i) => (
+                                    <div key={`${item.name}-${item.time}-${i}`} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                                {item.name.substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium leading-none">{item.name}</p>
+                                                <p className="text-xs text-muted-foreground">{item.action}</p>
+                                            </div>
+                                        </div>
+                                        <div className="sm:ml-auto font-medium text-sm text-left sm:text-right">
+                                            <div>{item.amount}</div>
+                                            <div className="text-xs text-muted-foreground font-normal">{item.time}</div>
+                                        </div>
                                     </div>
-                                    <div className="ml-4 space-y-1">
-                                        <p className="text-sm font-medium leading-none">{item.name}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {item.action}
-                                        </p>
-                                    </div>
-                                    <div className="ml-auto font-medium text-sm text-right">
-                                        <div>{item.amount}</div>
-                                        <div className="text-xs text-muted-foreground font-normal">{item.time}</div>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>

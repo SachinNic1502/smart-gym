@@ -446,11 +446,11 @@ export default function DevicesPage() {
                 <CardHeader>
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <CardTitle>All Devices{stats ? ` (${stats.total})` : ""}</CardTitle>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 text-xs text-muted-foreground">
                             {!isBranchAdmin && (
                                 <div className="flex items-center gap-2">
                                     <span>Branch</span>
-                                    <div className="w-40 md:w-48">
+                                    <div className="w-full sm:w-40 md:w-48">
                                         <select
                                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                             value={filters.branchId || ""}
@@ -469,7 +469,7 @@ export default function DevicesPage() {
 
                             <div className="flex items-center gap-2">
                                 <span>Status</span>
-                                <div className="w-28">
+                                <div className="w-full sm:w-28">
                                     <select
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                         value={filters.status || ""}
@@ -485,7 +485,7 @@ export default function DevicesPage() {
 
                             <div className="flex items-center gap-2">
                                 <span>Type</span>
-                                <div className="w-32">
+                                <div className="w-full sm:w-32">
                                     <select
                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                         value={filters.type || ""}
@@ -528,7 +528,8 @@ export default function DevicesPage() {
                     {error && (
                         <p className="mb-2 text-xs text-red-500">{error}</p>
                     )}
-                    <Table>
+                    <div className="overflow-x-auto">
+                    <Table className="min-w-[860px]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Status</TableHead>
@@ -617,6 +618,7 @@ export default function DevicesPage() {
                             )}
                         </TableBody>
                     </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

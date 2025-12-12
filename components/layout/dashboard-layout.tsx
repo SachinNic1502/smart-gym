@@ -22,7 +22,7 @@ export function DashboardLayout({ children, role, className }: DashboardLayoutPr
           <DialogHeader className="sr-only">
             <DialogTitle>Navigation menu</DialogTitle>
           </DialogHeader>
-          <Sidebar role={role} className="w-[18rem]" />
+          <Sidebar role={role} className="w-[18rem]" onNavigate={() => setMobileSidebarOpen(false)} />
         </DialogContent>
       </Dialog>
 

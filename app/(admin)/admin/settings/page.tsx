@@ -139,7 +139,7 @@ export default function AdminSettingsPage() {
       </div>
 
       <Tabs defaultValue="general">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-[400px]">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -183,7 +183,7 @@ export default function AdminSettingsPage() {
                 <div className="h-12 w-12 rounded-lg bg-primary flex items-center justify-center text-white font-bold">SF</div>
                 <Button variant="outline">Upload Logo</Button>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
                   <Label>Primary Color</Label>
                   <div className="flex gap-2">

@@ -622,12 +622,12 @@ export default function SaaSPlansPage() {
             </Dialog>
 
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <CardTitle>Invoices</CardTitle>
                         <CardDescription>Latest billing history from your branches.</CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
                         <Select
                             key={statusFilter}
                             defaultValue={statusFilter}

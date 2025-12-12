@@ -72,7 +72,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     }, []);
 
     return (
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-white px-4 md:px-6 shadow-sm">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b bg-white px-4 py-3 md:h-16 md:px-6 md:py-0 shadow-sm">
             <div className="flex items-center gap-2">
                 {onMenuClick && (
                     <Button
@@ -91,7 +91,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
 
             {/* SEARCH */}
-            <div className="relative w-full max-w-sm mx-auto flex-1">
+            <div className="relative order-3 w-full md:order-none md:w-auto md:max-w-sm md:mx-auto md:flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                     type="search"
@@ -102,7 +102,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 />
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
                 {/* Notifications */}
                 <div className="relative" ref={notificationRef}>
                     <Button

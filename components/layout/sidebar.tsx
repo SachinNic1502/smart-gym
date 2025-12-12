@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ interface SidebarItem {
 interface SidebarProps {
     role: "super_admin" | "branch_admin";
     className?: string;
+    onNavigate?: () => void;
 }
 
 const SUPER_ADMIN_ITEMS: SidebarItem[] = [
@@ -43,8 +45,7 @@ const SUPER_ADMIN_ITEMS: SidebarItem[] = [
     { icon: Fingerprint, label: "Devices", href: "/admin/devices" },
     { icon: DollarSign, label: "Billing", href: "/admin/billing" },
     { icon: UserCog, label: "User Management", href: "/admin/team" },
-    // { icon: MessageSquare, label: "Communications", href: "/admin/communications" },
-    { icon: MessageSquare, label: "Communications", href: "" },
+    { icon: MessageSquare, label: "Communications", href: "/admin/communications" },
     { icon: BarChart3, label: "Reports", href: "/admin/reports" },
     { icon: ShieldCheck, label: "Audit Logs", href: "/admin/audit-logs" },
     { icon: Settings, label: "Settings", href: "/admin/settings" },
@@ -67,7 +68,7 @@ const BRANCH_ADMIN_ITEMS: SidebarItem[] = [
     { icon: Settings, label: "Settings", href: "/branch/settings" },
 ];
 
-export function Sidebar({ role, className }: SidebarProps) {
+export function Sidebar({ role, className, onNavigate }: SidebarProps) {
     const { logout } = useAuth();
     const pathname = usePathname();
     const items = role === "super_admin" ? SUPER_ADMIN_ITEMS : BRANCH_ADMIN_ITEMS;
@@ -85,7 +86,7 @@ export function Sidebar({ role, className }: SidebarProps) {
                 {items.map((item) => {
                     const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                     return (
-                        <Link key={item.href} href={item.href}>
+                        <Link key={item.href} href={item.href} onClick={() => onNavigate?.()}>
                             <div className="relative group">
                                 {isActive && (
                                     <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-primary rounded-r-full transition-all duration-200" />
@@ -115,7 +116,10 @@ export function Sidebar({ role, className }: SidebarProps) {
 
             <div className="pt-4 border-t border-gray-100">
                 <Button variant="ghost" className="w-full justify-start gap-3 text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={logout}
+                    onClick={() => {
+                        onNavigate?.();
+                        logout();
+                    }}
                 >
                     <LogOut className="h-5 w-5" />
                     Logout

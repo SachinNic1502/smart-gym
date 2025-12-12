@@ -35,6 +35,7 @@ const MEMBER_COMPOSITION_COLORS = ["#22c55e", "#ef4444", "#f97316", "#6366f1"];
 export default function ReportsPage() {
     const router = useRouter();
     const toast = useToast();
+    const [mounted, setMounted] = useState(false);
     const [superStats, setSuperStats] = useState<DashboardStatItem[] | null>(null);
     const [statsError, setStatsError] = useState<string | null>(null);
     const [revenueData, setRevenueData] = useState<{ name: string; revenue: number }[]>([]);
@@ -43,6 +44,7 @@ export default function ReportsPage() {
     const [topBranches, setTopBranches] = useState<{ name: string; revenue: number; members: number }[]>([]);
 
     useEffect(() => {
+        setMounted(true);
         const fetchStats = async () => {
             try {
                 const data = await dashboardApi.getStats("super_admin");
@@ -232,7 +234,9 @@ export default function ReportsPage() {
                         <CardDescription>Net growth across the last 5 months.</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[280px]">
-                        {newVsChurned.length === 0 ? (
+                        {!mounted ? (
+                            <p className="text-xs text-muted-foreground">Loading chart...</p>
+                        ) : newVsChurned.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
                                 No membership trend data available yet.
                             </p>
@@ -293,7 +297,9 @@ export default function ReportsPage() {
                         <CardDescription>Monthly revenue across all branches</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[300px]">
-                        {revenueData.length === 0 ? (
+                        {!mounted ? (
+                            <p className="text-xs text-muted-foreground">Loading chart...</p>
+                        ) : revenueData.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
                                 No revenue data available yet.
                             </p>
@@ -318,7 +324,9 @@ export default function ReportsPage() {
                         <CardDescription>Distribution of active vs churned members</CardDescription>
                     </CardHeader>
                     <CardContent className="h-[300px]">
-                        {memberComposition.length === 0 ? (
+                        {!mounted ? (
+                            <p className="text-xs text-muted-foreground">Loading chart...</p>
+                        ) : memberComposition.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
                                 No member composition data available yet.
                             </p>

@@ -135,7 +135,7 @@ export default function BranchesPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Branches</h2>
                     <p className="text-muted-foreground mt-1">
@@ -249,9 +249,9 @@ export default function BranchesPage() {
 
             <Card className="shadow-sm border-t-4 border-t-primary/20">
                 <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle>All Branches</CardTitle>
-                        <div className="relative w-72">
+                        <div className="relative w-full sm:w-72">
                             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                             <Input
                                 placeholder="Search branches..."
@@ -263,7 +263,8 @@ export default function BranchesPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Table>
+                    <div className="overflow-x-auto">
+                        <Table className="min-w-[820px]">
                         <TableHeader>
                             <TableRow className="hover:bg-transparent">
                                 <TableHead className="font-semibold text-gray-600">Branch Name</TableHead>
@@ -323,7 +324,8 @@ export default function BranchesPage() {
                                     </TableRow>
                                 ))}
                         </TableBody>
-                    </Table>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>
