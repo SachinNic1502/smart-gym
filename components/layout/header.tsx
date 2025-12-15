@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { useAuth } from "@/hooks/use-auth";
+import { NotificationCenter } from "@/components/ui/notification-center";
 
 interface HeaderProps {
     onMenuClick?: () => void;
@@ -23,10 +24,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         : "Dashboard";
 
     const [searchValue, setSearchValue] = useState("");
-    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-    const notificationRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
 
     const displayName = user?.name || "Admin";
@@ -54,12 +53,6 @@ export function Header({ onMenuClick }: HeaderProps) {
     // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (
-                notificationRef.current &&
-                !notificationRef.current.contains(event.target as Node)
-            ) {
-                setIsNotificationsOpen(false);
-            }
             if (
                 profileRef.current &&
                 !profileRef.current.contains(event.target as Node)
@@ -104,43 +97,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
             <div className="flex items-center gap-2 sm:gap-4">
                 {/* Notifications */}
-                <div className="relative" ref={notificationRef}>
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setIsNotificationsOpen((v) => !v)}
-                        className="hover:bg-gray-100 transition-colors"
-                    >
-                        <Bell className="h-5 w-5 text-gray-700" />
-                    </Button>
-
-                    {isNotificationsOpen && (
-                        <div
-                            className={clsx(
-                                "absolute right-0 mt-3 w-80 rounded-xl border bg-white shadow-xl transition-all",
-                                "animate-in fade-in zoom-in-95 duration-150"
-                            )}
-                        >
-                            <div className="px-4 py-3 border-b">
-                                <h2 className="text-sm font-semibold">Notifications</h2>
-                            </div>
-                            <div className="max-h-56 overflow-y-auto p-3 space-y-3">
-                                <div className="p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
-                                    <p className="font-medium text-sm">Device offline</p>
-                                    <p className="text-xs text-gray-500">
-                                        Main Entrance A went offline 5 mins ago.
-                                    </p>
-                                </div>
-                                <div className="p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
-                                    <p className="font-medium text-sm">New branch signup</p>
-                                    <p className="text-xs text-gray-500">
-                                        Flex Studio added to your network.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <NotificationCenter />
 
                 {/* Profile */}
                 <div className="relative" ref={profileRef}>

@@ -22,6 +22,7 @@ import type {
   AuditLog,
   BroadcastMessage,
   SystemSettings,
+  Notification,
 } from "@/lib/types";
 
 // ============================================
@@ -45,6 +46,7 @@ export interface DataStore {
   classes: GymClass[];
   auditLogs: AuditLog[];
   communications: BroadcastMessage[];
+  notifications: Notification[];
   otps: Map<string, string>;
   passwords: Map<string, string>;
 }
@@ -399,6 +401,7 @@ class Database {
       classes: [...seedClasses],
       auditLogs: [],
       communications: [],
+      notifications: [],
       otps: new Map(),
       passwords: new Map([
         ["admin@smartfit.com", "admin123"],
@@ -436,6 +439,7 @@ class Database {
     this.store.classes = [...seedClasses];
     this.store.auditLogs = [];
     this.store.communications = [];
+    this.store.notifications = [];
     this.store.otps.clear();
   }
 }

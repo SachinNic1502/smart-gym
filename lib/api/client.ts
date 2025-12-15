@@ -21,6 +21,7 @@ import type {
   DietPlan,
   Expense,
   AttendanceRecord,
+  Notification,
 } from "@/lib/types";
 
 const API_BASE = "/api";
@@ -178,6 +179,22 @@ export const branchesApi = {
     const query = params ? `?${new URLSearchParams(params)}` : "";
     return request<{ branch: { id: string; name: string }; data: Member[]; total: number }>(`/branches/${id}/members${query}`);
   },
+
+  getAlerts: (id: string, params?: Record<string, string | number | undefined>) => {
+    const cleanParams: Record<string, string> = {};
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) cleanParams[key] = String(value);
+      });
+    }
+    const query = Object.keys(cleanParams).length ? `?${new URLSearchParams(cleanParams)}` : "";
+    return request<{
+      branchId: string;
+      windowDays: number;
+      expiringSoon: Array<{ id: string; name: string; days: number }>;
+      birthdaysThisWeek: Array<{ id: string; name: string; days: number }>;
+    }>(`/branches/${id}/alerts${query}`);
+  },
 };
 
 // ============================================
@@ -265,6 +282,28 @@ export const meApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+};
+
+// ============================================
+// Notifications API
+// ============================================
+
+export const notificationsApi = {
+  list: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : "";
+    return request<{ data: Notification[]; total: number; page: number; pageSize: number; totalPages: number }>(`/notifications${query}`);
+  },
+  create: (data: Omit<Notification, "id" | "createdAt" | "status">) =>
+    request<Notification>("/notifications", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  markAsRead: (notificationId?: string, markAll?: boolean) =>
+    request<{ message: string; count?: number }>("/notifications/mark-read", {
+      method: "POST",
+      body: JSON.stringify({ notificationId, markAll }),
+    }),
+  getUnreadCount: () => request<{ unreadCount: number }>("/notifications/unread-count"),
 };
 
 // ============================================

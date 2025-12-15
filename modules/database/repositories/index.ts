@@ -17,3 +17,4 @@ export * from "./class.repository";
 export * from "./settings.repository";
 export * from "./audit.repository";
 export * from "./communication.repository";
+export * from "./notification.repository";

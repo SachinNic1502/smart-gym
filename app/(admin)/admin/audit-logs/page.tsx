@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { auditLogsApi, ApiError } from "@/lib/api/client";
 import type { AuditLog } from "@/lib/types";
 
-export default function AuditLogsPage() {
+function AdminAuditLogsPageContent() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,14 +28,17 @@ export default function AuditLogsPage() {
       const params: Record<string, string> = {};
       if (resourceFilter) params.resource = resourceFilter;
       if (actionFilter) params.action = actionFilter;
-      if (fromDate) params.startDate = fromDate;
-      if (toDate) params.endDate = toDate;
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
+      if (search) params.search = search;
+      params.page = "1";
+      params.pageSize = "100";
 
-      const result = await auditLogsApi.list(Object.keys(params).length ? params : undefined);
-      setLogs(result.data);
-      setTotal(result.total);
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Failed to load audit logs";
+      const response = await auditLogsApi.list(params);
+      setLogs(response.data);
+      setTotal(response.total);
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to load audit logs";
       setError(message);
     } finally {
       setLoading(false);
@@ -43,238 +46,142 @@ export default function AuditLogsPage() {
   };
 
   useEffect(() => {
-    void loadLogs();
+    loadLogs();
   }, []);
 
-  const handleClearFilters = () => {
+  const clearFilters = () => {
     setResourceFilter("");
     setActionFilter("");
     setFromDate("");
     setToDate("");
     setSearch("");
-    void loadLogs();
   };
 
-  const resourceOptions = Array.from(new Set(logs.map((log) => log.resource))).sort();
-  const actionOptions = Array.from(new Set(logs.map((log) => log.action))).sort();
-  const normalizedSearch = search.trim().toLowerCase();
-  const filteredLogs = logs.filter((log) => {
-    if (!normalizedSearch) return true;
-    const fields = [
-      log.userName,
-      log.action,
-      log.resource,
-      log.resourceId,
-      log.ipAddress,
-      log.details ? JSON.stringify(log.details) : "",
-    ];
-    return fields.some((field) =>
-      field ? field.toString().toLowerCase().includes(normalizedSearch) : false,
-    );
-  });
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Audit Logs</h2>
-          <p className="text-muted-foreground">
-            Track important actions performed across branches, members, and devices.
-          </p>
+          <h1 className="text-2xl font-bold">Audit Logs</h1>
+          <p className="text-muted-foreground">View system activity and audit trail</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            onClick={() => void loadLogs()}
-            disabled={loading}
-          >
-            <RefreshCcw className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button variant="outline" onClick={loadLogs}>
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
-      <Card className="border-t-4 border-t-primary/20">
+      <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>
-            Review a history of configuration changes, member updates, and device activity.
-          </CardDescription>
+          <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="sm:col-span-2 lg:col-span-2">
-                <Input
-                  placeholder="Search by actor, action, resource, or ID..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">Resource</span>
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
-                  value={resourceFilter}
-                  onChange={(e) => setResourceFilter(e.target.value)}
-                >
-                  <option value="">All</option>
-                  {resourceOptions.map((resource) => (
-                    <option key={resource} value={resource}>
-                      {resource}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">Action</span>
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-xs"
-                  value={actionFilter}
-                  onChange={(e) => setActionFilter(e.target.value)}
-                >
-                  <option value="">All</option>
-                  {actionOptions.map((action) => (
-                    <option key={action} value={action}>
-                      {action}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">From</span>
-                <Input
-                  type="date"
-                  className="h-9"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs text-muted-foreground">To</span>
-                <Input
-                  type="date"
-                  className="h-9"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              {total !== null && (
-                <span className="text-[11px] text-muted-foreground sm:order-1">
-                  Showing {filteredLogs.length} of {total} entries
-                </span>
-              )}
-              <div className="flex items-center gap-2 sm:order-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={handleClearFilters}
-                  disabled={loading}
-                >
-                  Clear
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  onClick={() => void loadLogs()}
-                  disabled={loading}
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <Table className="min-w-[720px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Target</TableHead>
-                  <TableHead>Type</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-              {error ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-xs text-red-500">
-                    {error}
-                  </TableCell>
-                </TableRow>
-              ) : loading && !logs.length ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
-                    Loading audit logs...
-                  </TableCell>
-                </TableRow>
-              ) : !loading && !logs.length ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="py-6 text-center text-xs text-muted-foreground"
-                  >
-                    No audit entries yet. Actions performed by admins will start appearing here shortly.
-                  </TableCell>
-                </TableRow>
-              ) : filteredLogs.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="py-6 text-center text-xs text-muted-foreground"
-                  >
-                    No audit entries match your current filters or search.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredLogs.map((log) => {
-                  let typeHint = "General configuration change";
-
-                  if (log.resource === "branch") {
-                    typeHint = "Branch or plan-level configuration";
-                  } else if (log.resource === "device") {
-                    typeHint = "Biometric or access device changes";
-                  } else if (log.resource === "member") {
-                    typeHint = "Member account or profile updates";
-                  }
-
-                  let badgeVariant: "outline" | "destructive" | "success" | "warning" = "outline";
-
-                  if (log.action.startsWith("delete") || log.action.startsWith("remove") || log.action.startsWith("revoke")) {
-                    badgeVariant = "destructive";
-                  } else if (log.action.startsWith("update") || log.action.startsWith("edit")) {
-                    badgeVariant = "warning";
-                  } else if (log.action.startsWith("create") || log.action.startsWith("add")) {
-                    badgeVariant = "success";
-                  }
-
-                  const timeLabel = new Date(log.timestamp).toLocaleString();
-                  const targetLabel = log.resourceId || "-";
-
-                  return (
-                    <TableRow key={log.id} className="hover:bg-gray-50">
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{timeLabel}</TableCell>
-                      <TableCell className="font-medium">{log.userName}</TableCell>
-                      <TableCell className="text-sm">{log.action}</TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">{targetLabel}</TableCell>
-                      <TableCell>
-                        <Badge variant={badgeVariant} className="text-xs capitalize">
-                          {log.resource}
-                        </Badge>
-                        <span className="block text-[10px] text-muted-foreground/80">{typeHint}</span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-              </TableBody>
-            </Table>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Input
+              placeholder="Resource"
+              value={resourceFilter}
+              onChange={(e) => setResourceFilter(e.target.value)}
+            />
+            <Input
+              placeholder="Action"
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+            />
+            <Input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+            <Input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+            <Button variant="outline" onClick={clearFilters}>
+              Clear Filters
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Audit Logs ({total || 0})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">Loading audit logs...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-600">{error}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Resource</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>IP Address</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        No audit logs found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell>
+                          <div className="text-sm">
+                            {new Date(log.timestamp).toLocaleString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{log.userName}</div>
+                            <div className="text-sm text-muted-foreground">{log.userId}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{log.action}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{log.resource}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm max-w-xs truncate">
+                            {JSON.stringify(log.details)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{log.ipAddress}</div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+export default function AdminAuditLogsPage() {
+  return (
+    <Suspense fallback={<div>Loading audit logs...</div>}>
+      <AdminAuditLogsPageContent />
+    </Suspense>
   );
 }

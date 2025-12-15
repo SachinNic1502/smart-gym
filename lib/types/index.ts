@@ -241,13 +241,14 @@ export interface Lead {
   name: string;
   phone: string;
   email?: string;
+  location?: string;
   source: string;
   status: LeadStatus;
   notes?: string;
   branchId: string;
   assignedTo?: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 // ============================================
@@ -302,6 +303,70 @@ export interface PaginatedResponse<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+// ============================================
+// Notification Types
+// ============================================
+
+export type NotificationType = 
+  | "member_check_in"
+  | "member_check_out"
+  | "payment_received"
+  | "payment_overdue"
+  | "membership_expiring"
+  | "membership_expired"
+  | "class_reminder"
+  | "class_cancelled"
+  | "workout_assigned"
+  | "diet_assigned"
+  | "staff_message"
+  | "system_announcement"
+  | "branch_update"
+  | "lead_assigned"
+  | "expense_approved"
+  | "expense_rejected";
+
+export type NotificationPriority = "low" | "medium" | "high" | "urgent";
+
+export type NotificationStatus = "unread" | "read" | "archived";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  priority: NotificationPriority;
+  status: NotificationStatus;
+  read: boolean;
+  data?: Record<string, any>; // Additional data for deep linking
+  actionUrl?: string; // URL to navigate when clicked
+  imageUrl?: string;
+  createdAt: string;
+  readAt?: string;
+  expiresAt?: string;
+}
+
+export interface NotificationPreferences {
+  userId: string;
+  email: boolean;
+  push: boolean;
+  inApp: boolean;
+  types: Record<NotificationType, boolean>;
+  quietHours?: {
+    enabled: boolean;
+    start: string; // HH:mm format
+    end: string; // HH:mm format
+  };
+}
+
+export interface NotificationTemplate {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  variables: string[]; // Template variables like {memberName}, {amount}, etc.
 }
 
 // ============================================
@@ -445,18 +510,7 @@ export interface Report {
 }
 
 // ============================================
-// Notification Types
+// Toast Types
 // ============================================
 
-export type NotificationType = "info" | "warning" | "success" | "error";
-
-export interface Notification {
-  id: string;
-  userId: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-  read: boolean;
-  link?: string;
-  createdAt: string;
-}
+export type ToastType = "info" | "warning" | "success" | "error";

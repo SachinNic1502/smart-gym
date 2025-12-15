@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { paymentService, auditService } from "@/modules/services";
+import { NotificationService } from "@/lib/services/notification.service";
+import { memberRepository, planRepository } from "@/modules/database";
 import type { PaymentMethod } from "@/lib/types";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
@@ -84,6 +86,27 @@ export async function POST(request: NextRequest) {
 
     if (result.data?.payment) {
       const payment = result.data.payment;
+      
+      // Send notification to member about payment received
+      try {
+        const member = memberRepository.findById(payment.memberId);
+        
+        if (member) {
+          await NotificationService.sendTemplateNotification(
+            payment.memberId,
+            "paymentReceived",
+            [member.name, `₹${payment.amount}`, payment.description || "Membership"],
+            {
+              actionUrl: `/portal/payments`,
+              data: { paymentId: payment.id }
+            }
+          );
+        }
+      } catch (notificationError) {
+        console.error("Failed to send payment notification:", notificationError);
+        // Don't fail the payment if notification fails
+      }
+
       auditService.logAction({
         userId: actor.userId,
         userName: actor.userName,

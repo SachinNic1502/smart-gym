@@ -57,6 +57,9 @@ export default function MembersPage() {
 
     // Member State
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+    const [isEditingMember, setIsEditingMember] = useState(false);
+    const [memberEditForm, setMemberEditForm] = useState<Partial<Member>>({});
+    const [savingMember, setSavingMember] = useState(false);
     const [memberPrograms, setMemberPrograms] = useState<Record<string, MemberProgram>>({});
     const [programSaveMessage, setProgramSaveMessage] = useState<string | null>(null);
     const toast = useToast();
@@ -173,6 +176,16 @@ export default function MembersPage() {
 
     const handleManageMember = useCallback(async (member: Member) => {
         setSelectedMember(member);
+        setIsEditingMember(false);
+        setMemberEditForm({
+            name: member.name,
+            email: member.email,
+            phone: member.phone,
+            dateOfBirth: member.dateOfBirth,
+            address: member.address,
+            referralSource: member.referralSource,
+            notes: member.notes,
+        });
         setProgramSaveMessage(null);
 
         setAttendanceError(null);
@@ -226,6 +239,52 @@ export default function MembersPage() {
             setPaymentsLoading(false);
         }
     }, [toast]);
+
+    const handleSaveMemberProfile = useCallback(async () => {
+        if (!selectedMember) return;
+        setSavingMember(true);
+        try {
+            const payload: Partial<Member> = {
+                name: memberEditForm.name,
+                email: memberEditForm.email,
+                phone: memberEditForm.phone,
+                dateOfBirth: memberEditForm.dateOfBirth || undefined,
+                address: memberEditForm.address || undefined,
+                referralSource: memberEditForm.referralSource || undefined,
+                notes: memberEditForm.notes || undefined,
+            };
+
+            const updated = await membersApi.update(selectedMember.id, payload);
+
+            setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+            setSelectedMember(updated);
+            setIsEditingMember(false);
+            toast({
+                title: "Updated",
+                description: "Member profile updated successfully.",
+                variant: "success",
+            });
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to update member";
+            toast({ title: "Error", description: message, variant: "destructive" });
+        } finally {
+            setSavingMember(false);
+        }
+    }, [memberEditForm, selectedMember, toast]);
+
+    const handleCancelMemberEdit = useCallback(() => {
+        if (!selectedMember) return;
+        setIsEditingMember(false);
+        setMemberEditForm({
+            name: selectedMember.name,
+            email: selectedMember.email,
+            phone: selectedMember.phone,
+            dateOfBirth: selectedMember.dateOfBirth,
+            address: selectedMember.address,
+            referralSource: selectedMember.referralSource,
+            notes: selectedMember.notes,
+        });
+    }, [selectedMember]);
 
     const handleProgramChange = (memberId: string, field: "workoutPlanId" | "dietPlanId", value: string) => {
         setMemberPrograms((prev) => ({
@@ -483,9 +542,18 @@ export default function MembersPage() {
             </Card>
 
             {/* Member Details Sheet/Dialog */}
-            <Dialog open={!!selectedMember} onOpenChange={(open) => !open && setSelectedMember(null)}>
-                <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden gap-0">
-                    <DialogHeader className="p-6 pb-4 border-b bg-zinc-50/50">
+            <Dialog
+                open={!!selectedMember}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSelectedMember(null);
+                        setIsEditingMember(false);
+                        setMemberEditForm({});
+                    }
+                }}
+            >
+                <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:max-w-[700px] h-[calc(100vh-1.5rem)] sm:h-auto max-h-[calc(100vh-1.5rem)] p-0 overflow-hidden gap-0 flex flex-col">
+                    <DialogHeader className="p-4 sm:p-6 pb-4 border-b bg-zinc-50/50 shrink-0">
                         <div className="flex items-center gap-5">
                             <Avatar className="h-16 w-16 border-2 border-white shadow-sm">
                                 <AvatarImage src={selectedMember?.image} />
@@ -514,9 +582,9 @@ export default function MembersPage() {
                         </div>
                     </DialogHeader>
 
-                    <Tabs defaultValue="profile" className="w-full">
-                        <div className="px-6 border-b bg-white">
-                            <TabsList className="w-full justify-start h-12 bg-transparent p-0 space-x-6">
+                    <Tabs defaultValue="profile" className="w-full flex-1 min-h-0 flex flex-col">
+                        <div className="px-4 sm:px-6 border-b bg-white shrink-0">
+                            <TabsList className="w-full justify-start h-12 bg-transparent p-0 space-x-6 overflow-x-auto">
                                 <TabsTrigger 
                                     value="profile" 
                                     className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
@@ -544,16 +612,49 @@ export default function MembersPage() {
                             </TabsList>
                         </div>
 
-                        <div className="p-6 bg-white min-h-[300px]">
+                        <div className="p-4 sm:p-6 bg-white flex-1 min-h-0 overflow-y-auto">
                             <TabsContent value="profile" className="space-y-6 mt-0">
-                                <div className="grid grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Full Name</Label>
-                                        <Input value={selectedMember?.name ?? ""} readOnly className="bg-zinc-50 border-zinc-200" />
+                                        <Input
+                                            value={(isEditingMember ? memberEditForm.name : selectedMember?.name) ?? ""}
+                                            readOnly={!isEditingMember}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, name: e.target.value }))}
+                                            autoFocus={isEditingMember}
+                                            className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Email</Label>
-                                        <Input value={selectedMember?.email ?? ""} readOnly className="bg-zinc-50 border-zinc-200" />
+                                        <Input
+                                            value={(isEditingMember ? memberEditForm.email : selectedMember?.email) ?? ""}
+                                            readOnly={!isEditingMember}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, email: e.target.value }))}
+                                            className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Phone</Label>
+                                        <Input
+                                            value={(isEditingMember ? memberEditForm.phone : selectedMember?.phone) ?? ""}
+                                            readOnly={!isEditingMember}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, phone: e.target.value }))}
+                                            className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Date of Birth</Label>
+                                        <Input
+                                            value={
+                                                isEditingMember
+                                                    ? (memberEditForm.dateOfBirth ? String(memberEditForm.dateOfBirth).split("T")[0] : "")
+                                                    : (selectedMember?.dateOfBirth ? selectedMember.dateOfBirth.split("T")[0] : "—")
+                                            }
+                                            readOnly={!isEditingMember}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, dateOfBirth: e.target.value }))}
+                                            className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Current Plan</Label>
@@ -568,6 +669,59 @@ export default function MembersPage() {
                                             )}
                                         </div>
                                     </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Branch ID</Label>
+                                        <Input value={selectedMember?.branchId ?? ""} readOnly className="bg-zinc-50 border-zinc-200 font-mono" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Join Date</Label>
+                                        <Input
+                                            value={selectedMember?.createdAt ? new Date(selectedMember.createdAt).toLocaleDateString() : "—"}
+                                            readOnly
+                                            className="bg-zinc-50 border-zinc-200"
+                                        />
+                                    </div>
+                                    <div className="space-y-2 md:col-span-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Address</Label>
+                                        <Input
+                                            value={
+                                                (isEditingMember ? memberEditForm.address : selectedMember?.address) ??
+                                                (isEditingMember ? "" : "—")
+                                            }
+                                            readOnly={!isEditingMember}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, address: e.target.value }))}
+                                            className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Last Visit</Label>
+                                        <Input
+                                            value={selectedMember?.lastVisit ? new Date(selectedMember.lastVisit).toLocaleString() : "—"}
+                                            readOnly
+                                            className="bg-zinc-50 border-zinc-200"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Referral Source</Label>
+                                        <Input
+                                            value={
+                                                (isEditingMember ? memberEditForm.referralSource : selectedMember?.referralSource) ??
+                                                (isEditingMember ? "" : "—")
+                                            }
+                                            readOnly={!isEditingMember}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, referralSource: e.target.value }))}
+                                            className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
+                                        />
+                                    </div>
+                                    <div className="space-y-2 md:col-span-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Notes</Label>
+                                        <Input
+                                            value={(isEditingMember ? memberEditForm.notes : selectedMember?.notes) ?? (isEditingMember ? "" : "—")}
+                                            readOnly={!isEditingMember}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, notes: e.target.value }))}
+                                            className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="flex justify-end gap-3 pt-4 border-t">
@@ -578,8 +732,38 @@ export default function MembersPage() {
                                             </Button>
                                         </Link>
                                     ) : null}
-                                    <Button variant="outline">Update Profile</Button>
-                                    <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50">Block Member</Button>
+                                    {isEditingMember ? (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={handleCancelMemberEdit}
+                                                disabled={savingMember}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                onClick={handleSaveMemberProfile}
+                                                disabled={savingMember}
+                                            >
+                                                {savingMember ? "Saving..." : "Save"}
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <Button type="button" variant="outline" onClick={() => setIsEditingMember(true)}>
+                                            Edit
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        onClick={() => selectedMember && handleBlockMember(selectedMember)}
+                                        disabled={savingMember}
+                                    >
+                                        Block Member
+                                    </Button>
                                 </div>
                             </TabsContent>
 

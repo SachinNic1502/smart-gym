@@ -29,6 +29,7 @@ import {
 import { useToast } from "@/components/ui/toast-provider";
 import { branchesApi, dashboardApi, ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
+import type { Member } from "@/lib/types";
 
 interface BranchStatsResponse {
     stats: {
@@ -60,6 +61,18 @@ interface StatItem {
     color: string;
 }
 
+type ExpiringSoonItem = {
+    id: string;
+    name: string;
+    days: number;
+};
+
+type BirthdayItem = {
+    id: string;
+    name: string;
+    days: number;
+};
+
 const STAT_ICON_MAP: Record<string, typeof Users> = {
     "Live Check-ins": UserCheck,
     "Today's Collections": Wallet,
@@ -81,6 +94,11 @@ export default function BranchDashboard() {
     const [branchStats, setBranchStats] = useState<BranchStatsResponse | null>(null);
     const [loadingStats, setLoadingStats] = useState<boolean>(true);
     const [statsError, setStatsError] = useState<string | null>(null);
+
+    const [loadingAlerts, setLoadingAlerts] = useState<boolean>(true);
+    const [alertsError, setAlertsError] = useState<string | null>(null);
+    const [expiringSoon, setExpiringSoon] = useState<ExpiringSoonItem[]>([]);
+    const [birthdaysThisWeek, setBirthdaysThisWeek] = useState<BirthdayItem[]>([]);
 
     useEffect(() => {
         setMounted(true);
@@ -134,6 +152,73 @@ export default function BranchDashboard() {
         }
     }, [branchId, toast, user]);
 
+    const computeDaysUntil = (targetDate: Date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(targetDate);
+        target.setHours(0, 0, 0, 0);
+        return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    };
+
+    const computeDaysUntilBirthday = (dateOfBirth: string) => {
+        const dob = new Date(dateOfBirth);
+        if (Number.isNaN(dob.getTime())) return null;
+
+        const today = new Date();
+        const next = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
+        next.setHours(0, 0, 0, 0);
+        const todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+
+        if (next.getTime() < todayStart.getTime()) {
+            next.setFullYear(today.getFullYear() + 1);
+        }
+
+        return Math.round((next.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+    };
+
+    const fetchAlerts = useCallback(async () => {
+        if (!user) {
+            setExpiringSoon([]);
+            setBirthdaysThisWeek([]);
+            setLoadingAlerts(false);
+            setAlertsError(null);
+            return;
+        }
+
+        if (user.role === "branch_admin" && !branchId) {
+            setExpiringSoon([]);
+            setBirthdaysThisWeek([]);
+            setLoadingAlerts(false);
+            setAlertsError("Branch not assigned");
+            return;
+        }
+
+        if (!branchId) {
+            setExpiringSoon([]);
+            setBirthdaysThisWeek([]);
+            setLoadingAlerts(false);
+            setAlertsError(null);
+            return;
+        }
+
+        setLoadingAlerts(true);
+        setAlertsError(null);
+
+        try {
+            const res = await branchesApi.getAlerts(branchId, { days: 7, limit: 8 });
+            setExpiringSoon(res.expiringSoon);
+            setBirthdaysThisWeek(res.birthdaysThisWeek);
+        } catch (error) {
+            const message = error instanceof ApiError ? error.message : "Failed to load alerts";
+            setAlertsError(message);
+            setExpiringSoon([]);
+            setBirthdaysThisWeek([]);
+        } finally {
+            setLoadingAlerts(false);
+        }
+    }, [branchId, user]);
+
     useEffect(() => {
         fetchBranchName();
     }, [fetchBranchName]);
@@ -141,6 +226,10 @@ export default function BranchDashboard() {
     useEffect(() => {
         fetchStats();
     }, [fetchStats]);
+
+    useEffect(() => {
+        fetchAlerts();
+    }, [fetchAlerts]);
 
     const mappedStats: StatItem[] | null = branchStats
         ? branchStats.stats.map((s) => ({
@@ -155,7 +244,7 @@ export default function BranchDashboard() {
     const stats: StatItem[] = mappedStats ?? [];
     const attendanceData = branchStats?.charts.attendanceTrend ?? [];
     const recentCheckIns = branchStats?.recentCheckIns ?? [];
-    const expiringMembers = branchStats?.expiringMembers ?? [];
+    const expiringMembers = expiringSoon;
 
     const headerTitle = branchName ?? (branchId ? `Branch ${branchId}` : "Dashboard");
     const headerSubtitle = user ? `Welcome back, ${user.name}` : "Overview of your gym performance";
@@ -417,14 +506,18 @@ export default function BranchDashboard() {
                                 <Badge variant="secondary" className="text-[10px] h-5 bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-100">Next 7 days</Badge>
                             </div>
                             <div className="space-y-2">
-                                {loadingStats ? (
+                                {loadingStats || loadingAlerts ? (
                                     <div className="py-8 text-center text-xs text-muted-foreground">Loading...</div>
+                                ) : alertsError ? (
+                                    <div className="py-8 text-center text-xs text-muted-foreground bg-muted/5 rounded-lg border border-dashed border-border/60">
+                                        {alertsError}
+                                    </div>
                                 ) : expiringMembers.length === 0 ? (
                                     <div className="py-8 text-center text-xs text-muted-foreground bg-muted/5 rounded-lg border border-dashed border-border/60">
                                         All memberships are healthy!
                                     </div>
                                 ) : expiringMembers.map((m) => (
-                                    <div key={m.name} className="flex items-center justify-between p-2 rounded-md hover:bg-amber-50/30 transition-colors border border-transparent hover:border-amber-100">
+                                    <div key={m.id} className="flex items-center justify-between p-2 rounded-md hover:bg-amber-50/30 transition-colors border border-transparent hover:border-amber-100">
                                         <div className="flex items-center gap-3">
                                             <div className="p-1.5 rounded-full bg-amber-100/50 text-amber-600">
                                                 <CalendarDays className="h-3.5 w-3.5" />
@@ -447,9 +540,25 @@ export default function BranchDashboard() {
                                 <Badge variant="secondary" className="text-[10px] h-5 bg-pink-50 text-pink-700 hover:bg-pink-100 border-pink-100">This week</Badge>
                             </div>
                             <div className="space-y-2">
-                                <div className="py-6 text-center text-xs text-muted-foreground bg-muted/5 rounded-lg border border-dashed border-border/60">
-                                    No upcoming birthdays.
-                                </div>
+                                {loadingAlerts ? (
+                                    <div className="py-6 text-center text-xs text-muted-foreground">Loading...</div>
+                                ) : birthdaysThisWeek.length === 0 ? (
+                                    <div className="py-6 text-center text-xs text-muted-foreground bg-muted/5 rounded-lg border border-dashed border-border/60">
+                                        No upcoming birthdays.
+                                    </div>
+                                ) : birthdaysThisWeek.map((b) => (
+                                    <div key={b.id} className="flex items-center justify-between p-2 rounded-md hover:bg-pink-50/30 transition-colors border border-transparent hover:border-pink-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-1.5 rounded-full bg-pink-100/60 text-pink-600">
+                                                <CalendarDays className="h-3.5 w-3.5" />
+                                            </div>
+                                            <span className="text-sm font-medium">{b.name}</span>
+                                        </div>
+                                        <span className={`text-xs font-medium ${b.days <= 1 ? 'text-rose-600' : 'text-pink-700'}`}>
+                                            {b.days === 0 ? 'Today' : `In ${b.days} days`}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </CardContent>
