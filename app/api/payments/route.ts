@@ -41,6 +41,7 @@ interface PaymentRequest {
   amount: number;
   method: PaymentMethod;
   description?: string;
+  skipMemberUpdate?: boolean;
 }
 
 // POST /api/payments - Create a new payment
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid request body");
     }
 
-    const { memberId, branchId, planId, amount, method, description } = body;
+    const { memberId, branchId, planId, amount, method, description, skipMemberUpdate } = body;
 
     const scoped = resolveBranchScope(auth.session, branchId);
     if ("response" in scoped) return scoped.response;
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
       amount,
       method,
       description,
+      skipMemberUpdate,
     });
 
     if (!result.success) {

@@ -3,6 +3,8 @@
  */
 
 import { getStore } from "../store";
+import { connectToDatabase } from "../mongoose";
+import { LeadModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
 import type { Lead } from "@/lib/types";
 
@@ -104,5 +106,141 @@ export const leadRepository = {
       converted: leads.filter(l => l.status === "converted").length,
       lost: leads.filter(l => l.status === "lost").length,
     };
+  },
+
+  // ============================================
+  // Mongo-backed async methods (real database)
+  // ============================================
+
+  async findAllAsync(filters?: LeadFilters, pagination?: PaginationOptions): Promise<PaginatedResult<Lead>> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findAll(filters, pagination);
+    }
+
+    const query: Record<string, unknown> = {};
+    if (filters?.branchId) query.branchId = filters.branchId;
+    if (filters?.status) query.status = filters.status;
+    if (filters?.search) {
+      const search = filters.search;
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const total = await LeadModel.countDocuments(query).exec();
+
+    if (pagination) {
+      const { page, pageSize } = pagination;
+      const docs = await LeadModel.find(query)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .lean<Lead[]>();
+
+      return {
+        data: docs,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    }
+
+    const docs = await LeadModel.find(query).sort({ createdAt: -1 }).lean<Lead[]>();
+
+    return {
+      data: docs,
+      total,
+      page: 1,
+      pageSize: docs.length,
+      totalPages: 1,
+    };
+  },
+
+  async getStatsAsync(branchId?: string): Promise<ReturnType<typeof leadRepository.getStats>> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.getStats(branchId);
+    }
+
+    const query: Record<string, unknown> = {};
+    if (branchId) query.branchId = branchId;
+
+    const docs = await LeadModel.find(query).lean<Lead[]>();
+
+    return {
+      total: docs.length,
+      new: docs.filter(l => l.status === "new").length,
+      contacted: docs.filter(l => l.status === "contacted").length,
+      interested: docs.filter(l => l.status === "interested").length,
+      converted: docs.filter(l => l.status === "converted").length,
+      lost: docs.filter(l => l.status === "lost").length,
+    };
+  },
+
+  async findByIdAsync(id: string): Promise<Lead | undefined> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findById(id);
+    }
+    const doc = await LeadModel.findOne({ id }).lean<Lead | null>();
+    return doc ?? undefined;
+  },
+
+  async findByPhoneAsync(phone: string): Promise<Lead | undefined> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findByPhone(phone);
+    }
+    const normalized = phone.replace(/\D/g, "");
+    const docs = await LeadModel.find({}).lean<Lead[]>();
+    const match = docs.find(l => l.phone.replace(/\D/g, "") === normalized);
+    return match ?? undefined;
+  },
+
+  async createAsync(data: Omit<Lead, "id" | "createdAt" | "updatedAt">): Promise<Lead> {
+    const lead = this.create(data);
+
+    try {
+      await connectToDatabase();
+      await LeadModel.create(lead);
+    } catch {
+      // ignore and keep in-memory
+    }
+
+    return lead;
+  },
+
+  async updateAsync(id: string, data: Partial<Lead>): Promise<Lead | undefined> {
+    const updated = this.update(id, data);
+    try {
+      await connectToDatabase();
+      const doc = await LeadModel.findOneAndUpdate(
+        { id },
+        { ...data, id, updatedAt: formatDate() },
+        { new: true },
+      ).lean<Lead | null>();
+      return doc ?? updated;
+    } catch {
+      return updated;
+    }
+  },
+
+  async deleteAsync(id: string): Promise<boolean> {
+    const deleted = this.delete(id);
+    try {
+      await connectToDatabase();
+      const res = await LeadModel.deleteOne({ id }).exec();
+      return res.deletedCount === 1;
+    } catch {
+      return deleted;
+    }
   },
 };

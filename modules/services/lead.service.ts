@@ -29,9 +29,9 @@ export const leadService = {
   /**
    * Get leads with filters and pagination
    */
-  getLeads(filters?: LeadFilters, pagination?: PaginationOptions): LeadListResult {
-    const result = leadRepository.findAll(filters, pagination);
-    const stats = leadRepository.getStats(filters?.branchId);
+  async getLeads(filters?: LeadFilters, pagination?: PaginationOptions): Promise<LeadListResult> {
+    const result = await leadRepository.findAllAsync(filters, pagination);
+    const stats = await leadRepository.getStatsAsync(filters?.branchId);
 
     return { ...result, stats };
   },
@@ -39,8 +39,8 @@ export const leadService = {
   /**
    * Get a single lead by ID
    */
-  getLead(id: string): ServiceResult<Lead> {
-    const lead = leadRepository.findById(id);
+  async getLead(id: string): Promise<ServiceResult<Lead>> {
+    const lead = await leadRepository.findByIdAsync(id);
     if (!lead) {
       return { success: false, error: "Lead not found" };
     }
@@ -50,14 +50,14 @@ export const leadService = {
   /**
    * Create a new lead
    */
-  createLead(data: CreateLeadData): ServiceResult<Lead> {
+  async createLead(data: CreateLeadData): Promise<ServiceResult<Lead>> {
     // Check for duplicate phone
-    const existingPhone = leadRepository.findByPhone(data.phone);
+    const existingPhone = await leadRepository.findByPhoneAsync(data.phone);
     if (existingPhone) {
       return { success: false, error: "A lead with this phone number already exists" };
     }
 
-    const lead = leadRepository.create({
+    const lead = await leadRepository.createAsync({
       name: data.name,
       phone: data.phone,
       email: data.email,
@@ -73,8 +73,8 @@ export const leadService = {
   /**
    * Update a lead
    */
-  updateLead(id: string, data: Partial<Lead>): ServiceResult<Lead> {
-    const lead = leadRepository.update(id, data);
+  async updateLead(id: string, data: Partial<Lead>): Promise<ServiceResult<Lead>> {
+    const lead = await leadRepository.updateAsync(id, data);
     if (!lead) {
       return { success: false, error: "Lead not found" };
     }
@@ -84,8 +84,8 @@ export const leadService = {
   /**
    * Delete a lead
    */
-  deleteLead(id: string): ServiceResult<{ id: string }> {
-    const deleted = leadRepository.delete(id);
+  async deleteLead(id: string): Promise<ServiceResult<{ id: string }>> {
+    const deleted = await leadRepository.deleteAsync(id);
     if (!deleted) {
       return { success: false, error: "Lead not found" };
     }

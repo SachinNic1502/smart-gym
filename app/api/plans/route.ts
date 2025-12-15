@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type"); // membership, workout, diet
 
     if (type === "workout") {
-      const plans = planRepository.findAllWorkoutPlans();
+      const plans = await planRepository.findAllWorkoutPlansAsync();
       return successResponse({
         data: plans,
         total: plans.length,
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === "diet") {
-      const plans = planRepository.findAllDietPlans();
+      const plans = await planRepository.findAllDietPlansAsync();
       return successResponse({
         data: plans,
         total: plans.length,

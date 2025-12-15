@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       search: searchParams.get("search") || undefined,
     };
 
-    const result = leadService.getLeads(filters, pagination);
+    const result = await leadService.getLeads(filters, pagination);
     return successResponse(result);
 
   } catch (error) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("branchId is required", 422);
     }
 
-    const result = leadService.createLead({
+    const result = await leadService.createLead({
       name: validation.data.name,
       phone: validation.data.phone,
       email: validation.data.email,

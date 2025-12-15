@@ -13,6 +13,7 @@ export interface CreateMemberData {
   dateOfBirth?: string;
   address?: string;
   branchId: string;
+  planId?: string;
   referralSource?: string;
   notes?: string;
 }
@@ -60,6 +61,16 @@ export const memberService = {
       return { success: false, error: "A member with this phone number already exists" };
     }
 
+    // Resolve membership plan (optional)
+    const selectedPlan = data.planId ? await planRepository.findMembershipPlanByIdAsync(data.planId) : undefined;
+    if (data.planId && !selectedPlan) {
+      return { success: false, error: "Membership plan not found" };
+    }
+
+    const now = Date.now();
+    const durationDays = selectedPlan?.durationDays ?? 30;
+    const expiryDate = new Date(now + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
     // Create member with default values
     const member = await memberRepository.createAsync({
       name: data.name,
@@ -67,9 +78,9 @@ export const memberService = {
       email: data.email || "",
       dateOfBirth: data.dateOfBirth,
       address: data.address,
-      plan: "Standard",
+      plan: selectedPlan?.name ?? "Standard",
       status: "Active",
-      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      expiryDate,
       branchId: data.branchId,
       referralSource: data.referralSource,
       notes: data.notes,
@@ -110,11 +121,11 @@ export const memberService = {
     }
 
     const workoutPlan = member.workoutPlanId
-      ? planRepository.findWorkoutPlanById(member.workoutPlanId)
+      ? await planRepository.findWorkoutPlanByIdAsync(member.workoutPlanId)
       : null;
     
     const dietPlan = member.dietPlanId
-      ? planRepository.findDietPlanById(member.dietPlanId)
+      ? await planRepository.findDietPlanByIdAsync(member.dietPlanId)
       : null;
 
     return {
@@ -134,7 +145,7 @@ export const memberService = {
   async assignPrograms(id: string, workoutPlanId?: string, dietPlanId?: string): Promise<ServiceResult<Member>> {
     // Validate workout plan if provided
     if (workoutPlanId) {
-      const plan = planRepository.findWorkoutPlanById(workoutPlanId);
+      const plan = await planRepository.findWorkoutPlanByIdAsync(workoutPlanId);
       if (!plan) {
         return { success: false, error: "Workout plan not found" };
       }
@@ -142,7 +153,7 @@ export const memberService = {
 
     // Validate diet plan if provided
     if (dietPlanId) {
-      const plan = planRepository.findDietPlanById(dietPlanId);
+      const plan = await planRepository.findDietPlanByIdAsync(dietPlanId);
       if (!plan) {
         return { success: false, error: "Diet plan not found" };
       }

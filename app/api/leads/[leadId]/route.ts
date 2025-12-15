@@ -16,13 +16,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const auth = await requireSession(["super_admin", "branch_admin"]);
     if ("response" in auth) return auth.response;
 
-    const result = leadService.getLead(leadId);
-    
-    if (!result.success) {
+    const result = await leadService.getLead(leadId);
+
+    if (!result.success || !result.data) {
       return errorResponse(result.error || "Lead not found", 404);
     }
 
-    const scoped = resolveBranchScope(auth.session, result.data?.branchId);
+    const scoped = resolveBranchScope(auth.session, result.data.branchId);
     if ("response" in scoped) return scoped.response;
 
     return successResponse(result.data);
@@ -47,7 +47,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return errorResponse("Invalid request body");
     }
 
-    const existing = leadService.getLead(leadId);
+    const existing = await leadService.getLead(leadId);
     if (!existing.success || !existing.data) {
       return errorResponse(existing.error || "Lead not found", 404);
     }
@@ -56,12 +56,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const scoped = resolveBranchScope(auth.session, requestedBranchId);
     if ("response" in scoped) return scoped.response;
 
-    const result = leadService.updateLead(leadId, {
+    const result = await leadService.updateLead(leadId, {
       ...body,
       branchId: scoped.branchId ?? body.branchId,
     });
     
-    if (!result.success) {
+    if (!result.success || !result.data) {
       return errorResponse(result.error || "Lead not found", 404);
     }
 
@@ -81,7 +81,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const auth = await requireSession(["super_admin", "branch_admin"]);
     if ("response" in auth) return auth.response;
 
-    const existing = leadService.getLead(leadId);
+    const existing = await leadService.getLead(leadId);
     if (!existing.success || !existing.data) {
       return errorResponse(existing.error || "Lead not found", 404);
     }
@@ -89,7 +89,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const scoped = resolveBranchScope(auth.session, existing.data.branchId);
     if ("response" in scoped) return scoped.response;
 
-    const result = leadService.deleteLead(leadId);
+    const result = await leadService.deleteLead(leadId);
     
     if (!result.success) {
       return errorResponse(result.error || "Lead not found", 404);

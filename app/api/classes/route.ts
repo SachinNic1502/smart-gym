@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       status: (searchParams.get("status") as "active" | "cancelled" | "completed") || undefined,
     };
 
-    const result = classRepository.findAll(filters, pagination);
+    const result = await classRepository.findAllAsync(filters, pagination);
     return successResponse(result);
 
   } catch (error) {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("name, type, trainerId, branchId, and capacity are required");
     }
 
-    const gymClass = classRepository.create({
+    const gymClass = await classRepository.createAsync({
       name: body.name,
       type: body.type,
       description: body.description,

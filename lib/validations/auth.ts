@@ -46,6 +46,10 @@ export const addMemberSchema = z.object({
     .string()
     .min(1, "Phone number is required")
     .regex(/^[+]?[\d\s()-]{10,}$/, "Please enter a valid phone number"),
+  planId: z
+    .string()
+    .optional()
+    .or(z.literal("")),
   email: z
     .string()
     .email("Please enter a valid email")

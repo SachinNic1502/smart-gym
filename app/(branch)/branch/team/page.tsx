@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -9,38 +9,48 @@ import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-const MOCK_BRANCH_TEAM = [
-  {
-    id: "BTM001",
-    name: "Branch Manager",
-    email: "manager@gymbranch.com",
-    role: "Manager",
-    status: "Active",
-  },
-  {
-    id: "BTM002",
-    name: "Front Desk Lead",
-    email: "frontdesk@gymbranch.com",
-    role: "Front Desk",
-    status: "Active",
-  },
-  {
-    id: "BTM003",
-    name: "Senior Trainer",
-    email: "trainer@gymbranch.com",
-    role: "Trainer",
-    status: "Inactive",
-  },
-];
+import { ApiError, staffApi } from "@/lib/api/client";
+import type { Staff } from "@/lib/types";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function BranchTeamPage() {
   const toast = useToast();
+  const { user } = useAuth();
+  const branchId = user?.branchId;
+
+  const [team, setTeam] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
-  const filteredTeam = MOCK_BRANCH_TEAM.filter((member) => {
+  useEffect(() => {
+    const fetchTeam = async () => {
+      if (!branchId) {
+        setTeam([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await staffApi.list({ branchId });
+        setTeam(res.data);
+      } catch (e) {
+        const message = e instanceof ApiError ? e.message : "Failed to load team";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeam();
+  }, [branchId]);
+
+  const filteredTeam = team.filter((member) => {
     const matchesSearch =
       !search.trim() ||
       member.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -48,8 +58,8 @@ export default function BranchTeamPage() {
 
     const matchesStatus =
       statusFilter === "all" ||
-      (statusFilter === "active" && member.status === "Active") ||
-      (statusFilter === "inactive" && member.status !== "Active");
+      (statusFilter === "active" && member.status === "active") ||
+      (statusFilter === "inactive" && member.status === "inactive");
 
     return matchesSearch && matchesStatus;
   });
@@ -68,7 +78,7 @@ export default function BranchTeamPage() {
           onClick={() =>
             toast({
               title: "Add team member",
-              description: "Staff management is mock-only here. This would open a staff form.",
+              description: "Staff creation from this page will be available soon.",
               variant: "info",
             })
           }
@@ -82,11 +92,11 @@ export default function BranchTeamPage() {
           <div>
             <CardTitle>Branch Team</CardTitle>
             <CardDescription>
-              Example staff list. Later this can sync with your real staff directory and permissions.
+              Manage your branch staff directory and access.
             </CardDescription>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Showing {filteredTeam.length} of {MOCK_BRANCH_TEAM.length} team members.
+            {loading ? "Loading team..." : `Showing ${filteredTeam.length} of ${team.length} team members.`}
           </p>
         </CardHeader>
         <CardContent>
@@ -111,6 +121,12 @@ export default function BranchTeamPage() {
             </div>
           </div>
 
+          {error ? (
+            <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+              {error}
+            </div>
+          ) : null}
+
           <div className="rounded-md overflow-x-auto">
             <Table>
               <TableHeader>
@@ -123,29 +139,35 @@ export default function BranchTeamPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTeam.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                      Loading team...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredTeam.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={5}
                       className="py-6 text-center text-xs text-muted-foreground"
                     >
-                      No team members match your filters.
+                      No team members found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredTeam.map((member) => {
                     let hint = "Core branch staff member";
 
-                    if (member.role === "Manager") {
+                    if (member.role === "manager") {
                       hint = "Leads day-to-day branch operations.";
-                    } else if (member.role === "Front Desk") {
+                    } else if (member.role === "receptionist") {
                       hint = "Handles member check-ins and front desk queries.";
-                    } else if (member.role === "Trainer") {
+                    } else if (member.role === "trainer") {
                       hint = "Runs sessions and supports member goals.";
                     }
 
-                    if (member.status === "Inactive") {
-                      hint = "Currently inactive in this branch (mock-only).";
+                    if (member.status === "inactive") {
+                      hint = "Currently inactive in this branch.";
                     }
 
                     return (
@@ -170,7 +192,7 @@ export default function BranchTeamPage() {
                         <TableCell>
                           <div className="flex flex-col items-start gap-1">
                             <Badge
-                              variant={member.status === "Active" ? "success" : "destructive"}
+                              variant={member.status === "active" ? "success" : "destructive"}
                               className="text-xs"
                             >
                               {member.status}
@@ -187,8 +209,7 @@ export default function BranchTeamPage() {
                             onClick={() =>
                               toast({
                                 title: "Manage staff",
-                                description:
-                                  "Staff permissions/details are mock-only at the moment.",
+                                description: "Staff management from this page will be available soon.",
                                 variant: "info",
                               })
                             }

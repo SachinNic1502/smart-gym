@@ -14,6 +14,7 @@ export interface CreatePaymentData {
   amount: number;
   method: PaymentMethod;
   description?: string;
+  skipMemberUpdate?: boolean;
 }
 
 export interface PaymentResult {
@@ -65,7 +66,7 @@ export const paymentService = {
    * Create a new payment (membership purchase/renewal)
    */
   async createPayment(data: CreatePaymentData): Promise<PaymentResult> {
-    const { memberId, branchId, planId, amount, method, description } = data;
+    const { memberId, branchId, planId, amount, method, description, skipMemberUpdate } = data;
 
     // Validate member
     const member = await (async () => {
@@ -99,17 +100,22 @@ export const paymentService = {
       invoiceNumber,
     });
 
-    // Update member's plan and expiry
-    const currentExpiry = new Date(member.expiryDate);
-    const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
-    const newExpiry = addDays(baseDate, plan.durationDays);
-
-    const memberUpdate: Partial<Member> = {
-      plan: plan.name,
-      status: "Active",
-      expiryDate: formatDate(newExpiry),
-    };
     const updatedMember = await (async () => {
+      if (skipMemberUpdate) {
+        return member;
+      }
+
+      // Update member's plan and expiry
+      const currentExpiry = new Date(member.expiryDate);
+      const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+      const newExpiry = addDays(baseDate, plan.durationDays);
+
+      const memberUpdate: Partial<Member> = {
+        plan: plan.name,
+        status: "Active",
+        expiryDate: formatDate(newExpiry),
+      };
+
       try {
         return await memberRepository.updateAsync(memberId, memberUpdate);
       } catch {

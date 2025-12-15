@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,94 +20,167 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, CalendarCheck, User } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
+import { ApiError, membersApi, plansApi } from "@/lib/api/client";
+import { useAuth } from "@/hooks/use-auth";
+import type { DietPlan, Member, WorkoutPlan } from "@/lib/types";
 
 // Types
-interface MemberData {
-    id: string;
-    name: string;
-    email: string;
-    plan: string;
-    status: "Active" | "Expired";
-    expiry: string;
-    lastVisit: string;
-    image: string;
-}
-
 interface MemberProgram {
-    workoutPlan: string;
-    dietPlan: string;
+    workoutPlanId?: string;
+    dietPlanId?: string;
 }
-
-const MOCK_MEMBERS: MemberData[] = [
-    {
-        id: "MEM001",
-        name: "Alex Johnson",
-        email: "alex@example.com",
-        plan: "Gold Premium",
-        status: "Active",
-        expiry: "2025-12-01",
-        lastVisit: "Today, 9:00 AM",
-        image: "/placeholder-user.jpg"
-    },
-    {
-        id: "MEM002",
-        name: "Maria Garcia",
-        email: "maria@example.com",
-        plan: "Silver Monthly",
-        status: "Expired",
-        expiry: "2024-11-20",
-        lastVisit: "5 days ago",
-        image: "/placeholder-user-2.jpg"
-    },
-    {
-        id: "MEM003",
-        name: "Steve Smith",
-        email: "steve@example.com",
-        plan: "Standard",
-        status: "Active",
-        expiry: "2025-01-15",
-        lastVisit: "Yesterday",
-        image: ""
-    },
-];
 
 export default function MembersPage() {
+    const { user } = useAuth();
+    const branchId = user?.branchId;
+
     const [searchTerm, setSearchTerm] = useState("");
 
-    const filteredMembers = MOCK_MEMBERS.filter((member) =>
-        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const [members, setMembers] = useState<Member[]>([]);
+    const [total, setTotal] = useState<number>(0);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
+    const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
+    const [loadingPlans, setLoadingPlans] = useState(false);
+
+    const filteredMembers = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        if (!q) return members;
+        return members.filter((m) =>
+            m.name.toLowerCase().includes(q) ||
+            (m.email ?? "").toLowerCase().includes(q)
+        );
+    }, [members, searchTerm]);
 
     // Member State
-    const [selectedMember, setSelectedMember] = useState<MemberData | null>(null);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
     const [memberPrograms, setMemberPrograms] = useState<Record<string, MemberProgram>>({});
     const [programSaveMessage, setProgramSaveMessage] = useState<string | null>(null);
     const toast = useToast();
 
-    const handleManageMember = (member: MemberData) => {
+    const fetchMembers = useCallback(async () => {
+        if (!user) {
+            setMembers([]);
+            setTotal(0);
+            setLoading(false);
+            return;
+        }
+
+        if (user.role === "branch_admin" && !branchId) {
+            setError("Branch not assigned");
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const res = await membersApi.list({
+                branchId,
+                search: searchTerm || undefined,
+                page: 1,
+                pageSize: 50,
+            } as Record<string, string | number | undefined>);
+
+            setMembers(res.data);
+            setTotal(res.total);
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to fetch members";
+            setError(message);
+            setMembers([]);
+            setTotal(0);
+        } finally {
+            setLoading(false);
+        }
+    }, [branchId, searchTerm, user]);
+
+    const fetchPlans = useCallback(async () => {
+        setLoadingPlans(true);
+        try {
+            const [w, d] = await Promise.all([
+                plansApi.getWorkoutPlans(),
+                plansApi.getDietPlans(),
+            ]);
+            setWorkoutPlans(w.data);
+            setDietPlans(d.data);
+        } catch {
+            setWorkoutPlans([]);
+            setDietPlans([]);
+        } finally {
+            setLoadingPlans(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchMembers();
+    }, [fetchMembers]);
+
+    useEffect(() => {
+        fetchPlans();
+    }, [fetchPlans]);
+
+    const handleManageMember = useCallback(async (member: Member) => {
         setSelectedMember(member);
         setProgramSaveMessage(null);
-    };
 
-    const handleProgramChange = (memberId: string, field: "workoutPlan" | "dietPlan", value: string) => {
+        try {
+            const programs = await membersApi.getPrograms(member.id);
+            const workoutPlanId = (programs.workoutPlan as any)?.id as string | undefined;
+            const dietPlanId = (programs.dietPlan as any)?.id as string | undefined;
+
+            setMemberPrograms((prev) => ({
+                ...prev,
+                [member.id]: {
+                    workoutPlanId,
+                    dietPlanId,
+                },
+            }));
+        } catch {
+            setMemberPrograms((prev) => ({
+                ...prev,
+                [member.id]: prev[member.id] ?? {},
+            }));
+        }
+    }, []);
+
+    const handleProgramChange = (memberId: string, field: "workoutPlanId" | "dietPlanId", value: string) => {
         setMemberPrograms((prev) => ({
             ...prev,
             [memberId]: {
-                ...(prev[memberId] || { workoutPlan: "", dietPlan: "" }),
+                ...(prev[memberId] || {}),
                 [field]: value,
             },
         }));
     };
 
-    const handleSavePrograms = (memberId: string) => {
-        const entry = memberPrograms[memberId];
-        const message = `Programs saved (mock) for ${memberId}: Workout - ${entry?.workoutPlan || "None"}, Diet - ${
-            entry?.dietPlan || "None"
-        }.`;
-        setProgramSaveMessage(message);
-        toast({ title: "Programs saved", description: message, variant: "success" });
-    };
+    const handleSavePrograms = useCallback(async (memberId: string) => {
+        const entry = memberPrograms[memberId] || {};
+        try {
+            await membersApi.assignPrograms(memberId, {
+                workoutPlanId: entry.workoutPlanId || undefined,
+                dietPlanId: entry.dietPlanId || undefined,
+            });
+            const message = "Programs assigned successfully";
+            setProgramSaveMessage(message);
+            toast({ title: "Programs saved", description: message, variant: "success" });
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to assign programs";
+            toast({ title: "Error", description: message, variant: "destructive" });
+        }
+    }, [memberPrograms, toast]);
+
+    const resolveWorkoutPlanName = useCallback((planId?: string) => {
+        if (!planId) return null;
+        return workoutPlans.find((p) => p.id === planId)?.name ?? planId;
+    }, [workoutPlans]);
+
+    const resolveDietPlanName = useCallback((planId?: string) => {
+        if (!planId) return null;
+        return dietPlans.find((p) => p.id === planId)?.name ?? planId;
+    }, [dietPlans]);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -155,7 +228,7 @@ export default function MembersPage() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between gap-4">
-                        <CardTitle className="whitespace-nowrap">All Members ({MOCK_MEMBERS.length})</CardTitle>
+                        <CardTitle className="whitespace-nowrap">All Members ({loading ? "..." : total})</CardTitle>
                         <div className="flex w-full justify-end gap-2">
                             <div className="relative w-full max-w-sm">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -173,7 +246,18 @@ export default function MembersPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {filteredMembers.length === 0 ? (
+                    {error ? (
+                        <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 flex items-center justify-between gap-3">
+                            <span>{error}</span>
+                            <Button size="sm" variant="outline" type="button" onClick={fetchMembers}>
+                                Retry
+                            </Button>
+                        </div>
+                    ) : null}
+
+                    {loading ? (
+                        <div className="py-10 text-center text-muted-foreground">Loading members...</div>
+                    ) : filteredMembers.length === 0 ? (
                         <div className="py-10 flex flex-col items-center justify-center text-center text-muted-foreground gap-3">
                             <div className="h-16 w-16 rounded-full border border-dashed flex items-center justify-center text-3xl">
                                 :(
@@ -218,25 +302,25 @@ export default function MembersPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>{member.plan}</TableCell>
-                                        <TableCell>{member.expiry}</TableCell>
-                                        <TableCell>{member.lastVisit}</TableCell>
+                                        <TableCell>{member.expiryDate ? member.expiryDate.split("T")[0] : "—"}</TableCell>
+                                        <TableCell>{member.lastVisit ? member.lastVisit.split("T")[0] : "—"}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground">
-                                            {memberPrograms[member.id]?.workoutPlan || memberPrograms[member.id]?.dietPlan ? (
+                                            {memberPrograms[member.id]?.workoutPlanId || memberPrograms[member.id]?.dietPlanId ? (
                                                 <div className="space-y-1">
-                                                    {memberPrograms[member.id]?.workoutPlan && (
+                                                    {memberPrograms[member.id]?.workoutPlanId && (
                                                         <div>
                                                             <span className="font-semibold">W: </span>
-                                                            <span>{memberPrograms[member.id]?.workoutPlan}</span>
+                                                            <span>{resolveWorkoutPlanName(memberPrograms[member.id]?.workoutPlanId)}</span>
                                                         </div>
                                                     )}
-                                                    {memberPrograms[member.id]?.dietPlan && (
+                                                    {memberPrograms[member.id]?.dietPlanId && (
                                                         <div>
                                                             <span className="font-semibold">D: </span>
-                                                            <span>{memberPrograms[member.id]?.dietPlan}</span>
+                                                            <span>{resolveDietPlanName(memberPrograms[member.id]?.dietPlanId)}</span>
                                                         </div>
                                                     )}
-                                                    {!memberPrograms[member.id]?.workoutPlan &&
-                                                        !memberPrograms[member.id]?.dietPlan && (
+                                                    {!memberPrograms[member.id]?.workoutPlanId &&
+                                                        !memberPrograms[member.id]?.dietPlanId && (
                                                             <span className="italic text-[11px] text-muted-foreground">
                                                                 Not assigned
                                                             </span>
@@ -311,7 +395,7 @@ export default function MembersPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Expiry Date</Label>
-                                    <Input value={selectedMember?.expiry} readOnly />
+                                    <Input value={selectedMember?.expiryDate ? selectedMember.expiryDate.split("T")[0] : ""} readOnly />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Status</Label>
@@ -334,11 +418,11 @@ export default function MembersPage() {
                                     <p className="mt-1">
                                         Workout: "
                                         <span className="font-semibold">
-                                            {memberPrograms[selectedMember.id]?.workoutPlan || "Not assigned"}
+                                            {resolveWorkoutPlanName(memberPrograms[selectedMember.id]?.workoutPlanId) || "Not assigned"}
                                         </span>
                                         " • Diet: "
                                         <span className="font-semibold">
-                                            {memberPrograms[selectedMember.id]?.dietPlan || "Not assigned"}
+                                            {resolveDietPlanName(memberPrograms[selectedMember.id]?.dietPlanId) || "Not assigned"}
                                         </span>
                                         "
                                     </p>
@@ -387,30 +471,46 @@ export default function MembersPage() {
                                                 <Label>Workout plan</Label>
                                                 <select
                                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                                    value={memberPrograms[selectedMember.id]?.workoutPlan || ""}
+                                                    value={memberPrograms[selectedMember.id]?.workoutPlanId || ""}
                                                     onChange={(e) =>
-                                                        handleProgramChange(selectedMember.id, "workoutPlan", e.target.value)
+                                                        handleProgramChange(selectedMember.id, "workoutPlanId", e.target.value)
                                                     }
                                                 >
                                                     <option value="">None</option>
-                                                    <option value="Beginner Full Body">Beginner Full Body</option>
-                                                    <option value="Strength Split">Strength Split</option>
-                                                    <option value="Fat Loss HIIT">Fat Loss HIIT</option>
+                                                    {loadingPlans ? (
+                                                        <option value="" disabled>
+                                                            Loading...
+                                                        </option>
+                                                    ) : (
+                                                        workoutPlans.map((p) => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.name}
+                                                            </option>
+                                                        ))
+                                                    )}
                                                 </select>
                                             </div>
                                             <div className="space-y-2">
                                                 <Label>Diet plan</Label>
                                                 <select
                                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                                    value={memberPrograms[selectedMember.id]?.dietPlan || ""}
+                                                    value={memberPrograms[selectedMember.id]?.dietPlanId || ""}
                                                     onChange={(e) =>
-                                                        handleProgramChange(selectedMember.id, "dietPlan", e.target.value)
+                                                        handleProgramChange(selectedMember.id, "dietPlanId", e.target.value)
                                                     }
                                                 >
                                                     <option value="">None</option>
-                                                    <option value="Fat Loss Basics">Fat Loss Basics</option>
-                                                    <option value="Muscle Gain Pro">Muscle Gain Pro</option>
-                                                    <option value="General Wellness">General Wellness</option>
+                                                    {loadingPlans ? (
+                                                        <option value="" disabled>
+                                                            Loading...
+                                                        </option>
+                                                    ) : (
+                                                        dietPlans.map((p) => (
+                                                            <option key={p.id} value={p.id}>
+                                                                {p.name}
+                                                            </option>
+                                                        ))
+                                                    )}
                                                 </select>
                                             </div>
                                         </div>
@@ -441,15 +541,14 @@ export default function MembersPage() {
                                                 type="button"
                                                 onClick={() => handleSavePrograms(selectedMember.id)}
                                             >
-                                                Save Programs (mock)
+                                                Save Programs
                                             </Button>
                                         </div>
                                     )}
                                 </CardContent>
                             </Card>
                             <div className="border rounded-md p-4 bg-gray-50 text-center text-muted-foreground text-sm">
-                                Program assignment is mock-only for now. Later this can show the member's current
-                                workout and diet plans, progress, and next review date.
+                                Program assignment saves to your backend. Progress tracking and next review date can be added later.
                             </div>
                         </TabsContent>
                     </Tabs>

@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       dateOfBirth: validation.data.dateOfBirth,
       address: validation.data.address,
       branchId,
+      planId: validation.data.planId || undefined,
       referralSource: validation.data.referralSource,
       notes: validation.data.notes,
     });

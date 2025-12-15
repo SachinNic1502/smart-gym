@@ -2,6 +2,25 @@
 // API Client for Frontend
 // ============================================
 
+import type {
+  User,
+  Member,
+  Branch,
+  Device,
+  Payment,
+  PaymentMethod,
+  MembershipPlan,
+  AuditLog,
+  SystemSettings,
+  BroadcastMessage,
+  MessageChannel,
+  Lead,
+  Staff,
+  GymClass,
+  WorkoutPlan,
+  DietPlan,
+} from "@/lib/types";
+
 const API_BASE = "/api";
 
 interface ApiResponse<T> {
@@ -54,8 +73,6 @@ async function request<T>(
 // Auth API
 // ============================================
 
-import type { User, Member, Branch, Device, Payment, MembershipPlan, AuditLog, SystemSettings, BroadcastMessage, MessageChannel } from "@/lib/types";
-
 export const authApi = {
   login: (email: string, password: string) =>
     request<{ user: User; redirectUrl: string }>("/auth/login", {
@@ -97,7 +114,7 @@ export const membersApi = {
 
   get: (id: string) => request<Member>(`/members/${id}`),
 
-  create: (data: Partial<Member>) =>
+  create: (data: Partial<Member> & { planId?: string }) =>
     request<Member>("/members", {
       method: "POST",
       body: JSON.stringify(data),
@@ -199,7 +216,7 @@ export const paymentsApi = {
     }>(`/payments${query}`);
   },
 
-  create: (data: unknown) =>
+  create: (data: { memberId: string; branchId: string; planId: string; amount: number; method: PaymentMethod; description?: string; skipMemberUpdate?: boolean }) =>
     request<unknown>("/payments", {
       method: "POST",
       body: JSON.stringify(data),
@@ -242,25 +259,59 @@ export const communicationsApi = {
 export const leadsApi = {
   list: (params?: Record<string, string>) => {
     const query = params ? `?${new URLSearchParams(params)}` : "";
-    return request<{ data: unknown[]; total: number; stats: unknown }>(`/leads${query}`);
+    return request<{ data: Lead[]; total: number; stats: unknown }>(`/leads${query}`);
   },
 
-  get: (id: string) => request<unknown>(`/leads/${id}`),
+  get: (id: string) => request<Lead>(`/leads/${id}`),
 
-  create: (data: unknown) =>
-    request<unknown>("/leads", {
+  create: (data: Partial<Lead>) =>
+    request<Lead>("/leads", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  update: (id: string, data: unknown) =>
-    request<unknown>(`/leads/${id}`, {
+  update: (id: string, data: Partial<Lead>) =>
+    request<Lead>(`/leads/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   delete: (id: string) =>
     request<{ id: string }>(`/leads/${id}`, { method: "DELETE" }),
+};
+
+// ============================================
+// Staff API
+// ============================================
+
+export const staffApi = {
+  list: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : "";
+    return request<{ data: Staff[]; total: number; page: number; pageSize: number; totalPages: number }>(`/staff${query}`);
+  },
+
+  create: (data: Partial<Staff>) =>
+    request<Staff>("/staff", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// ============================================
+// Classes API
+// ============================================
+
+export const classesApi = {
+  list: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : "";
+    return request<{ data: GymClass[]; total: number; page: number; pageSize: number; totalPages: number }>(`/classes${query}`);
+  },
+
+  create: (data: Partial<GymClass>) =>
+    request<GymClass>("/classes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 
 // ============================================
@@ -303,10 +354,10 @@ export const plansApi = {
     request<{ data: MembershipPlan[]; total: number }>("/plans?type=membership"),
 
   getWorkoutPlans: () =>
-    request<{ data: unknown[]; total: number }>("/plans?type=workout"),
+    request<{ data: WorkoutPlan[]; total: number }>("/plans?type=workout"),
 
   getDietPlans: () =>
-    request<{ data: unknown[]; total: number }>("/plans?type=diet"),
+    request<{ data: DietPlan[]; total: number }>("/plans?type=diet"),
 };
 
 // ============================================

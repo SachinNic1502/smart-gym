@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       search: searchParams.get("search") || undefined,
     };
 
-    const result = staffRepository.findAll(filters, pagination);
+    const result = await staffRepository.findAllAsync(filters, pagination);
     return successResponse(result);
 
   } catch (error) {
@@ -52,12 +52,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate email
-    const existing = staffRepository.findByEmail(body.email);
+    const existing = await staffRepository.findByEmailAsync(body.email);
     if (existing) {
       return errorResponse("A staff member with this email already exists", 409);
     }
 
-    const staff = staffRepository.create({
+    const staff = await staffRepository.createAsync({
       name: body.name,
       email: body.email,
       phone: body.phone,

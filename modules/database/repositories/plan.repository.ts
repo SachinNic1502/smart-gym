@@ -4,7 +4,7 @@
 
 import { getStore } from "../store";
 import { connectToDatabase } from "../mongoose";
-import { MembershipPlanModel } from "../models";
+import { DietPlanModel, MembershipPlanModel, WorkoutPlanModel } from "../models";
 import { generateId } from "./base.repository";
 import type { MembershipPlan, WorkoutPlan, DietPlan } from "@/lib/types";
 
@@ -104,6 +104,26 @@ export const planRepository = {
     return getStore().workoutPlans.find(p => p.id === id);
   },
 
+  async findAllWorkoutPlansAsync(): Promise<WorkoutPlan[]> {
+    try {
+      await connectToDatabase();
+      const docs = await WorkoutPlanModel.find({}).sort({ createdAt: -1 }).lean<WorkoutPlan[]>();
+      return docs;
+    } catch {
+      return this.findAllWorkoutPlans();
+    }
+  },
+
+  async findWorkoutPlanByIdAsync(id: string): Promise<WorkoutPlan | undefined> {
+    try {
+      await connectToDatabase();
+      const doc = await WorkoutPlanModel.findOne({ id }).lean<WorkoutPlan | null>();
+      return doc ?? undefined;
+    } catch {
+      return this.findWorkoutPlanById(id);
+    }
+  },
+
   // Diet Plans
   findAllDietPlans(): DietPlan[] {
     return getStore().dietPlans;
@@ -111,5 +131,25 @@ export const planRepository = {
 
   findDietPlanById(id: string): DietPlan | undefined {
     return getStore().dietPlans.find(p => p.id === id);
+  },
+
+  async findAllDietPlansAsync(): Promise<DietPlan[]> {
+    try {
+      await connectToDatabase();
+      const docs = await DietPlanModel.find({}).sort({ createdAt: -1 }).lean<DietPlan[]>();
+      return docs;
+    } catch {
+      return this.findAllDietPlans();
+    }
+  },
+
+  async findDietPlanByIdAsync(id: string): Promise<DietPlan | undefined> {
+    try {
+      await connectToDatabase();
+      const doc = await DietPlanModel.findOne({ id }).lean<DietPlan | null>();
+      return doc ?? undefined;
+    } catch {
+      return this.findDietPlanById(id);
+    }
   },
 };

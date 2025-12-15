@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const auth = await requireSession(["super_admin", "branch_admin"]);
     if ("response" in auth) return auth.response;
 
-    const staff = staffRepository.findById(staffId);
+    const staff = await staffRepository.findByIdAsync(staffId);
     
     if (!staff) {
       return errorResponse("Staff member not found", 404);
@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const auth = await requireSession(["super_admin", "branch_admin"]);
     if ("response" in auth) return auth.response;
 
-    const existing = staffRepository.findById(staffId);
+    const existing = await staffRepository.findByIdAsync(staffId);
     if (!existing) {
       return errorResponse("Staff member not found", 404);
     }
@@ -55,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const scoped = resolveBranchScope(auth.session, requestedBranchId);
     if ("response" in scoped) return scoped.response;
 
-    const updated = staffRepository.update(staffId, {
+    const updated = await staffRepository.updateAsync(staffId, {
       ...body,
       branchId: scoped.branchId ?? body.branchId,
     });
@@ -80,7 +80,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const auth = await requireSession(["super_admin", "branch_admin"]);
     if ("response" in auth) return auth.response;
 
-    const existing = staffRepository.findById(staffId);
+    const existing = await staffRepository.findByIdAsync(staffId);
     if (!existing) {
       return errorResponse("Staff member not found", 404);
     }
@@ -88,7 +88,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const scoped = resolveBranchScope(auth.session, existing.branchId);
     if ("response" in scoped) return scoped.response;
 
-    const deleted = staffRepository.delete(staffId);
+    const deleted = await staffRepository.deleteAsync(staffId);
     
     if (!deleted) {
       return errorResponse("Staff member not found", 404);

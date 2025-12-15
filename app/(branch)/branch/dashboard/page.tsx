@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { useToast } from "@/components/ui/toast-provider";
-import { dashboardApi, ApiError } from "@/lib/api/client";
+import { branchesApi, dashboardApi, ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
 
 interface BranchStatsResponse {
@@ -71,97 +71,13 @@ const STAT_ICON_MAP: Record<string, typeof Users> = {
     "Month Renewals": Users,
 };
 
-const DEFAULT_ATTENDANCE_DATA = [
-    { time: '6am', users: 12 },
-    { time: '8am', users: 45 },
-    { time: '10am', users: 30 },
-    { time: '12pm', users: 25 },
-    { time: '2pm', users: 20 },
-    { time: '4pm', users: 35 },
-    { time: '6pm', users: 85 },
-    { time: '8pm', users: 60 },
-    { time: '10pm', users: 15 },
-];
-
-const DEFAULT_RECENT_CHECKINS = [
-    { name: "Mike Ross", time: "10:30 AM", method: "Fingerprint", status: "success" },
-    { name: "Rachel Green", time: "10:28 AM", method: "QR Code", status: "success" },
-    { name: "Harvey Specter", time: "10:25 AM", method: "Fingerprint", status: "success" },
-    { name: "Louis Litt", time: "10:22 AM", method: "Denied", status: "failed" },
-    { name: "Donna Paulsen", time: "10:15 AM", method: "Fingerprint", status: "success" },
-];
-
-const DEFAULT_EXPIRING_MEMBERS = [
-    { name: 'Vijay M.', days: 0 },
-    { name: 'Sneha K.', days: 2 },
-    { name: 'Rahul S.', days: 5 },
-];
-
-const DEFAULT_STATS: StatItem[] = [
-    {
-        title: "Live Check-ins",
-        value: "42",
-        sub: "Members currently inside",
-        icon: UserCheck,
-        color: "bg-green-100 text-green-600",
-    },
-    {
-        title: "Today's Collections",
-        value: "₹75,500",
-        sub: "12 payments received",
-        icon: Wallet,
-        color: "bg-blue-100 text-blue-600",
-    },
-    {
-        title: "Active Members",
-        value: "892",
-        sub: "+5 new joinees today",
-        icon: Users,
-        color: "bg-purple-100 text-purple-600",
-    },
-    {
-        title: "Expiring Soon",
-        value: "15",
-        sub: "Within next 3 days",
-        icon: CalendarDays,
-        color: "bg-orange-100 text-orange-600",
-    },
-    {
-        title: "Today Plan Expiry",
-        value: "7",
-        sub: "Memberships ending today",
-        icon: Clock,
-        color: "bg-amber-100 text-amber-600",
-    },
-    {
-        title: "Pending Balance",
-        value: "₹12,500",
-        sub: "Across 5 members",
-        icon: AlertTriangle,
-        color: "bg-rose-100 text-rose-600",
-    },
-    {
-        title: "Week Collection",
-        value: "₹3,40,000",
-        sub: "This week's collections",
-        icon: Wallet,
-        color: "bg-emerald-100 text-emerald-600",
-    },
-    {
-        title: "Month Renewals",
-        value: "38",
-        sub: "Renewals in current month",
-        icon: Users,
-        color: "bg-indigo-100 text-indigo-600",
-    },
-];
-
 export default function BranchDashboard() {
     const toast = useToast();
     const router = useRouter();
     const { user } = useAuth();
     const [mounted, setMounted] = useState(false);
     const branchId = user?.branchId;
+    const [branchName, setBranchName] = useState<string | null>(null);
     const [branchStats, setBranchStats] = useState<BranchStatsResponse | null>(null);
     const [loadingStats, setLoadingStats] = useState<boolean>(true);
     const [statsError, setStatsError] = useState<string | null>(null);
@@ -170,32 +86,61 @@ export default function BranchDashboard() {
         setMounted(true);
     }, []);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            if (!branchId) {
-                setLoadingStats(false);
-                return;
-            }
-            setLoadingStats(true);
-            setStatsError(null);
-            try {
-                const data = await dashboardApi.getStats("branch_admin", branchId);
-                setBranchStats(data as BranchStatsResponse);
-            } catch (error) {
-                const message = error instanceof ApiError ? error.message : "Failed to load branch stats";
-                setStatsError(message);
-                toast({
-                    title: "Error",
-                    description: message,
-                    variant: "destructive",
-                });
-            } finally {
-                setLoadingStats(false);
-            }
-        };
+    const fetchBranchName = useCallback(async () => {
+        if (!branchId) {
+            setBranchName(null);
+            return;
+        }
 
+        try {
+            const branch = await branchesApi.get(branchId);
+            setBranchName(branch.name);
+        } catch {
+            setBranchName(null);
+        }
+    }, [branchId]);
+
+    const fetchStats = useCallback(async () => {
+        if (!user) {
+            setBranchStats(null);
+            setLoadingStats(false);
+            return;
+        }
+
+        if (user.role === "branch_admin" && !branchId) {
+            setBranchStats(null);
+            setStatsError("Branch not assigned");
+            setLoadingStats(false);
+            return;
+        }
+
+        setLoadingStats(true);
+        setStatsError(null);
+
+        try {
+            const data = await dashboardApi.getStats();
+            setBranchStats(data as BranchStatsResponse);
+        } catch (error) {
+            const message = error instanceof ApiError ? error.message : "Failed to load branch stats";
+            setStatsError(message);
+            toast({
+                title: "Error",
+                description: message,
+                variant: "destructive",
+            });
+            setBranchStats(null);
+        } finally {
+            setLoadingStats(false);
+        }
+    }, [branchId, toast, user]);
+
+    useEffect(() => {
+        fetchBranchName();
+    }, [fetchBranchName]);
+
+    useEffect(() => {
         fetchStats();
-    }, [branchId, toast]);
+    }, [fetchStats]);
 
     const mappedStats: StatItem[] | null = branchStats
         ? branchStats.stats.map((s) => ({
@@ -207,30 +152,35 @@ export default function BranchDashboard() {
         }))
         : null;
 
-    const stats: StatItem[] = mappedStats ?? DEFAULT_STATS;
-    const attendanceData = branchStats?.charts.attendanceTrend ?? DEFAULT_ATTENDANCE_DATA;
-    const recentCheckIns = branchStats?.recentCheckIns ?? DEFAULT_RECENT_CHECKINS;
-    const expiringMembers = branchStats?.expiringMembers ?? DEFAULT_EXPIRING_MEMBERS;
+    const stats: StatItem[] = mappedStats ?? [];
+    const attendanceData = branchStats?.charts.attendanceTrend ?? [];
+    const recentCheckIns = branchStats?.recentCheckIns ?? [];
+    const expiringMembers = branchStats?.expiringMembers ?? [];
+
+    const headerTitle = branchName ?? (branchId ? `Branch ${branchId}` : "Branch Dashboard");
+    const headerSubtitle = user ? `Welcome back, ${user.name}` : "";
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-secondary">Downtown Branch</h2>
-                    <p className="text-muted-foreground mt-1">
-                        Welcome back, John (Branch Manager)
-                    </p>
+                    <h2 className="text-3xl font-bold tracking-tight text-secondary">{headerTitle}</h2>
+                    {headerSubtitle ? (
+                        <p className="text-muted-foreground mt-1">
+                            {headerSubtitle}
+                        </p>
+                    ) : null}
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:space-x-2">
                     <Link href="/branch/members/add">
-                        <Button className="shadow-lg shadow-primary/20">
+                        <Button className="w-full sm:w-auto shadow-lg shadow-primary/20">
                             <Users className="mr-2 h-4 w-4" />
                             Add Member
                         </Button>
                     </Link>
                     <Button
                         variant="outline"
-                        className="border-primary/20 text-primary hover:bg-primary/5"
+                        className="w-full sm:w-auto border-primary/20 text-primary hover:bg-primary/5"
                         type="button"
                         onClick={() => router.push("/branch/payments")}
                     >
@@ -240,37 +190,71 @@ export default function BranchDashboard() {
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => (
-                    <Card key={stat.title} className="hover:shadow-lg transition-all duration-200 border border-gray-100 bg-white">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                {stat.title}
-                            </CardTitle>
-                            <div className={`p-2 rounded-xl ${stat.color}`}>
-                                <stat.icon className="h-4 w-4" />
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stat.value}</div>
-                            <p className="text-xs text-muted-foreground">
-                                {stat.sub}
-                            </p>
-                        </CardContent>
-                    </Card>
-                ))}
+            {statsError ? (
+                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 flex items-center justify-between gap-3">
+                    <span>{statsError}</span>
+                    <Button size="sm" variant="outline" type="button" onClick={fetchStats}>
+                        Retry
+                    </Button>
+                </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {loadingStats
+                    ? Array.from({ length: 8 }).map((_, idx) => (
+                        <Card key={idx} className="border border-gray-100 bg-white">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <div className="h-4 w-28 rounded bg-gray-100 animate-pulse" />
+                                <div className="h-8 w-8 rounded-xl bg-gray-100 animate-pulse" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-7 w-24 rounded bg-gray-100 animate-pulse" />
+                                <div className="mt-2 h-3 w-36 rounded bg-gray-100 animate-pulse" />
+                            </CardContent>
+                        </Card>
+                    ))
+                    : stats.length === 0
+                    ? (
+                        <Card className="col-span-2 lg:col-span-4 border border-gray-100 bg-white">
+                            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                                No dashboard stats available.
+                            </CardContent>
+                        </Card>
+                    )
+                    : stats.map((stat) => (
+                        <Card key={stat.title} className="hover:shadow-lg transition-all duration-200 border border-gray-100 bg-white">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    {stat.title}
+                                </CardTitle>
+                                <div className={`p-2 rounded-xl ${stat.color}`}>
+                                    <stat.icon className="h-4 w-4" />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stat.value}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {stat.sub}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ))}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="col-span-2 shadow-sm">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-2 shadow-sm">
                     <CardHeader>
                         <CardTitle>Live Occupancy Trend</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[250px] w-full">
-                            {!mounted ? (
+                            {!mounted || loadingStats ? (
                                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                                     Loading chart...
+                                </div>
+                            ) : attendanceData.length === 0 ? (
+                                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                                    No attendance trend data.
                                 </div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
@@ -298,7 +282,7 @@ export default function BranchDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-sm h-full">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-1 shadow-sm h-full">
                     <CardHeader>
                         <CardTitle>Quick Access</CardTitle>
                     </CardHeader>
@@ -338,8 +322,12 @@ export default function BranchDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-6">
-                            {recentCheckIns.map((item, i) => (
-                                <div key={`${item.name}-${item.time}-${i}`} className="flex items-center justify-between">
+                            {loadingStats ? (
+                                <div className="py-10 text-center text-xs text-muted-foreground">Loading check-ins...</div>
+                            ) : recentCheckIns.length === 0 ? (
+                                <div className="py-10 text-center text-xs text-muted-foreground">No recent check-ins.</div>
+                            ) : recentCheckIns.map((item, i) => (
+                                <div key={`${item.name}-${item.time}-${i}`} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="flex items-center gap-3">
                                         <div
                                             className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -356,7 +344,7 @@ export default function BranchDashboard() {
                                         </div>
                                     </div>
                                     <span
-                                        className={`text-xs font-mono py-1 px-2 rounded-md ${
+                                        className={`text-xs font-mono py-1 px-2 rounded-md self-start sm:self-auto ${
                                             item.status === 'failed'
                                                 ? 'bg-red-50 text-red-600'
                                                 : 'text-gray-500 bg-gray-50'
@@ -371,14 +359,7 @@ export default function BranchDashboard() {
                             variant="ghost"
                             type="button"
                             className="w-full mt-4 text-xs text-muted-foreground hover:text-primary"
-                            onClick={() =>
-                                toast({
-                                    title: "Activity feed",
-                                    description:
-                                        "Full check-in activity view is mock in this demo. This would open a detailed log.",
-                                    variant: "info",
-                                })
-                            }
+                            onClick={() => router.push("/branch/attendance")}
                         >
                             View All Activity
                         </Button>
@@ -398,7 +379,11 @@ export default function BranchDashboard() {
                                 <span className="text-xs text-muted-foreground">Today & next 7 days</span>
                             </div>
                             <div className="space-y-3 text-sm">
-                                {expiringMembers.map((m) => (
+                                {loadingStats ? (
+                                    <div className="py-6 text-center text-xs text-muted-foreground">Loading expiries...</div>
+                                ) : expiringMembers.length === 0 ? (
+                                    <div className="py-6 text-center text-xs text-muted-foreground">No upcoming expiries.</div>
+                                ) : expiringMembers.map((m) => (
                                     <div key={m.name} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <CalendarDays className="h-4 w-4 text-amber-500" />
@@ -420,18 +405,9 @@ export default function BranchDashboard() {
                                 <span className="text-xs text-muted-foreground">This week</span>
                             </div>
                             <div className="space-y-3 text-sm">
-                                {[ 
-                                    { name: 'Anita D.', type: 'Birthday' },
-                                    { name: 'Karan & Meera', type: 'Anniversary' },
-                                ].map((m) => (
-                                    <div key={m.name} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Gift className="h-4 w-4 text-pink-500" />
-                                            <span>{m.name}</span>
-                                        </div>
-                                        <span className="text-xs text-muted-foreground">{m.type}</span>
-                                    </div>
-                                ))}
+                                <div className="py-6 text-center text-xs text-muted-foreground">
+                                    No birthday or anniversary data available.
+                                </div>
                             </div>
                         </div>
                     </CardContent>
