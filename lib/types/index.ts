@@ -66,6 +66,7 @@ export interface Member {
   dietPlanId?: string;
   referralSource?: string;
   notes?: string;
+  passwordHash?: string;
   createdAt: string;
   updatedAt: string;
 }

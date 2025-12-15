@@ -1,17 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { useToast } from "@/components/ui/toast-provider";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError, staffApi } from "@/lib/api/client";
-import type { Staff } from "@/lib/types";
+import { Users, UserPlus, Search, Filter, MoreHorizontal } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast-provider";
+import { staffApi, ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
+import type { Staff } from "@/lib/types";
 
 export default function BranchTeamPage() {
   const toast = useToast();
@@ -21,6 +38,14 @@ export default function BranchTeamPage() {
   const [team, setTeam] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [staffForm, setStaffForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "",
+  });
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -50,6 +75,47 @@ export default function BranchTeamPage() {
     fetchTeam();
   }, [branchId]);
 
+  const handleCreateStaff = async () => {
+    if (!staffForm.name.trim() || !staffForm.email.trim() || !staffForm.phone.trim() || !staffForm.role) {
+      toast({ title: "Missing fields", description: "All fields are required", variant: "warning" });
+      return;
+    }
+
+    setCreating(true);
+    try {
+      await staffApi.create({
+        name: staffForm.name,
+        email: staffForm.email,
+        phone: staffForm.phone,
+        role: staffForm.role as Staff["role"],
+        branchId: branchId!,
+        joiningDate: new Date().toISOString().split("T")[0],
+        status: "active",
+        updatedAt: new Date().toISOString(),
+      });
+      toast({ title: "Staff added", description: "New staff member created successfully", variant: "success" });
+      setIsCreateOpen(false);
+      setStaffForm({ name: "", email: "", phone: "", role: "" });
+      // Refresh the list
+      const fetchTeam = async () => {
+        if (!branchId) return;
+        try {
+          const res = await staffApi.list({ branchId, page: "1", pageSize: "50" });
+          setTeam(res.data ?? []);
+        } catch (e) {
+          const message = e instanceof ApiError ? e.message : "Failed to load team";
+          setError(message);
+        }
+      };
+      fetchTeam();
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to create staff";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const filteredTeam = team.filter((member) => {
     const matchesSearch =
       !search.trim() ||
@@ -70,22 +136,84 @@ export default function BranchTeamPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Team</h2>
           <p className="text-muted-foreground">
-            Manage your local branch staff and their access.
+            Manage your branch staff and their permissions.
           </p>
         </div>
-        <Button
-          type="button"
-          onClick={() =>
-            toast({
-              title: "Add team member",
-              description: "Staff creation from this page will be available soon.",
-              variant: "info",
-            })
-          }
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Team Member
-        </Button>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Staff
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader>
+              <DialogTitle>Add Staff Member</DialogTitle>
+              <DialogDescription>
+                Create a new staff account for your branch. They will receive login credentials via email.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="staff-name">
+                  Full Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="staff-name"
+                  placeholder="e.g. John Smith"
+                  value={staffForm.name}
+                  onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staff-email">
+                  Email <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="staff-email"
+                  type="email"
+                  placeholder="e.g. john@company.com"
+                  value={staffForm.email}
+                  onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staff-phone">
+                  Phone <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="staff-phone"
+                  placeholder="e.g. +1 234 567 8900"
+                  value={staffForm.phone}
+                  onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="staff-role">
+                  Role <span className="text-red-500">*</span>
+                </Label>
+                <Select value={staffForm.role} onValueChange={(value) => setStaffForm({ ...staffForm, role: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="trainer">Trainer</SelectItem>
+                    <SelectItem value="receptionist">Receptionist</SelectItem>
+                    <SelectItem value="branch_admin">Branch Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateStaff} disabled={creating}>
+                {creating ? "Creating..." : "Add Staff"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       <Card className="border-t-4 border-t-primary/20">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,43 +16,79 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast-provider";
-
-const INITIAL_CLASSES = [
-    { name: "Morning Yoga", trainer: "Sarah Connor", time: "07:00 AM", duration: "60 min", attendees: 12, max: 20 },
-    { name: "HIIT Blast", trainer: "Mike Tyson", time: "06:00 PM", duration: "45 min", attendees: 18, max: 20 },
-    { name: "Zumba", trainer: "Alex Dance", time: "05:00 PM", duration: "60 min", attendees: 8, max: 25 },
-];
-
-const INITIAL_TRAINERS = [
-    { name: "Sarah Connor", role: "Yoga Instructor", clients: 15, rating: 4.9, img: "" },
-    { name: "Mike Tyson", role: "Boxing Coach", clients: 22, rating: 5.0, img: "" },
-];
+import { ApiError, classesApi, staffApi } from "@/lib/api/client";
+import { useAuth } from "@/hooks/use-auth";
+import type { GymClass, Staff, ClassType } from "@/lib/types";
 
 export default function ClassesPage() {
-    const [activeTab, setActiveTab] = useState("classes");
-    const [classes, setClasses] = useState(INITIAL_CLASSES);
-    const [trainers, setTrainers] = useState(INITIAL_TRAINERS);
-    const [isClassDialogOpen, setIsClassDialogOpen] = useState(false);
-    const [isTrainerDialogOpen, setIsTrainerDialogOpen] = useState(false);
-    const [classForm, setClassForm] = useState({
-        name: "",
-        trainer: "",
-        time: "",
-        duration: "",
-        max: "",
-    });
-    const [trainerForm, setTrainerForm] = useState({
-        name: "",
-        role: "",
-        clients: "",
-        rating: "",
-    });
+    const { user } = useAuth();
+    const branchId = user?.branchId;
     const toast = useToast();
 
-    const totalBookings = classes.reduce((sum, cls) => sum + cls.attendees, 0);
+    const [activeTab, setActiveTab] = useState("classes");
+    
+    // Data State
+    const [classes, setClasses] = useState<GymClass[]>([]);
+    const [trainers, setTrainers] = useState<Staff[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Dialog State
+    const [isClassDialogOpen, setIsClassDialogOpen] = useState(false);
+    const [isTrainerDialogOpen, setIsTrainerDialogOpen] = useState(false);
+    
+    // Forms
+    const [classForm, setClassForm] = useState({
+        name: "",
+        trainerId: "",
+        type: "yoga" as ClassType,
+        scheduleTime: "",
+        duration: "60 min",
+        capacity: "20",
+        description: "",
+    });
+
+    const [trainerForm, setTrainerForm] = useState({
+        name: "",
+        role: "trainer" as any,
+        email: "",
+        phone: "",
+    });
+
+    const loadData = useCallback(async () => {
+        if (!user) return;
+        if (user.role === "branch_admin" && !branchId) {
+            setError("Branch not assigned");
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const [classesRes, staffRes] = await Promise.all([
+                classesApi.list({ branchId: branchId ?? "", page: "1", pageSize: "100" }),
+                staffApi.list({ branchId: branchId ?? "", page: "1", pageSize: "100" }),
+            ]);
+            setClasses(classesRes.data ?? []);
+            setTrainers(staffRes.data ?? []);
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to load data";
+            setError(message);
+        } finally {
+            setLoading(false);
+        }
+    }, [branchId, user]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    const totalBookings = classes.reduce((sum, cls) => sum + (cls.enrolled || 0), 0);
+    const totalCapacity = classes.reduce((sum, cls) => sum + cls.capacity, 0);
+    const utilizationRate = totalCapacity > 0 ? Math.round((totalBookings / totalCapacity) * 100) : 0;
 
     const handlePrimaryAction = () => {
         if (activeTab === "classes") {
@@ -62,64 +98,86 @@ export default function ClassesPage() {
         }
     };
 
-    const handleCreateClass = () => {
-        if (!classForm.name.trim() || !classForm.trainer.trim() || !classForm.time.trim()) {
+    const handleCreateClass = async () => {
+        if (!classForm.name.trim() || !classForm.trainerId || !classForm.scheduleTime) {
             toast({
                 title: "Missing details",
-                description: "Please fill class name, trainer and time.",
+                description: "Please fill class name, trainer and schedule time.",
                 variant: "warning",
             });
             return;
         }
 
-        const max = Number(classForm.max) || 20;
-        const newClass = {
-            name: classForm.name,
-            trainer: classForm.trainer,
-            time: classForm.time,
-            duration: classForm.duration || "60 min",
-            attendees: 0,
-            max,
-        };
+        const trainer = trainers.find(t => t.id === classForm.trainerId);
+        
+        // Simple end time calc
+        const [hours, minutes] = classForm.scheduleTime.split(":").map(Number);
+        const durationMin = parseInt(classForm.duration) || 60;
+        const endDate = new Date();
+        endDate.setHours(hours, minutes + durationMin);
+        const endTimeVal = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
 
-        setClasses((prev) => [...prev, newClass]);
-        setIsClassDialogOpen(false);
-        setClassForm({ name: "", trainer: "", time: "", duration: "", max: "" });
-        toast({
-            title: "Class scheduled",
-            description: `${newClass.name} has been added to today's schedule (mock).`,
-            variant: "success",
-        });
+        try {
+            await classesApi.create({
+                name: classForm.name,
+                trainerId: classForm.trainerId,
+                trainerName: trainer?.name || "Unknown",
+                type: classForm.type,
+                branchId: branchId,
+                capacity: parseInt(classForm.capacity) || 20,
+                description: classForm.description,
+                status: "active",
+                schedule: [
+                    {
+                        dayOfWeek: new Date().getDay(),
+                        startTime: classForm.scheduleTime,
+                        endTime: endTimeVal,
+                    }
+                ]
+            });
+
+            toast({ title: "Class scheduled", variant: "success" });
+            setIsClassDialogOpen(false);
+            setClassForm({
+                name: "",
+                trainerId: "",
+                type: "yoga",
+                scheduleTime: "",
+                duration: "60 min",
+                capacity: "20",
+                description: "",
+            });
+            loadData();
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to create class";
+            toast({ title: "Error", description: message, variant: "destructive" });
+        }
     };
 
-    const handleCreateTrainer = () => {
+    const handleCreateTrainer = async () => {
         if (!trainerForm.name.trim()) {
-            toast({
-                title: "Missing name",
-                description: "Please enter the trainer name.",
-                variant: "warning",
-            });
+            toast({ title: "Missing name", description: "Please enter the trainer name.", variant: "warning" });
             return;
         }
 
-        const clients = Number(trainerForm.clients) || 0;
-        const rating = Number(trainerForm.rating) || 5.0;
-        const newTrainer = {
-            name: trainerForm.name,
-            role: trainerForm.role || "Trainer",
-            clients,
-            rating,
-            img: "",
-        };
-
-        setTrainers((prev) => [...prev, newTrainer]);
-        setIsTrainerDialogOpen(false);
-        setTrainerForm({ name: "", role: "", clients: "", rating: "" });
-        toast({
-            title: "Trainer added",
-            description: `${newTrainer.name} has been added to your branch team (mock).`,
-            variant: "success",
-        });
+        try {
+            await staffApi.create({
+                name: trainerForm.name,
+                role: trainerForm.role,
+                branchId: branchId!,
+                email: trainerForm.email,
+                phone: trainerForm.phone,
+                status: "active",
+                joiningDate: new Date().toISOString().split("T")[0],
+                updatedAt: new Date().toISOString(),
+            });
+            setIsTrainerDialogOpen(false);
+            setTrainerForm({ name: "", role: "trainer", email: "", phone: "" });
+            loadData();
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to add trainer";
+            toast({ title: "Error", description: message, variant: "destructive" });
+        }
     };
 
     return (
@@ -129,97 +187,71 @@ export default function ClassesPage() {
                     <h2 className="text-3xl font-bold tracking-tight">Classes & Trainers</h2>
                     <p className="text-muted-foreground">Manage your gym schedules and staff.</p>
                 </div>
-                <Button
-                    type="button"
-                    onClick={handlePrimaryAction}
-                >
+                <Button onClick={handlePrimaryAction}>
                     <Plus className="mr-2 h-4 w-4" />
                     {activeTab === "classes" ? "Schedule Class" : "Add Trainer"}
                 </Button>
             </div>
 
+            {/* Dialogs */}
             <Dialog open={isClassDialogOpen} onOpenChange={setIsClassDialogOpen}>
                 <DialogContent className="sm:max-w-[420px]">
                     <DialogHeader>
                         <DialogTitle>Schedule Class</DialogTitle>
-                        <DialogDescription>
-                            Create a new class for today. This is mock-only and does not affect real schedules.
-                        </DialogDescription>
+                        <DialogDescription>Create a new class for the schedule.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
-                            <Label htmlFor="cls-name">
-                                Class name <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                id="cls-name"
-                                placeholder="e.g. Evening Strength"
+                            <Label>Class Name *</Label>
+                            <Input 
+                                placeholder="e.g. Morning Yoga" 
                                 value={classForm.name}
-                                onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
+                                onChange={(e) => setClassForm({...classForm, name: e.target.value})}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="cls-trainer">
-                                Trainer <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                id="cls-trainer"
-                                placeholder="e.g. Coach Neha"
-                                value={classForm.trainer}
-                                onChange={(e) => setClassForm({ ...classForm, trainer: e.target.value })}
-                            />
+                            <Label>Trainer *</Label>
+                            <select 
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={classForm.trainerId}
+                                onChange={(e) => setClassForm({...classForm, trainerId: e.target.value})}
+                            >
+                                <option value="">Select Trainer</option>
+                                {trainers.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="cls-time">
-                                    Time <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                    id="cls-time"
-                                    placeholder="e.g. 06:30 PM"
-                                    value={classForm.time}
-                                    onChange={(e) => setClassForm({ ...classForm, time: e.target.value })}
+                                <Label>Start Time *</Label>
+                                <Input 
+                                    type="time"
+                                    value={classForm.scheduleTime}
+                                    onChange={(e) => setClassForm({...classForm, scheduleTime: e.target.value})}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="cls-duration">Duration</Label>
-                                <Input
-                                    id="cls-duration"
-                                    placeholder="e.g. 45 min"
+                                <Label>Duration (min)</Label>
+                                <Input 
+                                    type="number"
                                     value={classForm.duration}
-                                    onChange={(e) => setClassForm({ ...classForm, duration: e.target.value })}
+                                    onChange={(e) => setClassForm({...classForm, duration: e.target.value})}
                                 />
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="cls-max">Capacity</Label>
-                            <Input
-                                id="cls-max"
+                            <Label>Capacity</Label>
+                            <Input 
                                 type="number"
-                                placeholder="e.g. 20"
-                                value={classForm.max}
-                                onChange={(e) => setClassForm({ ...classForm, max: e.target.value })}
+                                value={classForm.capacity}
+                                onChange={(e) => setClassForm({...classForm, capacity: e.target.value})}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button
-                            variant="outline"
-                            type="button"
-                            onClick={() => {
-                                setIsClassDialogOpen(false);
-                                setClassForm({ name: "", trainer: "", time: "", duration: "", max: "" });
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleCreateClass}
-                            disabled={!classForm.name.trim() || !classForm.trainer.trim() || !classForm.time.trim()}
-                        >
-                            Save Class
-                        </Button>
+                        <Button variant="outline" onClick={() => setIsClassDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleCreateClass}>Save Class</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -228,77 +260,57 @@ export default function ClassesPage() {
                 <DialogContent className="sm:max-w-[420px]">
                     <DialogHeader>
                         <DialogTitle>Add Trainer</DialogTitle>
-                        <DialogDescription>
-                            Add a new trainer profile for this branch (mock-only).
-                        </DialogDescription>
+                        <DialogDescription>Add a new staff member to your team.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
-                            <Label htmlFor="tr-name">
-                                Name <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                id="tr-name"
-                                placeholder="e.g. Coach Rahul"
+                            <Label>Name *</Label>
+                            <Input 
+                                placeholder="e.g. John Doe" 
                                 value={trainerForm.name}
-                                onChange={(e) => setTrainerForm({ ...trainerForm, name: e.target.value })}
+                                onChange={(e) => setTrainerForm({...trainerForm, name: e.target.value})}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="tr-role">Role</Label>
-                            <Input
-                                id="tr-role"
-                                placeholder="e.g. Strength Coach"
+                            <Label>Role</Label>
+                            <select 
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={trainerForm.role}
-                                onChange={(e) => setTrainerForm({ ...trainerForm, role: e.target.value })}
-                            />
+                                onChange={(e) => setTrainerForm({...trainerForm, role: e.target.value as any})}
+                            >
+                                <option value="trainer">Trainer</option>
+                                <option value="manager">Manager</option>
+                                <option value="receptionist">Receptionist</option>
+                                <option value="cleaner">Cleaner</option>
+                                <option value="other">Other</option>
+                            </select>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="tr-clients">Clients</Label>
-                                <Input
-                                    id="tr-clients"
-                                    type="number"
-                                    placeholder="e.g. 10"
-                                    value={trainerForm.clients}
-                                    onChange={(e) => setTrainerForm({ ...trainerForm, clients: e.target.value })}
+                                <Label>Email</Label>
+                                <Input 
+                                    type="email"
+                                    value={trainerForm.email}
+                                    onChange={(e) => setTrainerForm({...trainerForm, email: e.target.value})}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="tr-rating">Rating</Label>
-                                <Input
-                                    id="tr-rating"
-                                    type="number"
-                                    step="0.1"
-                                    placeholder="e.g. 4.8"
-                                    value={trainerForm.rating}
-                                    onChange={(e) => setTrainerForm({ ...trainerForm, rating: e.target.value })}
+                                <Label>Phone</Label>
+                                <Input 
+                                    value={trainerForm.phone}
+                                    onChange={(e) => setTrainerForm({...trainerForm, phone: e.target.value})}
                                 />
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button
-                            variant="outline"
-                            type="button"
-                            onClick={() => {
-                                setIsTrainerDialogOpen(false);
-                                setTrainerForm({ name: "", role: "", clients: "", rating: "" });
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleCreateTrainer}
-                            disabled={!trainerForm.name.trim()}
-                        >
-                            Save Trainer
-                        </Button>
+                        <Button variant="outline" onClick={() => setIsTrainerDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleCreateTrainer}>Save Trainer</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
+            {/* Stats */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -306,8 +318,8 @@ export default function ClassesPage() {
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{classes.length}</div>
-                        <p className="text-xs text-muted-foreground">Scheduled for today</p>
+                        <div className="text-2xl font-bold">{loading ? "—" : classes.length}</div>
+                        <p className="text-xs text-muted-foreground">Scheduled active classes</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -316,18 +328,18 @@ export default function ClassesPage() {
                         <User className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{trainers.length}</div>
-                        <p className="text-xs text-muted-foreground">On shift currently</p>
+                        <div className="text-2xl font-bold">{loading ? "—" : trainers.length}</div>
+                        <p className="text-xs text-muted-foreground">Staff members</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Capacity</CardTitle>
                         <User className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{totalBookings}</div>
-                        <p className="text-xs text-muted-foreground">Based on scheduled classes</p>
+                        <div className="text-2xl font-bold">{loading ? "—" : totalCapacity}</div>
+                        <p className="text-xs text-muted-foreground">Total spots available</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -336,12 +348,13 @@ export default function ClassesPage() {
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">78%</div>
-                        <p className="text-xs text-muted-foreground">Class capacity fill rate</p>
+                        <div className="text-2xl font-bold">{loading ? "—" : `${utilizationRate}%`}</div>
+                        <p className="text-xs text-muted-foreground">Overall fill rate</p>
                     </CardContent>
                 </Card>
             </div>
 
+            {/* Tabs */}
             <Tabs defaultValue="classes" onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
                     <TabsTrigger value="classes">Classes</TabsTrigger>
@@ -349,7 +362,9 @@ export default function ClassesPage() {
                 </TabsList>
 
                 <TabsContent value="classes" className="mt-6 space-y-4">
-                    {classes.length === 0 ? (
+                    {loading ? (
+                        <div className="py-10 text-center text-muted-foreground">Loading classes...</div>
+                    ) : classes.length === 0 ? (
                         <Card className="border-dashed border-muted-foreground/30">
                             <CardContent className="py-10 flex flex-col items-center justify-center text-center space-y-3">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-1">
@@ -358,10 +373,10 @@ export default function ClassesPage() {
                                 <div>
                                     <h3 className="font-semibold">No classes scheduled yet</h3>
                                     <p className="text-sm text-muted-foreground">
-                                        Use the Schedule Class button to add your first session (mock-only).
+                                        Use the Schedule Class button to add your first session.
                                     </p>
                                 </div>
-                                <Button type="button" size="sm" onClick={handlePrimaryAction}>
+                                <Button size="sm" onClick={handlePrimaryAction}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Schedule your first class
                                 </Button>
@@ -369,8 +384,9 @@ export default function ClassesPage() {
                         </Card>
                     ) : (
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {classes.map((cls, i) => {
-                                const utilizationRaw = (cls.attendees / cls.max) * 100;
+                            {classes.map((cls) => {
+                                const currentSchedule = cls.schedule?.[0]; // Taking first schedule for display
+                                const utilizationRaw = ((cls.enrolled || 0) / cls.capacity) * 100;
                                 const utilization = Math.min(100, Math.round(utilizationRaw));
                                 let statusLabel = "Plenty of spots";
                                 let statusClass = "text-emerald-600";
@@ -387,32 +403,16 @@ export default function ClassesPage() {
                                 }
 
                                 return (
-                                    <Card
-                                        key={`${cls.name}-${i}`}
-                                        className="overflow-hidden border-l-4 border-l-primary"
-                                    >
+                                    <Card key={cls.id} className="overflow-hidden border-l-4 border-l-primary">
                                         <CardHeader className="pb-3 bg-muted/20">
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <Badge variant="secondary" className="mb-2">
-                                                        Today
+                                                    <Badge variant="secondary" className="mb-2 uppercase text-[10px]">
+                                                        {cls.type}
                                                     </Badge>
-                                                    <CardTitle>{cls.name}</CardTitle>
+                                                    <CardTitle className="text-base">{cls.name}</CardTitle>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    type="button"
-                                                    onClick={() =>
-                                                        toast({
-                                                            title: "Class actions",
-                                                            description:
-                                                                "Class edit/cancel options are mock-only in this UI.",
-                                                            variant: "info",
-                                                        })
-                                                    }
-                                                >
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </div>
@@ -420,10 +420,11 @@ export default function ClassesPage() {
                                         <CardContent className="pt-4">
                                             <div className="space-y-3 text-sm">
                                                 <div className="flex items-center text-muted-foreground">
-                                                    <User className="mr-2 h-4 w-4 text-primary" /> {cls.trainer}
+                                                    <User className="mr-2 h-4 w-4 text-primary" /> {cls.trainerName}
                                                 </div>
                                                 <div className="flex items-center text-muted-foreground">
-                                                    <Clock className="mr-2 h-4 w-4 text-primary" /> {cls.time} ({cls.duration})
+                                                    <Clock className="mr-2 h-4 w-4 text-primary" /> 
+                                                    {currentSchedule ? `${currentSchedule.startTime} - ${currentSchedule.endTime}` : "No schedule"}
                                                 </div>
                                                 <div className="w-full bg-secondary/10 rounded-full h-2 mt-2">
                                                     <div
@@ -432,12 +433,12 @@ export default function ClassesPage() {
                                                     ></div>
                                                 </div>
                                                 <div className="flex justify-between text-xs text-muted-foreground">
-                                                    <span>{cls.attendees} booked</span>
-                                                    <span>{cls.max} capacity</span>
+                                                    <span>{cls.enrolled || 0} booked</span>
+                                                    <span>{cls.capacity} capacity</span>
                                                 </div>
                                                 <div className="flex justify-between items-center text-xs">
                                                     <span className={statusClass}>{statusLabel}</span>
-                                                    <span className="text-muted-foreground">{utilization}% utilization</span>
+                                                    <span className="text-muted-foreground">{utilization}% filled</span>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -449,7 +450,9 @@ export default function ClassesPage() {
                 </TabsContent>
 
                 <TabsContent value="trainers" className="mt-6">
-                    {trainers.length === 0 ? (
+                    {loading ? (
+                        <div className="py-10 text-center text-muted-foreground">Loading trainers...</div>
+                    ) : trainers.length === 0 ? (
                         <Card className="border-dashed border-muted-foreground/30">
                             <CardContent className="py-10 flex flex-col items-center justify-center text-center space-y-3">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-1">
@@ -458,10 +461,10 @@ export default function ClassesPage() {
                                 <div>
                                     <h3 className="font-semibold">No trainers added yet</h3>
                                     <p className="text-sm text-muted-foreground">
-                                        Add your first trainer to assign classes and track performance (mock-only).
+                                        Add your first trainer to assign classes and track performance.
                                     </p>
                                 </div>
-                                <Button type="button" size="sm" onClick={handlePrimaryAction}>
+                                <Button size="sm" onClick={handlePrimaryAction}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add your first trainer
                                 </Button>
@@ -469,81 +472,24 @@ export default function ClassesPage() {
                         </Card>
                     ) : (
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {trainers.map((trainer, i) => {
-                                let statusLabel = "Taking new clients";
-                                let statusClass = "text-emerald-600";
+                            {trainers.map((trainer) => (
+                                <Card key={trainer.id}>
+                                    <CardContent className="pt-6 text-center">
+                                        <Avatar className="h-24 w-24 mx-auto mb-4">
+                                            <AvatarFallback className="text-xl">
+                                                {trainer.name.substring(0, 2).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <h3 className="font-bold text-lg">{trainer.name}</h3>
+                                        <p className="text-sm text-muted-foreground mb-4 capitalize">{trainer.role}</p>
 
-                                if (trainer.clients === 0) {
-                                    statusLabel = "No clients yet";
-                                    statusClass = "text-muted-foreground";
-                                } else if (trainer.clients >= 20 || trainer.rating >= 4.8) {
-                                    statusLabel = "In high demand";
-                                    statusClass = "text-amber-600";
-                                } else if (trainer.clients >= 10) {
-                                    statusLabel = "Healthy roster";
-                                    statusClass = "text-sky-600";
-                                }
-
-                                return (
-                                    <Card key={`${trainer.name}-${i}`}>
-                                        <CardContent className="pt-6 text-center">
-                                            <Avatar className="h-24 w-24 mx-auto mb-4">
-                                                <AvatarImage src={trainer.img} />
-                                                <AvatarFallback className="text-xl">
-                                                    {trainer.name.substring(0, 2).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <h3 className="font-bold text-lg">{trainer.name}</h3>
-                                            <p className="text-sm text-muted-foreground mb-4">{trainer.role}</p>
-
-                                            <div className="flex justify-center gap-4 text-sm mb-2">
-                                                <div>
-                                                    <p className="font-bold text-foreground">{trainer.clients}</p>
-                                                    <p className="text-muted-foreground text-xs">Clients</p>
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-foreground">{trainer.rating}</p>
-                                                    <p className="text-muted-foreground text-xs">Rating</p>
-                                                </div>
-                                            </div>
-                                            <div className="mb-4 text-xs font-medium">
-                                                <span className={statusClass}>{statusLabel}</span>
-                                            </div>
-
-                                            <div className="flex gap-2 justify-center">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    type="button"
-                                                    onClick={() =>
-                                                        toast({
-                                                            title: "Trainer profile",
-                                                            description:
-                                                                "Trainer profile details are mock-only here.",
-                                                            variant: "info",
-                                                        })
-                                                    }
-                                                >
-                                                    Profile
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    type="button"
-                                                    onClick={() =>
-                                                        toast({
-                                                            title: "Trainer message",
-                                                            description: "Messaging trainers is mock-only in this demo.",
-                                                            variant: "info",
-                                                        })
-                                                    }
-                                                >
-                                                    Message
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })}
+                                        <div className="flex gap-2 justify-center">
+                                            <Button variant="outline" size="sm">Profile</Button>
+                                            <Button size="sm" variant="ghost">Message</Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
                         </div>
                     )}
                 </TabsContent>

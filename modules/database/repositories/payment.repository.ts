@@ -57,6 +57,14 @@ export const paymentRepository = {
     return getStore().payments.find(p => p.id === id);
   },
 
+  delete(id: string): boolean {
+    const store = getStore();
+    const index = store.payments.findIndex(p => p.id === id);
+    if (index === -1) return false;
+    store.payments.splice(index, 1);
+    return true;
+  },
+
   create(data: Omit<Payment, "id" | "createdAt">): Payment {
     const payment: Payment = {
       ...data,
@@ -150,6 +158,28 @@ export const paymentRepository = {
       pageSize: docs.length,
       totalPages: 1,
     };
+  },
+
+  async findByIdAsync(id: string): Promise<Payment | undefined> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findById(id);
+    }
+
+    const doc = await PaymentModel.findOne({ id }).lean<Payment | null>();
+    return doc ?? undefined;
+  },
+
+  async deleteAsync(id: string): Promise<boolean> {
+    const deleted = this.delete(id);
+    try {
+      await connectToDatabase();
+      const res = await PaymentModel.deleteOne({ id }).exec();
+      return res.deletedCount === 1;
+    } catch {
+      return deleted;
+    }
   },
 
   async generateInvoiceNumberAsync(): Promise<string> {

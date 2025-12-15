@@ -7,7 +7,7 @@ import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 // GET /api/classes - List classes
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireSession(["super_admin", "branch_admin"]);
+    const auth = await requireSession(["super_admin", "branch_admin", "member"]);
     if ("response" in auth) return auth.response;
 
     const { searchParams } = new URL(request.url);

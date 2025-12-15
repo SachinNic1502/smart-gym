@@ -140,9 +140,11 @@ export const authService = {
    */
   async verifyOtp(phone: string, otp: string): Promise<LoginResult> {
     const storedOtp = userRepository.getOtp(phone);
-    
-    // Accept "123456" as dev OTP
-    if (storedOtp !== otp && otp !== "123456") {
+
+    const isDevBypass = process.env.NODE_ENV !== "production" && otp === "123456";
+
+    // Accept "123456" as dev OTP only in non-production
+    if (storedOtp !== otp && !isDevBypass) {
       return { success: false, error: "Invalid OTP" };
     }
 

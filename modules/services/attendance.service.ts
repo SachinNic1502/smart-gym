@@ -36,13 +36,26 @@ export const attendanceService = {
     const { memberId, branchId, method, deviceId } = data;
 
     // Validate member
-    const member = memberRepository.findById(memberId);
+    const member = await (async () => {
+      try {
+        return await memberRepository.findByIdAsync(memberId);
+      } catch {
+        return memberRepository.findById(memberId);
+      }
+    })();
     if (!member) {
       return { success: false, error: "Member not found" };
     }
 
+    if (member.branchId !== branchId) {
+      return { success: false, error: "Member does not belong to this branch" };
+    }
+
     // Check if member is active
-    if (member.status !== "Active") {
+    const expiry = new Date(member.expiryDate);
+    const isExpiredByDate = !Number.isNaN(expiry.getTime()) && expiry < new Date();
+
+    if (member.status !== "Active" || isExpiredByDate) {
       // Record failed attempt
       const record = await attendanceRepository.createAsync({
         memberId,

@@ -674,7 +674,27 @@ export default function SaaSPlansPage() {
                             variant="outline"
                             size="sm"
                             type="button"
-                            disabled
+                            onClick={() => {
+                                if (payments.length === 0) return;
+                                const headers = ["Invoice #", "Member", "Amount", "Status", "Date"];
+                                const rows = payments.map((p) => [
+                                    p.invoiceNumber || p.id,
+                                    p.memberName,
+                                    p.amount.toString(),
+                                    p.status,
+                                    new Date(p.createdAt).toLocaleDateString(),
+                                ]);
+                                const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+                                const blob = new Blob([csv], { type: "text/csv" });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = `invoices-${new Date().toISOString().split("T")[0]}.csv`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                                toast({ title: "Exported", description: "Invoices exported to CSV.", variant: "success" });
+                            }}
+                            disabled={payments.length === 0}
                         >
                             Export CSV
                         </Button>

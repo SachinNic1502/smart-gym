@@ -14,7 +14,22 @@ export interface LeadFilters {
   search?: string;
 }
 
-export const leadRepository = {
+export const leadRepository: {
+  findAll(filters?: LeadFilters, pagination?: PaginationOptions): PaginatedResult<Lead>;
+  findById(id: string): Lead | undefined;
+  create(data: Omit<Lead, "id" | "createdAt" | "updatedAt">): Lead;
+  update(id: string, data: Partial<Lead>): Lead | undefined;
+  delete(id: string): boolean;
+  findByPhone(phone: string): Lead | undefined;
+  getStats(branchId?: string): any;
+  findAllAsync(filters?: LeadFilters, pagination?: PaginationOptions): Promise<PaginatedResult<Lead>>;
+  findByIdAsync(id: string): Promise<Lead | undefined>;
+  createAsync(data: Omit<Lead, "id" | "createdAt" | "updatedAt">): Promise<Lead>;
+  updateAsync(id: string, data: Partial<Lead>): Promise<Lead | undefined>;
+  deleteAsync(id: string): Promise<boolean>;
+  findByPhoneAsync(phone: string): Promise<Lead | undefined>;
+  getStatsAsync(branchId?: string): Promise<any>;
+} = {
   findAll(filters?: LeadFilters, pagination?: PaginationOptions): PaginatedResult<Lead> {
     let leads = [...getStore().leads];
 

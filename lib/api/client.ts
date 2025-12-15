@@ -19,6 +19,8 @@ import type {
   GymClass,
   WorkoutPlan,
   DietPlan,
+  Expense,
+  AttendanceRecord,
 } from "@/lib/types";
 
 const API_BASE = "/api";
@@ -132,10 +134,10 @@ export const membersApi = {
   getPrograms: (id: string) =>
     request<{ memberId: string; memberName: string; workoutPlan: unknown; dietPlan: unknown }>(`/members/${id}/programs`),
 
-  assignPrograms: (id: string, data: { workoutPlanId?: string; dietPlanId?: string }) =>
-    request<{ memberId: string; workoutPlanId?: string; dietPlanId?: string }>(`/members/${id}/programs`, {
-      method: "PUT",
-      body: JSON.stringify(data),
+  assignPrograms: (memberId: string, payload: { workoutPlanId?: string; dietPlanId?: string }) =>
+    request<void>(`/members/${memberId}/programs`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 };
 
@@ -185,7 +187,7 @@ export const branchesApi = {
 export const attendanceApi = {
   list: (params?: Record<string, string>) => {
     const query = params ? `?${new URLSearchParams(params)}` : "";
-    return request<{ data: unknown[]; total: number }>(`/attendance${query}`);
+    return request<{ data: AttendanceRecord[]; total: number }>(`/attendance${query}`);
   },
 
   checkIn: (data: { memberId: string; branchId: string; method: string; deviceId?: string }) =>
@@ -253,6 +255,42 @@ export const communicationsApi = {
 };
 
 // ============================================
+// Member Profile API (for logged-in members)
+// ============================================
+
+export const meApi = {
+  getProfile: () => request<Member>("/me"),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    request<void>("/me/password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// ============================================
+// Expense API
+// ============================================
+
+export const expensesApi = {
+  list: (params?: Record<string, string>) => {
+    const query = params ? `?${new URLSearchParams(params)}` : "";
+    return request<{
+      data: Expense[];
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    }>(`/expenses${query}`);
+  },
+
+  create: (data: Partial<Expense>) =>
+    request<Expense>("/expenses", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// ============================================
 // Leads API
 // ============================================
 
@@ -289,8 +327,7 @@ export const staffApi = {
     const query = params ? `?${new URLSearchParams(params)}` : "";
     return request<{ data: Staff[]; total: number; page: number; pageSize: number; totalPages: number }>(`/staff${query}`);
   },
-
-  create: (data: Partial<Staff>) =>
+  create: (data: Omit<Staff, "id" | "createdAt">) =>
     request<Staff>("/staff", {
       method: "POST",
       body: JSON.stringify(data),
@@ -353,11 +390,18 @@ export const plansApi = {
   getMembershipPlans: () =>
     request<{ data: MembershipPlan[]; total: number }>("/plans?type=membership"),
 
-  getWorkoutPlans: () =>
-    request<{ data: WorkoutPlan[]; total: number }>("/plans?type=workout"),
-
-  getDietPlans: () =>
-    request<{ data: DietPlan[]; total: number }>("/plans?type=diet"),
+  getWorkoutPlans: () => request<{ data: WorkoutPlan[]; total: number }>("/plans?type=workout"),
+  getDietPlans: () => request<{ data: DietPlan[]; total: number }>("/plans?type=diet"),
+  createWorkoutPlan: (payload: Omit<WorkoutPlan, "id" | "createdAt">) =>
+    request<WorkoutPlan>("/plans", {
+      method: "POST",
+      body: JSON.stringify({ type: "workout", ...payload }),
+    }),
+  createDietPlan: (payload: Omit<DietPlan, "id" | "createdAt">) =>
+    request<DietPlan>("/plans", {
+      method: "POST",
+      body: JSON.stringify({ type: "diet", ...payload }),
+    }),
 };
 
 // ============================================

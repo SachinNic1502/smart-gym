@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { ApiError, membersApi, paymentsApi, plansApi } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { MembershipPlan, PaymentMethod } from "@/lib/types";
 
-export default function BranchAddMemberPage() {
+function AddMemberContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
@@ -410,5 +410,13 @@ export default function BranchAddMemberPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function BranchAddMemberPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AddMemberContent />
+    </Suspense>
   );
 }

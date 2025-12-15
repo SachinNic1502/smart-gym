@@ -124,6 +124,26 @@ export const planRepository = {
     }
   },
 
+  async createWorkoutPlanAsync(
+    data: Omit<WorkoutPlan, "id" | "createdAt">
+  ): Promise<WorkoutPlan> {
+    const plan: WorkoutPlan = {
+      ...data,
+      id: generateId("WKP"),
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await connectToDatabase();
+      await WorkoutPlanModel.create(plan);
+      return plan;
+    } catch {
+      getStore().workoutPlans.unshift(plan);
+    }
+
+    return plan;
+  },
+
   // Diet Plans
   findAllDietPlans(): DietPlan[] {
     return getStore().dietPlans;
@@ -151,5 +171,25 @@ export const planRepository = {
     } catch {
       return this.findDietPlanById(id);
     }
+  },
+
+  async createDietPlanAsync(
+    data: Omit<DietPlan, "id" | "createdAt">
+  ): Promise<DietPlan> {
+    const plan: DietPlan = {
+      ...data,
+      id: generateId("DTP"),
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await connectToDatabase();
+      await DietPlanModel.create(plan);
+      return plan;
+    } catch {
+      getStore().dietPlans.unshift(plan);
+    }
+
+    return plan;
   },
 };

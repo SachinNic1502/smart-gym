@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; // Added missing import
 import { Search } from "lucide-react"; // Added missing import
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import {
     Dialog,
@@ -18,10 +18,180 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast-provider";
+import { ApiError, attendanceApi, membersApi } from "@/lib/api/client";
+import { useAuth } from "@/hooks/use-auth";
+import type { AttendanceMethod, AttendanceRecord, Member } from "@/lib/types";
 
 export default function AttendancePage() {
     const [isManualOpen, setIsManualOpen] = useState(false);
     const toast = useToast();
+
+    const { user } = useAuth();
+    const branchId = user?.branchId;
+
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
+
+    const [manualMemberId, setManualMemberId] = useState("");
+    const [manualReason, setManualReason] = useState("");
+    const [manualMethod, setManualMethod] = useState<AttendanceMethod>("Manual");
+    const [manualSaving, setManualSaving] = useState(false);
+
+    const todayKey = useMemo(() => new Date().toISOString().split("T")[0]!, []);
+
+    const loadAttendance = useCallback(async () => {
+        if (!user) {
+            setLoading(false);
+            setError(null);
+            setRecords([]);
+            return;
+        }
+
+        if (user.role === "branch_admin" && !branchId) {
+            setLoading(false);
+            setError("Branch not assigned");
+            setRecords([]);
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+        try {
+            const [attendanceRes, membersRes] = await Promise.all([
+                attendanceApi.list({
+                    branchId: branchId ?? "",
+                    date: todayKey,
+                    page: "1",
+                    pageSize: "200",
+                }),
+                membersApi.list({
+                    branchId: branchId ?? "",
+                    page: 1,
+                    pageSize: 200,
+                } as Record<string, string | number | undefined>),
+            ]);
+
+            const data = (attendanceRes.data ?? []) as AttendanceRecord[];
+            setRecords(data);
+            setMembers((membersRes as unknown as { data: Member[] }).data ?? []);
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to load attendance";
+            setError(message);
+            setRecords([]);
+            setMembers([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [branchId, todayKey, user]);
+
+    useEffect(() => {
+        loadAttendance();
+    }, [loadAttendance]);
+
+    const filteredRecords = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        if (!q) return records;
+        return records.filter((r) =>
+            r.memberName.toLowerCase().includes(q) ||
+            r.memberId.toLowerCase().includes(q) ||
+            r.method.toLowerCase().includes(q)
+        );
+    }, [records, searchTerm]);
+
+    const checkInsToday = useMemo(() => records.filter((r) => r.status === "success").length, [records]);
+    const deniedToday = useMemo(() => records.filter((r) => r.status === "failed").length, [records]);
+
+    const averageDurationLabel = useMemo(() => {
+        const withCheckout = records.filter((r) => r.checkOutTime);
+        if (!withCheckout.length) return "—";
+        const totalMs = withCheckout.reduce((sum, r) => {
+            const start = new Date(r.checkInTime).getTime();
+            const end = new Date(r.checkOutTime as string).getTime();
+            if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return sum;
+            return sum + (end - start);
+        }, 0);
+        const avgMs = Math.round(totalMs / withCheckout.length);
+        const hours = Math.floor(avgMs / (1000 * 60 * 60));
+        const minutes = Math.floor((avgMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} h`;
+    }, [records]);
+
+    const resolveMemberId = useCallback((input: string): string | null => {
+        const raw = input.trim();
+        if (!raw) return null;
+
+        const byId = new Map(members.map((m) => [m.id, m] as const));
+        if (byId.has(raw)) return raw;
+
+        if (raw.includes("|")) {
+            const first = raw.split("|")[0]?.trim();
+            if (first && byId.has(first)) return first;
+        }
+
+        const firstToken = raw.split(/\s+/)[0]?.trim();
+        if (firstToken && byId.has(firstToken)) return firstToken;
+
+        const normalizedDigits = raw.replace(/\D/g, "");
+        if (normalizedDigits.length >= 10) {
+            const last10 = normalizedDigits.slice(-10);
+            const found = members.find((m) => (m.phone ?? "").replace(/\D/g, "").endsWith(last10));
+            if (found) return found.id;
+        }
+
+        return null;
+    }, [members]);
+
+    const handleManualCheckIn = useCallback(async () => {
+        if (!branchId) {
+            toast({ title: "Error", description: "Branch not assigned", variant: "destructive" });
+            return;
+        }
+
+        if (!manualMemberId.trim()) {
+            toast({ title: "Missing member", description: "Please select a Member ID", variant: "destructive" });
+            return;
+        }
+
+        const resolvedMemberId = resolveMemberId(manualMemberId);
+        if (!resolvedMemberId) {
+            toast({
+                title: "Invalid member",
+                description: "Select a member from the list or enter a valid Member ID / phone number",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setManualSaving(true);
+        try {
+            await attendanceApi.checkIn({
+                memberId: resolvedMemberId,
+                branchId,
+                method: manualMethod,
+            });
+
+            setIsManualOpen(false);
+            setManualMemberId("");
+            setManualReason("");
+            setManualMethod("Manual");
+
+            toast({
+                title: "Manual check-in saved",
+                description: manualReason.trim() ? `Saved. Note: ${manualReason.trim()}` : "Saved successfully",
+                variant: "success",
+            });
+
+            await loadAttendance();
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to record check-in";
+            toast({ title: "Error", description: message, variant: "destructive" });
+        } finally {
+            setManualSaving(false);
+        }
+    }, [branchId, loadAttendance, manualMemberId, manualMethod, manualReason, toast]);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -46,12 +216,44 @@ export default function AttendancePage() {
                             </DialogHeader>
                             <div className="space-y-4 py-2">
                                 <div className="space-y-2">
-                                    <Label htmlFor="member-id">Member ID or phone</Label>
-                                    <Input id="member-id" placeholder="e.g. MEM001 or +1 555 000 0000" />
+                                    <Label htmlFor="member-id">Member ID</Label>
+                                    <Input
+                                        id="member-id"
+                                        placeholder="e.g. MEM_001"
+                                        list="member-id-options"
+                                        value={manualMemberId}
+                                        onChange={(e) => setManualMemberId(e.target.value)}
+                                    />
+                                    <datalist id="member-id-options">
+                                        {members.map((m) => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.name}{m.phone ? ` (${m.phone})` : ""}
+                                            </option>
+                                        ))}
+                                    </datalist>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="method">Method</Label>
+                                    <select
+                                        id="method"
+                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                        value={manualMethod}
+                                        onChange={(e) => setManualMethod(e.target.value as AttendanceMethod)}
+                                    >
+                                        <option value="Manual">Manual</option>
+                                        <option value="Fingerprint">Fingerprint</option>
+                                        <option value="QR Code">QR Code</option>
+                                        <option value="Face ID">Face ID</option>
+                                    </select>
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="reason">Reason / Note</Label>
-                                    <Input id="reason" placeholder="e.g. Device offline" />
+                                    <Input
+                                        id="reason"
+                                        placeholder="e.g. Device offline"
+                                        value={manualReason}
+                                        onChange={(e) => setManualReason(e.target.value)}
+                                    />
                                 </div>
                             </div>
                             <DialogFooter>
@@ -60,17 +262,10 @@ export default function AttendancePage() {
                                 </Button>
                                 <Button
                                     type="button"
-                                    onClick={() => {
-                                        setIsManualOpen(false);
-                                        toast({
-                                            title: "Manual check-in saved",
-                                            description:
-                                                "Manual check-in recorded (mock). This would create an entry in real logs.",
-                                            variant: "success",
-                                        });
-                                    }}
+                                    onClick={handleManualCheckIn}
+                                    disabled={manualSaving}
                                 >
-                                    Save Check-in
+                                    {manualSaving ? "Saving..." : "Save Check-in"}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -84,8 +279,8 @@ export default function AttendancePage() {
                         <CardTitle className="text-xs font-medium text-muted-foreground">Check-ins today</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold">126</p>
-                        <p className="text-[11px] text-muted-foreground">Peak at 7:00–9:00 AM</p>
+                        <p className="text-2xl font-bold">{loading ? "—" : checkInsToday}</p>
+                        <p className="text-[11px] text-muted-foreground">{todayKey}</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -93,8 +288,8 @@ export default function AttendancePage() {
                         <CardTitle className="text-xs font-medium text-muted-foreground">Denied entries</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-red-500">4</p>
-                        <p className="text-[11px] text-muted-foreground">Expired or blocked members</p>
+                        <p className="text-2xl font-bold text-red-500">{loading ? "—" : deniedToday}</p>
+                        <p className="text-[11px] text-muted-foreground">Failed check-ins</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -102,11 +297,20 @@ export default function AttendancePage() {
                         <CardTitle className="text-xs font-medium text-muted-foreground">Average duration</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold">01:12 h</p>
-                        <p className="text-[11px] text-muted-foreground">Based on last 50 exits</p>
+                        <p className="text-2xl font-bold">{loading ? "—" : averageDurationLabel}</p>
+                        <p className="text-[11px] text-muted-foreground">From check-in/out pairs</p>
                     </CardContent>
                 </Card>
             </div>
+
+            {error ? (
+                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 flex items-center justify-between gap-3">
+                    <span>{error}</span>
+                    <Button size="sm" variant="outline" type="button" onClick={loadAttendance}>
+                        Retry
+                    </Button>
+                </div>
+            ) : null}
 
             <Card>
                 <CardHeader>
@@ -114,7 +318,12 @@ export default function AttendancePage() {
                         <CardTitle>Today's Log</CardTitle>
                         <div className="relative w-64">
                             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            <Input placeholder="Search logs..." className="pl-9" />
+                            <Input
+                                placeholder="Search logs..."
+                                className="pl-9"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
                         </div>
                     </div>
                 </CardHeader>
@@ -129,24 +338,46 @@ export default function AttendancePage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {[1, 2, 3, 4, 5].map((i) => (
-                                <TableRow key={i}>
-                                    <TableCell className="font-mono">09:3{i} AM</TableCell>
-                                    <TableCell className="font-medium">John Doe</TableCell>
-                                    <TableCell>Fingerprint</TableCell>
-                                    <TableCell>
-                                        <Badge variant="success">Allowed</Badge>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
+                                        Loading logs...
                                     </TableCell>
                                 </TableRow>
-                            ))}
-                            <TableRow>
-                                <TableCell className="font-mono">09:28 AM</TableCell>
-                                <TableCell className="font-medium">Unknown</TableCell>
-                                <TableCell>Fingerprint</TableCell>
-                                <TableCell>
-                                    <Badge variant="destructive">Denied (Expired)</Badge>
-                                </TableCell>
-                            </TableRow>
+                            ) : filteredRecords.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
+                                        No records found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filteredRecords.map((r) => (
+                                    <TableRow key={r.id}>
+                                        <TableCell className="font-mono">
+                                            {new Date(r.checkInTime).toLocaleTimeString("en-US", {
+                                                hour: "numeric",
+                                                minute: "2-digit",
+                                                hour12: true,
+                                            })}
+                                        </TableCell>
+                                        <TableCell className="font-medium">{r.memberName}</TableCell>
+                                        <TableCell>{r.method}</TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={
+                                                    r.status === "success"
+                                                        ? "success"
+                                                        : r.status === "failed"
+                                                        ? "destructive"
+                                                        : "outline"
+                                                }
+                                            >
+                                                {r.status}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>

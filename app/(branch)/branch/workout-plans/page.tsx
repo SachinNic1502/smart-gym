@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,41 +19,131 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast-provider";
-
-const MOCK_WORKOUT_PLANS = [
-  {
-    id: "WKP-001",
-    name: "Beginner Full Body",
-    goal: "General fitness",
-    sessionsPerWeek: 3,
-    duration: "6 weeks",
-    owner: "Coach Neha",
-  },
-  {
-    id: "WKP-002",
-    name: "Strength Split",
-    goal: "Strength",
-    sessionsPerWeek: 4,
-    duration: "8 weeks",
-    owner: "Coach Rahul",
-  },
-  {
-    id: "WKP-003",
-    name: "Fat Loss HIIT",
-    goal: "Fat loss",
-    sessionsPerWeek: 5,
-    duration: "4 weeks",
-    owner: "Coach Ankit",
-  },
-];
+import { ApiError, membersApi, plansApi } from "@/lib/api/client";
+import { useAuth } from "@/hooks/use-auth";
+import type { Member, WorkoutPlan } from "@/lib/types";
 
 export default function BranchWorkoutPlansPage() {
+  const { user } = useAuth();
+  const branchId = user?.branchId;
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [workoutForm, setWorkoutForm] = useState({ name: "", goal: "", sessions: "" });
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const toast = useToast();
 
-  const handleSaveWorkout = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<WorkoutPlan[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [search, setSearch] = useState("");
+
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      setError(null);
+      setPlans([]);
+      setMembers([]);
+      return;
+    }
+
+    if (user.role === "branch_admin" && !branchId) {
+      setLoading(false);
+      setError("Branch not assigned");
+      setPlans([]);
+      setMembers([]);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const [planRes, membersRes] = await Promise.all([
+        plansApi.getWorkoutPlans(),
+        membersApi.list({
+          branchId: branchId,
+          page: 1,
+          pageSize: 500,
+        } as Record<string, string | number | undefined>),
+      ]);
+
+      setPlans(planRes.data ?? []);
+      setMembers((membersRes as unknown as { data: Member[] }).data ?? []);
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to load workout plans";
+      setError(message);
+      setPlans([]);
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const filteredPlans = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return plans;
+    return plans.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      p.difficulty.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q)
+    );
+  }, [plans, search]);
+
+  const membersOnPlans = useMemo(() => {
+    return members.filter((m) => Boolean(m.workoutPlanId)).length;
+  }, [members]);
+
+  const avgExercises = useMemo(() => {
+    if (!plans.length) return null;
+    const total = plans.reduce((sum, p) => sum + (p.exercises?.length ?? 0), 0);
+    return Math.round(total / plans.length);
+  }, [plans]);
+
+  const byDifficulty = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of plans) {
+      map.set(p.difficulty, (map.get(p.difficulty) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [plans]);
+
+  const exportCsv = useCallback(() => {
+    if (filteredPlans.length === 0) {
+      toast({ title: "Nothing to export", description: "No workout plans found", variant: "info" });
+      return;
+    }
+
+    const header = ["id", "name", "difficulty", "durationWeeks", "exerciseCount", "createdAt", "description"];
+    const rows = filteredPlans.map((p) => [
+      p.id,
+      p.name,
+      p.difficulty,
+      String(p.durationWeeks),
+      String(p.exercises?.length ?? 0),
+      p.createdAt,
+      p.description,
+    ]);
+
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `workout_plans_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [filteredPlans, toast]);
+
+  const handleSaveWorkout = async () => {
     if (!workoutForm.name.trim()) {
       toast({
         title: "Missing name",
@@ -63,11 +153,23 @@ export default function BranchWorkoutPlansPage() {
       return;
     }
 
-    setIsCreateOpen(false);
-    setWorkoutForm({ name: "", goal: "", sessions: "" });
-    const message = "Workout plan created (mock). In a real app this would save to your backend.";
-    setSaveMessage(message);
-    toast({ title: "Workout plan saved", description: message, variant: "success" });
+    try {
+      await plansApi.createWorkoutPlan({
+        name: workoutForm.name,
+        difficulty: "intermediate", // default; could be a form field later
+        durationWeeks: 4, // default; could be a form field later
+        description: workoutForm.goal || "",
+        exercises: [], // empty for now; can be extended later
+      });
+      setIsCreateOpen(false);
+      setWorkoutForm({ name: "", goal: "", sessions: "" });
+      setSaveMessage("Workout plan created successfully.");
+      toast({ title: "Workout plan created", description: "The plan is now available to assign to members.", variant: "success" });
+      loadData(); // refresh the list
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to create workout plan";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    }
   };
 
   return (
@@ -84,13 +186,7 @@ export default function BranchWorkoutPlansPage() {
             variant="outline"
             size="sm"
             type="button"
-            onClick={() =>
-              toast({
-                title: "Export workouts",
-                description: "Exporting workout templates will be added later (mock-only).",
-                variant: "info",
-              })
-            }
+            onClick={exportCsv}
           >
             Export
           </Button>
@@ -102,7 +198,7 @@ export default function BranchWorkoutPlansPage() {
               <DialogHeader>
                 <DialogTitle>Create Workout Plan</DialogTitle>
                 <DialogDescription>
-                  Define a reusable workout template. This is mock-only for now and does not persist.
+                  Define a reusable workout template. This will be saved and available to assign to members.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
@@ -159,6 +255,15 @@ export default function BranchWorkoutPlansPage() {
         </div>
       )}
 
+      {error ? (
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <Button size="sm" variant="outline" type="button" onClick={loadData}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-t-4 border-t-primary/30">
           <CardHeader className="pb-2 flex items-center gap-2">
@@ -166,7 +271,7 @@ export default function BranchWorkoutPlansPage() {
             <CardTitle className="text-sm">Active workout templates</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{MOCK_WORKOUT_PLANS.length}</p>
+            <p className="text-2xl font-bold">{loading ? "—" : plans.length}</p>
             <p className="text-[11px] text-muted-foreground">Used across classes and PT sessions.</p>
           </CardContent>
         </Card>
@@ -176,8 +281,8 @@ export default function BranchWorkoutPlansPage() {
             <CardTitle className="text-sm">Members on plans</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">57</p>
-            <p className="text-[11px] text-muted-foreground">Mock metric for demo.</p>
+            <p className="text-2xl font-bold">{loading ? "—" : membersOnPlans}</p>
+            <p className="text-[11px] text-muted-foreground">Members with assigned workout plans.</p>
           </CardContent>
         </Card>
         <Card className="border-t-4 border-t-amber-300">
@@ -186,8 +291,8 @@ export default function BranchWorkoutPlansPage() {
             <CardTitle className="text-sm">Average session length</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">55 min</p>
-            <p className="text-[11px] text-muted-foreground">Based on last 30 sessions.</p>
+            <p className="text-2xl font-bold">{loading ? "—" : avgExercises === null ? "—" : `${avgExercises} exercises`}</p>
+            <p className="text-[11px] text-muted-foreground">Average exercises per plan.</p>
           </CardContent>
         </Card>
       </div>
@@ -195,8 +300,19 @@ export default function BranchWorkoutPlansPage() {
       <Tabs defaultValue="plans" className="space-y-4">
         <TabsList>
           <TabsTrigger value="plans">Templates</TabsTrigger>
-          <TabsTrigger value="staff">By Staff</TabsTrigger>
+          <TabsTrigger value="staff">By Difficulty</TabsTrigger>
         </TabsList>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="relative w-full max-w-sm">
+            <Input
+              placeholder="Search templates..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">Showing {filteredPlans.length} plans</p>
+        </div>
 
         <TabsContent value="plans">
           <Card>
@@ -216,27 +332,23 @@ export default function BranchWorkoutPlansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {MOCK_WORKOUT_PLANS.length === 0 ? (
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                        Loading workout plans...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredPlans.length === 0 ? (
                     <TableRow>
                       <TableCell
                         colSpan={5}
                         className="py-6 text-center text-xs text-muted-foreground"
                       >
-                        No workout templates yet. Use "Create Workout Plan" to add your first template (mock-only).
+                        No workout templates found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    MOCK_WORKOUT_PLANS.map((plan) => {
-                      let hint = "Balanced program";
-
-                      if (plan.goal === "Strength") {
-                        hint = "Emphasizes progressive overload and heavy lifts.";
-                      } else if (plan.goal === "Fat loss") {
-                        hint = "Higher frequency and intensity for calorie burn.";
-                      } else if (plan.goal === "General fitness") {
-                        hint = "All-round program for consistency and habit-building.";
-                      }
-
+                    filteredPlans.map((plan) => {
                       return (
                         <TableRow key={plan.id}>
                           <TableCell>
@@ -247,14 +359,14 @@ export default function BranchWorkoutPlansPage() {
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-xs">
-                              {plan.goal}
+                              {plan.difficulty}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-sm">{plan.sessionsPerWeek}</TableCell>
-                          <TableCell className="text-sm">{plan.duration}</TableCell>
+                          <TableCell className="text-sm">{plan.durationWeeks} weeks</TableCell>
+                          <TableCell className="text-sm">{plan.exercises?.length ?? 0}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {plan.owner}
-                            <span className="block text-[10px] text-muted-foreground/80">{hint}</span>
+                            {new Date(plan.createdAt).toLocaleDateString()}
+                            <span className="block text-[10px] text-muted-foreground/80">{plan.description}</span>
                           </TableCell>
                         </TableRow>
                       );
@@ -269,39 +381,30 @@ export default function BranchWorkoutPlansPage() {
         <TabsContent value="staff">
           <Card>
             <CardHeader>
-              <CardTitle>Plans by staff</CardTitle>
-              <CardDescription>Mock breakdown of how many members each trainer is handling.</CardDescription>
+              <CardTitle>Plans by difficulty</CardTitle>
+              <CardDescription>Distribution of workout templates by difficulty.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {[
-                { name: "Coach Neha", members: 18 },
-                { name: "Coach Rahul", members: 22 },
-                { name: "Coach Ankit", members: 17 },
-              ].map((staff) => {
-                let hint = "Balanced coaching load";
-
-                if (staff.members >= 20) {
-                  hint = "High coaching load across members.";
-                } else if (staff.members <= 10) {
-                  hint = "Light roster, capacity for more members.";
-                }
-
-                return (
+              {loading ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">Loading breakdown...</div>
+              ) : byDifficulty.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">No workout plans available.</div>
+              ) : (
+                byDifficulty.map(([difficulty, count]) => (
                   <div
-                    key={staff.name}
+                    key={difficulty}
                     className="flex items-center justify-between rounded-md border px-3 py-2 hover:bg-gray-50"
                   >
                     <div className="flex items-center gap-2">
                       <Activity className="h-4 w-4 text-primary" />
-                      <span>{staff.name}</span>
+                      <span className="capitalize">{difficulty}</span>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-xs text-muted-foreground">{staff.members} members</span>
-                      <span className="text-[10px] text-muted-foreground/80">{hint}</span>
+                      <span className="text-xs text-muted-foreground">{count} plans</span>
                     </div>
                   </div>
-                );
-              })}
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>

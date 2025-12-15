@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, UserPlus, Filter, MapPin, Phone } from "lucide-react";
+import { Search, UserPlus, Filter, MapPin, Phone, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { ApiError, leadsApi } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -47,6 +47,7 @@ export default function BranchLeadsPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [mutatingLeadId, setMutatingLeadId] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({
     name: "",
     phone: "",
@@ -158,6 +159,43 @@ export default function BranchLeadsPage() {
       setCreating(false);
     }
   };
+
+  const handleUpdateStatus = useCallback(
+    async (leadId: string, status: LeadStatus) => {
+      setMutatingLeadId(leadId);
+      try {
+        await leadsApi.update(leadId, { status });
+        toast({ title: "Lead updated", description: `Status set to ${STATUS_LABEL[status] ?? status}`, variant: "success" });
+        await fetchLeads({ search, status: statusFilter || undefined });
+      } catch (e) {
+        const message = e instanceof ApiError ? e.message : "Failed to update lead";
+        toast({ title: "Error", description: message, variant: "destructive" });
+      } finally {
+        setMutatingLeadId(null);
+      }
+    },
+    [fetchLeads, search, statusFilter, toast],
+  );
+
+  const handleDeleteLead = useCallback(
+    async (leadId: string) => {
+      const ok = window.confirm("Delete this lead? This action cannot be undone.");
+      if (!ok) return;
+
+      setMutatingLeadId(leadId);
+      try {
+        await leadsApi.delete(leadId);
+        toast({ title: "Lead deleted", description: "Lead removed successfully", variant: "success" });
+        await fetchLeads({ search, status: statusFilter || undefined });
+      } catch (e) {
+        const message = e instanceof ApiError ? e.message : "Failed to delete lead";
+        toast({ title: "Error", description: message, variant: "destructive" });
+      } finally {
+        setMutatingLeadId(null);
+      }
+    },
+    [fetchLeads, search, statusFilter, toast],
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -409,18 +447,19 @@ export default function BranchLeadsPage() {
                     <TableHead>Stage</TableHead>
                     <TableHead>Assigned to</TableHead>
                     <TableHead>Last activity</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                         Loading leads...
                       </TableCell>
                     </TableRow>
                   ) : leads.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                         No leads found.
                       </TableCell>
                     </TableRow>
@@ -460,6 +499,32 @@ export default function BranchLeadsPage() {
                         <TableCell className="text-sm">{lead.assignedTo || "-"}</TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {lead.updatedAt || lead.createdAt}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <select
+                              className="flex h-8 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                              value={lead.status}
+                              disabled={mutatingLeadId === lead.id}
+                              onChange={(e) => handleUpdateStatus(lead.id, e.target.value as LeadStatus)}
+                            >
+                              <option value="new">New</option>
+                              <option value="contacted">Contacted</option>
+                              <option value="interested">Interested</option>
+                              <option value="converted">Converted</option>
+                              <option value="lost">Lost</option>
+                            </select>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={mutatingLeadId === lead.id}
+                              onClick={() => handleDeleteLead(lead.id)}
+                              aria-label="Delete lead"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

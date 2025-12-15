@@ -1,30 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast-provider";
-import { plansApi, ApiError } from "@/lib/api/client";
-import type { MembershipPlan } from "@/lib/types";
-
-const MOCK_MEMBER = {
-  id: "MEM001",
-  name: "Alex Johnson",
-  contact: "+1 555 000 0000",
-};
+import { membersApi, paymentsApi, plansApi, ApiError } from "@/lib/api/client";
+import { useAuth } from "@/hooks/use-auth";
+import type { Member, MembershipPlan, PaymentMethod } from "@/lib/types";
 
 export default function MemberMembershipPage() {
   const router = useRouter();
   const params = useParams<{ memberId: string }>();
-  const memberId = params?.memberId || MOCK_MEMBER.id;
+  const memberId = params?.memberId;
   const toast = useToast();
+
+  const { user } = useAuth();
 
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
+
+  const [member, setMember] = useState<Member | null>(null);
+  const [memberLoading, setMemberLoading] = useState(true);
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [saving, setSaving] = useState(false);
 
   const getPlanCycle = (durationDays: number): "Monthly" | "Quarterly" | "Yearly" => {
     if (durationDays <= 31) return "Monthly";
@@ -56,15 +62,89 @@ export default function MemberMembershipPage() {
     fetchPlans();
   }, []);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  useEffect(() => {
+    const fetchMember = async () => {
+      if (!memberId) {
+        setMember(null);
+        setMemberLoading(false);
+        setMemberError("Member id is missing");
+        return;
+      }
+
+      setMemberLoading(true);
+      setMemberError(null);
+      try {
+        const m = await membersApi.get(memberId);
+        setMember(m);
+      } catch (error) {
+        const message = error instanceof ApiError ? error.message : "Failed to load member";
+        setMemberError(message);
+        setMember(null);
+      } finally {
+        setMemberLoading(false);
+      }
+    };
+
+    fetchMember();
+  }, [memberId]);
+
+  const selectedPlan = useMemo(() => plans.find((p) => p.id === selectedPlanId) ?? null, [plans, selectedPlanId]);
+
+  useEffect(() => {
+    if (!selectedPlan) return;
+    setAmount((prev) => (prev ? prev : String(selectedPlan.price)));
+  }, [selectedPlan]);
+
+  const handleSubmit = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
-    toast({
-      title: "Membership saved",
-      description: "Membership started/renewed (mock). In a real app this would create a billing record.",
-      variant: "success",
-    });
-    router.push("/branch/members");
-  };
+
+    if (!memberId || !member) {
+      toast({ title: "Error", description: "Member not loaded", variant: "destructive" });
+      return;
+    }
+
+    if (!selectedPlanId) {
+      toast({ title: "Select a plan", description: "Please select a membership plan", variant: "destructive" });
+      return;
+    }
+
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      toast({ title: "Invalid amount", description: "Please enter a valid amount", variant: "destructive" });
+      return;
+    }
+
+    const branchIdToUse = member.branchId || user?.branchId;
+    if (!branchIdToUse) {
+      toast({ title: "Error", description: "Branch not assigned", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await paymentsApi.create({
+        memberId,
+        branchId: branchIdToUse,
+        planId: selectedPlanId,
+        amount: parsedAmount,
+        method,
+        description: selectedPlan ? `${selectedPlan.name} - ${selectedPlan.durationDays} days` : undefined,
+      });
+
+      toast({
+        title: "Membership updated",
+        description: "Payment recorded and membership renewed",
+        variant: "success",
+      });
+
+      router.push("/branch/members");
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to record payment";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }, [amount, member, memberId, method, router, selectedPlan, selectedPlanId, toast, user?.branchId]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -88,14 +168,15 @@ export default function MemberMembershipPage() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p>
-              <span className="font-semibold">Member ID:</span> {memberId}
+              <span className="font-semibold">Member ID:</span> {memberId ?? "—"}
             </p>
             <p>
-              <span className="font-semibold">Name:</span> {MOCK_MEMBER.name}
+              <span className="font-semibold">Name:</span> {memberLoading ? "Loading..." : member?.name ?? "—"}
             </p>
             <p>
-              <span className="font-semibold">Contact:</span> {MOCK_MEMBER.contact}
+              <span className="font-semibold">Contact:</span> {memberLoading ? "" : member?.phone ?? "—"}
             </p>
+            {memberError ? <p className="text-xs text-red-500">{memberError}</p> : null}
           </CardContent>
         </Card>
 
@@ -113,6 +194,8 @@ export default function MemberMembershipPage() {
                   id="plan"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   required
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
                 >
                   <option value="">Select plan</option>
                   {plansLoading ? (
@@ -132,32 +215,29 @@ export default function MemberMembershipPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="start">Start date</Label>
-                  <Input id="start" type="date" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end">End date</Label>
-                  <Input id="end" type="date" required />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
                   <Label htmlFor="amount">Amount (₹)</Label>
-                  <Input id="amount" type="number" placeholder="2499" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="discount">Discount (₹)</Label>
-                  <Input id="discount" type="number" placeholder="0" />
+                  <Input
+                    id="amount"
+                    type="number"
+                    min={1}
+                    placeholder={selectedPlan ? String(selectedPlan.price) : "2499"}
+                    required
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="mode">Payment mode</Label>
                   <select
                     id="mode"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={method}
+                    onChange={(e) => setMethod(e.target.value as PaymentMethod)}
                   >
                     <option value="cash">Cash</option>
                     <option value="card">Card</option>
                     <option value="upi">UPI</option>
+                    <option value="bank_transfer">Bank transfer</option>
                   </select>
                 </div>
               </div>
@@ -168,7 +248,9 @@ export default function MemberMembershipPage() {
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
             </Button>
-            <Button type="submit">Start Membership</Button>
+            <Button type="submit" disabled={saving || memberLoading || plansLoading}>
+              {saving ? "Saving..." : "Start Membership"}
+            </Button>
           </div>
         </form>
       </div>
