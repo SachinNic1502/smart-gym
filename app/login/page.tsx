@@ -96,24 +96,11 @@ export default function LoginPage() {
                     return;
                 }
 
-                // Check if user entered the default OTP
-                const DEFAULT_OTP = "1234";
-                const isDefaultOtp = memberOtp === DEFAULT_OTP;
-
-                // Try login with entered OTP or accept default OTP
+                // Try login with entered OTP (backend now accepts "1234" as default)
                 const result = await memberLogin(data.phone, memberOtp);
 
                 if (result.success) {
                     toast({ title: "Success", description: "Login successful!", variant: "success" });
-                } else if (isDefaultOtp) {
-                    // If API rejects but user used default OTP, redirect anyway as fallback
-                    toast({
-                        title: "Success",
-                        description: "Logged in with default OTP",
-                        variant: "success"
-                    });
-                    // Manually redirect to member dashboard
-                    window.location.href = "/portal/dashboard";
                 } else {
                     setMemberError("Invalid OTP. Please try again or use default OTP: 1234");
                     toast({
