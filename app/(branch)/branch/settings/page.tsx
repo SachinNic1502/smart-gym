@@ -113,43 +113,45 @@ export default function SettingsPage() {
 
     return (
         <div className="max-w-5xl space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Branch Settings</h2>
                     <p className="text-muted-foreground mt-1 text-sm">Manage your gym configuration and preferences.</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={loadData}>
+                <Button variant="outline" size="sm" onClick={loadData} className="w-full sm:w-auto">
                     <RefreshCcw className="mr-2 h-4 w-4" /> Refresh
                 </Button>
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-                <TabsList className="w-full justify-start h-12 bg-transparent p-0 border-b space-x-6 mb-6">
-                    <TabsTrigger 
-                        value="general" 
-                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
-                    >
-                        General
-                    </TabsTrigger>
-                    <TabsTrigger 
-                        value="plans" 
-                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
-                    >
-                        Membership Plans
-                    </TabsTrigger>
-                    <TabsTrigger 
-                        value="devices" 
-                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
-                    >
-                        Devices
-                    </TabsTrigger>
-                    <TabsTrigger 
-                        value="notifications" 
-                        className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
-                    >
-                        Notifications
-                    </TabsTrigger>
-                </TabsList>
+                <div className="overflow-x-auto no-scrollbar border-b mb-6">
+                    <TabsList className="flex w-full min-w-max justify-start h-12 bg-transparent p-0 space-x-6">
+                        <TabsTrigger
+                            value="general"
+                            className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-sm"
+                        >
+                            General
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="plans"
+                            className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-sm"
+                        >
+                            Membership Plans
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="devices"
+                            className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-sm"
+                        >
+                            Devices
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="notifications"
+                            className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-sm"
+                        >
+                            Notifications
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
 
                 <TabsContent value="general" className="space-y-6">
                     <Card className="shadow-sm border-border/60">
@@ -161,44 +163,44 @@ export default function SettingsPage() {
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label>Branch Name</Label>
-                                    <Input 
-                                        value={form.name} 
-                                        onChange={(e) => setForm({...form, name: e.target.value})}
+                                    <Input
+                                        value={form.name}
+                                        onChange={(e) => setForm({ ...form, name: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Phone</Label>
-                                    <Input 
-                                        value={form.phone} 
-                                        onChange={(e) => setForm({...form, phone: e.target.value})}
+                                    <Input
+                                        value={form.phone}
+                                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
                                     <Label>Address</Label>
-                                    <Input 
-                                        value={form.address} 
-                                        onChange={(e) => setForm({...form, address: e.target.value})}
+                                    <Input
+                                        value={form.address}
+                                        onChange={(e) => setForm({ ...form, address: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>City</Label>
-                                    <Input 
-                                        value={form.city} 
-                                        onChange={(e) => setForm({...form, city: e.target.value})}
+                                    <Input
+                                        value={form.city}
+                                        onChange={(e) => setForm({ ...form, city: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>State</Label>
-                                    <Input 
-                                        value={form.state} 
-                                        onChange={(e) => setForm({...form, state: e.target.value})}
+                                    <Input
+                                        value={form.state}
+                                        onChange={(e) => setForm({ ...form, state: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Email</Label>
-                                    <Input 
-                                        value={form.email} 
-                                        onChange={(e) => setForm({...form, email: e.target.value})}
+                                    <Input
+                                        value={form.email}
+                                        onChange={(e) => setForm({ ...form, email: e.target.value })}
                                     />
                                 </div>
                             </div>

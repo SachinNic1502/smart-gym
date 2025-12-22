@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/toast-provider";
 import { ApiError, attendanceApi, membersApi } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { AttendanceMethod, AttendanceRecord, Member } from "@/lib/types";
+import { Html5Qrcode } from "html5-qrcode";
 
 export default function AttendancePage() {
     const [isManualOpen, setIsManualOpen] = useState(false);
@@ -39,6 +40,8 @@ export default function AttendancePage() {
     const [manualReason, setManualReason] = useState("");
     const [manualMethod, setManualMethod] = useState<AttendanceMethod>("Manual");
     const [manualSaving, setManualSaving] = useState(false);
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const [scannerLoading, setScannerLoading] = useState(false);
 
     const todayKey = useMemo(() => new Date().toISOString().split("T")[0]!, []);
 
@@ -193,6 +196,67 @@ export default function AttendancePage() {
         }
     }, [branchId, loadAttendance, manualMemberId, manualMethod, manualReason, toast]);
 
+    // Handle QR Scan
+    const handleQRScan = useCallback(async (memberId: string) => {
+        if (!branchId) return;
+
+        setScannerLoading(true);
+        try {
+            await attendanceApi.checkIn({
+                memberId: memberId.trim(),
+                branchId,
+                method: "QR Code",
+            });
+
+            toast({
+                title: "Check-in successful",
+                description: `Member ${memberId} checked in via QR code`,
+                variant: "success",
+            });
+
+            setIsScannerOpen(false);
+            await loadAttendance();
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "QR Check-in failed";
+            toast({ title: "Check-in Failed", description: message, variant: "destructive" });
+        } finally {
+            setScannerLoading(false);
+        }
+    }, [branchId, loadAttendance, toast]);
+
+    useEffect(() => {
+        let scanner: Html5Qrcode | null = null;
+
+        if (isScannerOpen) {
+            // Need a slight delay to ensure the DOM element is rendered
+            const timer = setTimeout(() => {
+                scanner = new Html5Qrcode("qr-reader");
+                scanner.start(
+                    { facingMode: "environment" },
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 },
+                    },
+                    (decodedText) => {
+                        handleQRScan(decodedText);
+                    },
+                    () => { } // error handler
+                ).catch(err => {
+                    console.error("Scanner error:", err);
+                    toast({ title: "Scanner Error", description: "Could not start camera", variant: "destructive" });
+                    setIsScannerOpen(false);
+                });
+            }, 100);
+
+            return () => {
+                clearTimeout(timer);
+                if (scanner) {
+                    scanner.stop().catch(e => console.error("Error stopping scanner", e));
+                }
+            };
+        }
+    }, [isScannerOpen, handleQRScan, toast]);
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex items-center justify-between">
@@ -203,6 +267,9 @@ export default function AttendancePage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="default" onClick={() => setIsScannerOpen(true)}>
+                        Scan QR Code
+                    </Button>
                     <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
                         <DialogTrigger asChild>
                             <Button variant="secondary">Manual Check-in</Button>
@@ -270,10 +337,34 @@ export default function AttendancePage() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
+
+                    <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
+                        <DialogContent className="sm:max-w-[420px]">
+                            <DialogHeader>
+                                <DialogTitle>Scan Member QR</DialogTitle>
+                                <DialogDescription>
+                                    Align the member's QR code within the frame to check them in.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-black">
+                                <div id="qr-reader" className="h-full w-full" />
+                                {scannerLoading && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
+                                        Processing...
+                                    </div>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" type="button" onClick={() => setIsScannerOpen(false)}>
+                                    Cancel
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-medium text-muted-foreground">Check-ins today</CardTitle>
@@ -327,59 +418,61 @@ export default function AttendancePage() {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Time</TableHead>
-                                <TableHead>Member</TableHead>
-                                <TableHead>Method</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
-                                        Loading logs...
-                                    </TableCell>
+                                    <TableHead className="pl-6">Time</TableHead>
+                                    <TableHead>Member</TableHead>
+                                    <TableHead>Method</TableHead>
+                                    <TableHead>Status</TableHead>
                                 </TableRow>
-                            ) : filteredRecords.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
-                                        No records found.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredRecords.map((r) => (
-                                    <TableRow key={r.id}>
-                                        <TableCell className="font-mono">
-                                            {new Date(r.checkInTime).toLocaleTimeString("en-US", {
-                                                hour: "numeric",
-                                                minute: "2-digit",
-                                                hour12: true,
-                                            })}
-                                        </TableCell>
-                                        <TableCell className="font-medium">{r.memberName}</TableCell>
-                                        <TableCell>{r.method}</TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant={
-                                                    r.status === "success"
-                                                        ? "success"
-                                                        : r.status === "failed"
-                                                        ? "destructive"
-                                                        : "outline"
-                                                }
-                                            >
-                                                {r.status}
-                                            </Badge>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
+                                            Loading logs...
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : filteredRecords.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="py-10 text-center text-xs text-muted-foreground">
+                                            No records found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    filteredRecords.map((r) => (
+                                        <TableRow key={r.id}>
+                                            <TableCell className="font-mono pl-6 py-4">
+                                                {new Date(r.checkInTime).toLocaleTimeString("en-US", {
+                                                    hour: "numeric",
+                                                    minute: "2-digit",
+                                                    hour12: true,
+                                                })}
+                                            </TableCell>
+                                            <TableCell className="font-medium whitespace-nowrap">{r.memberName}</TableCell>
+                                            <TableCell className="whitespace-nowrap">{r.method}</TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant={
+                                                        r.status === "success"
+                                                            ? "success"
+                                                            : r.status === "failed"
+                                                                ? "destructive"
+                                                                : "outline"
+                                                    }
+                                                >
+                                                    {r.status}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

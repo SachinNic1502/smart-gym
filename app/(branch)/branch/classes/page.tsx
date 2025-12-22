@@ -28,7 +28,7 @@ export default function ClassesPage() {
     const toast = useToast();
 
     const [activeTab, setActiveTab] = useState("classes");
-    
+
     // Data State
     const [classes, setClasses] = useState<GymClass[]>([]);
     const [trainers, setTrainers] = useState<Staff[]>([]);
@@ -38,7 +38,7 @@ export default function ClassesPage() {
     // Dialog State
     const [isClassDialogOpen, setIsClassDialogOpen] = useState(false);
     const [isTrainerDialogOpen, setIsTrainerDialogOpen] = useState(false);
-    
+
     // Forms
     const [classForm, setClassForm] = useState({
         name: "",
@@ -56,6 +56,11 @@ export default function ClassesPage() {
         email: "",
         phone: "",
     });
+
+    const [typeSearch, setTypeSearch] = useState("");
+    const [customType, setCustomType] = useState("");
+    const CLASS_TYPES: ClassType[] = ["yoga", "zumba", "spinning", "hiit", "strength", "cardio", "pilates", "other"];
+    const filteredClassTypes = CLASS_TYPES.filter(t => t.toLowerCase().includes(typeSearch.toLowerCase()));
 
     const loadData = useCallback(async () => {
         if (!user) return;
@@ -109,7 +114,7 @@ export default function ClassesPage() {
         }
 
         const trainer = trainers.find(t => t.id === classForm.trainerId);
-        
+
         // Simple end time calc
         const [hours, minutes] = classForm.scheduleTime.split(":").map(Number);
         const durationMin = parseInt(classForm.duration) || 60;
@@ -125,7 +130,7 @@ export default function ClassesPage() {
                 type: classForm.type,
                 branchId: branchId,
                 capacity: parseInt(classForm.capacity) || 20,
-                description: classForm.description,
+                description: classForm.type === "other" && customType ? `Custom Type: ${customType}. ${classForm.description}` : classForm.description,
                 status: "active",
                 schedule: [
                     {
@@ -138,6 +143,7 @@ export default function ClassesPage() {
 
             toast({ title: "Class scheduled", variant: "success" });
             setIsClassDialogOpen(false);
+            setCustomType("");
             setClassForm({
                 name: "",
                 trainerId: "",
@@ -182,12 +188,12 @@ export default function ClassesPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Classes & Trainers</h2>
                     <p className="text-muted-foreground">Manage your gym schedules and staff.</p>
                 </div>
-                <Button onClick={handlePrimaryAction}>
+                <Button onClick={handlePrimaryAction} className="w-full sm:w-auto">
                     <Plus className="mr-2 h-4 w-4" />
                     {activeTab === "classes" ? "Schedule Class" : "Add Trainer"}
                 </Button>
@@ -203,18 +209,53 @@ export default function ClassesPage() {
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
                             <Label>Class Name *</Label>
-                            <Input 
-                                placeholder="e.g. Morning Yoga" 
+                            <Input
+                                placeholder="e.g. Morning Yoga"
                                 value={classForm.name}
-                                onChange={(e) => setClassForm({...classForm, name: e.target.value})}
+                                onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
                             />
                         </div>
                         <div className="space-y-2">
+                            <Label>Class Type *</Label>
+                            <Input
+                                placeholder="Search & select type..."
+                                value={typeSearch}
+                                onChange={(e) => setTypeSearch(e.target.value)}
+                                className="mb-2"
+                            />
+                            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2 bg-muted/20">
+                                {filteredClassTypes.length === 0 ? (
+                                    <div className="col-span-2 text-center text-xs text-muted-foreground py-2">No types found</div>
+                                ) : (
+                                    filteredClassTypes.map((t) => (
+                                        <div
+                                            key={t}
+                                            onClick={() => setClassForm({ ...classForm, type: t })}
+                                            className={`cursor-pointer rounded-md px-3 py-2 text-center text-sm border transition-all ${classForm.type === t
+                                                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                                : "bg-background hover:bg-zinc-100 border-zinc-200"
+                                                }`}
+                                        >
+                                            <span className="capitalize font-medium">{t}</span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {classForm.type === "other" && (
+                                <Input
+                                    placeholder="Specify custom type..."
+                                    value={customType}
+                                    onChange={(e) => setCustomType(e.target.value)}
+                                    className="mt-2"
+                                />
+                            )}
+                        </div>
+                        <div className="space-y-2">
                             <Label>Trainer *</Label>
-                            <select 
+                            <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={classForm.trainerId}
-                                onChange={(e) => setClassForm({...classForm, trainerId: e.target.value})}
+                                onChange={(e) => setClassForm({ ...classForm, trainerId: e.target.value })}
                             >
                                 <option value="">Select Trainer</option>
                                 {trainers.map(t => (
@@ -225,27 +266,27 @@ export default function ClassesPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Start Time *</Label>
-                                <Input 
+                                <Input
                                     type="time"
                                     value={classForm.scheduleTime}
-                                    onChange={(e) => setClassForm({...classForm, scheduleTime: e.target.value})}
+                                    onChange={(e) => setClassForm({ ...classForm, scheduleTime: e.target.value })}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label>Duration (min)</Label>
-                                <Input 
+                                <Input
                                     type="number"
                                     value={classForm.duration}
-                                    onChange={(e) => setClassForm({...classForm, duration: e.target.value})}
+                                    onChange={(e) => setClassForm({ ...classForm, duration: e.target.value })}
                                 />
                             </div>
                         </div>
                         <div className="space-y-2">
                             <Label>Capacity</Label>
-                            <Input 
+                            <Input
                                 type="number"
                                 value={classForm.capacity}
-                                onChange={(e) => setClassForm({...classForm, capacity: e.target.value})}
+                                onChange={(e) => setClassForm({ ...classForm, capacity: e.target.value })}
                             />
                         </div>
                     </div>
@@ -265,18 +306,18 @@ export default function ClassesPage() {
                     <div className="space-y-4 py-2">
                         <div className="space-y-2">
                             <Label>Name *</Label>
-                            <Input 
-                                placeholder="e.g. John Doe" 
+                            <Input
+                                placeholder="e.g. John Doe"
                                 value={trainerForm.name}
-                                onChange={(e) => setTrainerForm({...trainerForm, name: e.target.value})}
+                                onChange={(e) => setTrainerForm({ ...trainerForm, name: e.target.value })}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Role</Label>
-                            <select 
+                            <select
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={trainerForm.role}
-                                onChange={(e) => setTrainerForm({...trainerForm, role: e.target.value as any})}
+                                onChange={(e) => setTrainerForm({ ...trainerForm, role: e.target.value as any })}
                             >
                                 <option value="trainer">Trainer</option>
                                 <option value="manager">Manager</option>
@@ -288,17 +329,17 @@ export default function ClassesPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Email</Label>
-                                <Input 
+                                <Input
                                     type="email"
                                     value={trainerForm.email}
-                                    onChange={(e) => setTrainerForm({...trainerForm, email: e.target.value})}
+                                    onChange={(e) => setTrainerForm({ ...trainerForm, email: e.target.value })}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label>Phone</Label>
-                                <Input 
+                                <Input
                                     value={trainerForm.phone}
-                                    onChange={(e) => setTrainerForm({...trainerForm, phone: e.target.value})}
+                                    onChange={(e) => setTrainerForm({ ...trainerForm, phone: e.target.value })}
                                 />
                             </div>
                         </div>
@@ -311,45 +352,45 @@ export default function ClassesPage() {
             </Dialog>
 
             {/* Stats */}
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Classes</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
+                        <CardTitle className="text-xs font-medium">Total Classes</CardTitle>
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-4 pb-3">
                         <div className="text-2xl font-bold">{loading ? "—" : classes.length}</div>
-                        <p className="text-xs text-muted-foreground">Scheduled active classes</p>
+                        <p className="text-[10px] text-muted-foreground">Scheduled active</p>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Trainers</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
+                        <CardTitle className="text-xs font-medium">Trainers</CardTitle>
                         <User className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-4 pb-3">
                         <div className="text-2xl font-bold">{loading ? "—" : trainers.length}</div>
-                        <p className="text-xs text-muted-foreground">Staff members</p>
+                        <p className="text-[10px] text-muted-foreground">Active staff</p>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Capacity</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
+                        <CardTitle className="text-xs font-medium">Capacity</CardTitle>
                         <User className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-4 pb-3">
                         <div className="text-2xl font-bold">{loading ? "—" : totalCapacity}</div>
-                        <p className="text-xs text-muted-foreground">Total spots available</p>
+                        <p className="text-[10px] text-muted-foreground">Total spots</p>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Utilization</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
+                        <CardTitle className="text-xs font-medium">Utilization</CardTitle>
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-4 pb-3">
                         <div className="text-2xl font-bold">{loading ? "—" : `${utilizationRate}%`}</div>
-                        <p className="text-xs text-muted-foreground">Overall fill rate</p>
+                        <p className="text-[10px] text-muted-foreground">Overall fill</p>
                     </CardContent>
                 </Card>
             </div>
@@ -383,7 +424,7 @@ export default function ClassesPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                             {classes.map((cls) => {
                                 const currentSchedule = cls.schedule?.[0]; // Taking first schedule for display
                                 const utilizationRaw = ((cls.enrolled || 0) / cls.capacity) * 100;
@@ -423,7 +464,7 @@ export default function ClassesPage() {
                                                     <User className="mr-2 h-4 w-4 text-primary" /> {cls.trainerName}
                                                 </div>
                                                 <div className="flex items-center text-muted-foreground">
-                                                    <Clock className="mr-2 h-4 w-4 text-primary" /> 
+                                                    <Clock className="mr-2 h-4 w-4 text-primary" />
                                                     {currentSchedule ? `${currentSchedule.startTime} - ${currentSchedule.endTime}` : "No schedule"}
                                                 </div>
                                                 <div className="w-full bg-secondary/10 rounded-full h-2 mt-2">
@@ -471,7 +512,7 @@ export default function ClassesPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                             {trainers.map((trainer) => (
                                 <Card key={trainer.id}>
                                     <CardContent className="pt-6 text-center">

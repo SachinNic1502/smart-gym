@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import { notificationsApi, ApiError } from "@/lib/api/client";
 import { useToast } from "@/components/ui/toast-provider";
+import { useAuth } from "@/hooks/use-auth";
 import type { Notification } from "@/lib/types";
 
 interface NotificationContextType {
@@ -31,32 +32,41 @@ interface NotificationProviderProps {
 }
 
 export function NotificationProvider({ children }: NotificationProviderProps) {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
   const loadNotifications = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const response = await notificationsApi.list({ page: "1", pageSize: "20" });
       setNotifications(response.data);
     } catch (e) {
+      // Create a more user-friendly error or silence "No session" errors if they happen during race conditions
       const message = e instanceof ApiError ? e.message : "Failed to load notifications";
-      console.error("Failed to load notifications:", message);
+      if (message !== "No session found") {
+        console.error("Failed to load notifications:", message);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const loadUnreadCount = useCallback(async () => {
+    if (!user) return;
     try {
       const response = await notificationsApi.getUnreadCount();
       setUnreadCount(response.unreadCount);
     } catch (e) {
-      console.error("Failed to load unread count:", e);
+      const message = e instanceof ApiError ? e.message : "Unknown error";
+      if (message !== "No session found") {
+        console.error("Failed to load unread count:", e);
+      }
     }
-  }, []);
+  }, [user]);
 
   const addNotification = useCallback((notification: Notification) => {
     setNotifications(prev => [notification, ...prev]);
@@ -76,6 +86,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   }, []);
 
   const markAsRead = useCallback(async (id: string) => {
+    if (!user) return;
     try {
       await notificationsApi.markAsRead(id);
       setNotifications(prev =>
@@ -90,9 +101,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const message = e instanceof ApiError ? e.message : "Failed to mark as read";
       toast({ title: "Error", description: message, variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, user]);
 
   const markAllAsRead = useCallback(async () => {
+    if (!user) return;
     try {
       await notificationsApi.markAsRead(undefined, true);
       setNotifications(prev =>
@@ -104,24 +116,32 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const message = e instanceof ApiError ? e.message : "Failed to mark all as read";
       toast({ title: "Error", description: message, variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, user]);
 
   const refreshNotifications = useCallback(() => {
-    loadNotifications();
-    loadUnreadCount();
-  }, [loadNotifications, loadUnreadCount]);
+    if (user) {
+      loadNotifications();
+      loadUnreadCount();
+    }
+  }, [loadNotifications, loadUnreadCount, user]);
 
   useEffect(() => {
-    loadNotifications();
-    loadUnreadCount();
-
-    // Set up polling for new notifications
-    const interval = setInterval(() => {
+    if (user) {
+      loadNotifications();
       loadUnreadCount();
-    }, 30000); // Every 30 seconds
 
-    return () => clearInterval(interval);
-  }, [loadNotifications, loadUnreadCount]);
+      // Set up polling for new notifications
+      const interval = setInterval(() => {
+        loadUnreadCount();
+      }, 30000); // Every 30 seconds
+
+      return () => clearInterval(interval);
+    } else {
+      // Clear notifications when logged out
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  }, [loadNotifications, loadUnreadCount, user]);
 
   const value: NotificationContextType = {
     notifications,
@@ -149,11 +169,11 @@ export function useNotificationToasts() {
   const showToast = useCallback((notification: Notification) => {
     // Add to notification center
     addNotification(notification);
-    
+
     // Show toast for high priority or urgent notifications
     if (notification.priority === "high" || notification.priority === "urgent") {
       setActiveToasts(prev => [...prev, notification]);
-      
+
       // Auto-remove after duration
       setTimeout(() => {
         setActiveToasts(prev => prev.filter(n => n.id !== notification.id));

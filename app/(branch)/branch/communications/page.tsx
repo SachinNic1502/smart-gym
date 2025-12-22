@@ -21,7 +21,7 @@ export default function CommunicationsPage() {
     const [logs, setLogs] = useState<BroadcastMessage[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
+
     // Form State
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
@@ -30,7 +30,7 @@ export default function CommunicationsPage() {
 
     const loadLogs = useCallback(async () => {
         if (!user) return;
-        
+
         setLoading(true);
         setError(null);
         try {
@@ -50,10 +50,10 @@ export default function CommunicationsPage() {
 
     const handleSend = async () => {
         if (!title.trim() || !content.trim()) {
-            toast({ 
-                title: "Missing details", 
-                description: "Please enter a subject and message content.", 
-                variant: "warning" 
+            toast({
+                title: "Missing details",
+                description: "Please enter a subject and message content.",
+                variant: "warning"
             });
             return;
         }
@@ -67,7 +67,7 @@ export default function CommunicationsPage() {
                 recipientCount: 0, // Backend would calculate based on target
                 status: "sent"
             });
-            
+
             toast({ title: "Broadcast sent", variant: "success" });
             setTitle("");
             setContent("");
@@ -95,7 +95,7 @@ export default function CommunicationsPage() {
                 </Button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
                 <Card className="border-border/60 shadow-sm h-fit">
                     <CardHeader className="bg-zinc-50/50 border-b pb-4">
                         <div className="flex items-center gap-2">
@@ -111,8 +111,8 @@ export default function CommunicationsPage() {
                     <CardContent className="space-y-4 pt-6">
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Subject / Title</Label>
-                            <Input 
-                                placeholder="e.g. Gym Closed Tomorrow" 
+                            <Input
+                                placeholder="e.g. Gym Closed Tomorrow"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
                                 className="bg-zinc-50/50 focus:bg-white transition-colors"
@@ -130,44 +130,44 @@ export default function CommunicationsPage() {
                         </div>
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Channel</Label>
-                            <div className="flex gap-4">
-                                <label className={`flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer transition-all ${channel === 'sms' ? 'border-primary bg-primary/5 text-primary' : 'hover:bg-zinc-50'}`}>
-                                    <input 
-                                        type="radio" 
-                                        name="channel" 
-                                        value="sms" 
-                                        checked={channel === "sms"} 
+                            <div className="flex flex-wrap gap-3">
+                                <label className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 border rounded-md px-3 py-2.5 cursor-pointer transition-all ${channel === 'sms' ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary' : 'hover:bg-zinc-50 border-border/60'}`}>
+                                    <input
+                                        type="radio"
+                                        name="channel"
+                                        value="sms"
+                                        checked={channel === "sms"}
                                         onChange={() => setChannel("sms")}
                                         className="sr-only"
                                     />
-                                    <span className="text-sm font-medium">SMS</span>
+                                    <span className="text-sm font-bold tracking-tight">SMS</span>
                                 </label>
-                                <label className={`flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer transition-all ${channel === 'whatsapp' ? 'border-green-600 bg-green-50 text-green-700' : 'hover:bg-zinc-50'}`}>
-                                    <input 
-                                        type="radio" 
-                                        name="channel" 
-                                        value="whatsapp" 
-                                        checked={channel === "whatsapp"} 
+                                <label className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 border rounded-md px-3 py-2.5 cursor-pointer transition-all ${channel === 'whatsapp' ? 'border-green-600 bg-green-50 text-green-700 ring-1 ring-green-600' : 'hover:bg-zinc-50 border-border/60'}`}>
+                                    <input
+                                        type="radio"
+                                        name="channel"
+                                        value="whatsapp"
+                                        checked={channel === "whatsapp"}
                                         onChange={() => setChannel("whatsapp")}
                                         className="sr-only"
                                     />
-                                    <span className="text-sm font-medium">WhatsApp</span>
+                                    <span className="text-sm font-bold tracking-tight">WhatsApp</span>
                                 </label>
-                                <label className={`flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer transition-all ${channel === 'email' ? 'border-blue-600 bg-blue-50 text-blue-700' : 'hover:bg-zinc-50'}`}>
-                                    <input 
-                                        type="radio" 
-                                        name="channel" 
-                                        value="email" 
-                                        checked={channel === "email"} 
+                                <label className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 border rounded-md px-3 py-2.5 cursor-pointer transition-all ${channel === 'email' ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'hover:bg-zinc-50 border-border/60'}`}>
+                                    <input
+                                        type="radio"
+                                        name="channel"
+                                        value="email"
+                                        checked={channel === "email"}
                                         onChange={() => setChannel("email")}
                                         className="sr-only"
                                     />
-                                    <span className="text-sm font-medium">Email</span>
+                                    <span className="text-sm font-bold tracking-tight">Email</span>
                                 </label>
                             </div>
                         </div>
-                        <Button 
-                            className="w-full shadow-md shadow-primary/20" 
+                        <Button
+                            className="w-full shadow-md shadow-primary/20"
                             onClick={handleSend}
                             disabled={sending}
                         >
@@ -199,11 +199,10 @@ export default function CommunicationsPage() {
                                     logs.map((log, i) => (
                                         <div key={log.id || i} className="flex items-start justify-between pb-4 border-b last:border-0 last:pb-0 group">
                                             <div className="flex items-start gap-3">
-                                                <div className={`mt-1 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${
-                                                    log.channel === 'whatsapp' ? 'bg-green-50 text-green-600 border-green-100' :
+                                                <div className={`mt-1 h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border ${log.channel === 'whatsapp' ? 'bg-green-50 text-green-600 border-green-100' :
                                                     log.channel === 'email' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                    'bg-zinc-100 text-zinc-600 border-zinc-200'
-                                                }`}>
+                                                        'bg-zinc-100 text-zinc-600 border-zinc-200'
+                                                    }`}>
                                                     {log.channel.substring(0, 1).toUpperCase()}
                                                 </div>
                                                 <div>

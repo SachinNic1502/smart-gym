@@ -30,7 +30,7 @@ export default function ExpensesPage() {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
+
     // Dialog State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -89,7 +89,7 @@ export default function ExpensesPage() {
                 currency: "INR",
                 createdBy: user?.name || "Staff",
             });
-            
+
             toast({ title: "Expense added", variant: "success" });
             setIsDialogOpen(false);
             setForm({
@@ -116,7 +116,7 @@ export default function ExpensesPage() {
         expenses.forEach(ex => {
             cats[ex.category] = (cats[ex.category] || 0) + ex.amount;
         });
-        
+
         let max = 0;
         let maxCat = "None";
         Object.entries(cats).forEach(([cat, val]) => {
@@ -125,7 +125,7 @@ export default function ExpensesPage() {
                 maxCat = cat;
             }
         });
-        
+
         return { category: maxCat, amount: max };
     }, [expenses]);
 
@@ -155,28 +155,28 @@ export default function ExpensesPage() {
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
                                     <Label>Description</Label>
-                                    <Input 
-                                        placeholder="e.g. Office Supplies" 
+                                    <Input
+                                        placeholder="e.g. Office Supplies"
                                         value={form.description}
-                                        onChange={(e) => setForm({...form, description: e.target.value})}
+                                        onChange={(e) => setForm({ ...form, description: e.target.value })}
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>Amount (₹)</Label>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             placeholder="0.00"
                                             value={form.amount}
-                                            onChange={(e) => setForm({...form, amount: e.target.value})}
+                                            onChange={(e) => setForm({ ...form, amount: e.target.value })}
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Category</Label>
-                                        <select 
+                                        <select
                                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                             value={form.category}
-                                            onChange={(e) => setForm({...form, category: e.target.value as ExpenseCategory})}
+                                            onChange={(e) => setForm({ ...form, category: e.target.value as ExpenseCategory })}
                                         >
                                             <option value="rent">Rent</option>
                                             <option value="utilities">Utilities</option>
@@ -190,10 +190,10 @@ export default function ExpensesPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Date</Label>
-                                    <Input 
+                                    <Input
                                         type="date"
                                         value={form.date}
-                                        onChange={(e) => setForm({...form, date: e.target.value})}
+                                        onChange={(e) => setForm({ ...form, date: e.target.value })}
                                     />
                                 </div>
                             </div>
@@ -208,7 +208,7 @@ export default function ExpensesPage() {
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
                 <Card className="border-border/60 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -243,52 +243,54 @@ export default function ExpensesPage() {
                     <CardDescription className="text-xs">Recent transactions and bills.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="hover:bg-transparent bg-zinc-50/50">
-                                <TableHead className="pl-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</TableHead>
-                                <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</TableHead>
-                                <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</TableHead>
-                                <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recorded By</TableHead>
-                                <TableHead className="text-right pr-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                                        Loading expenses...
-                                    </TableCell>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent bg-zinc-50/50">
+                                    <TableHead className="pl-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[200px]">Description</TableHead>
+                                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[120px]">Category</TableHead>
+                                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[120px]">Date</TableHead>
+                                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[150px]">Recorded By</TableHead>
+                                    <TableHead className="text-right pr-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[120px]">Amount</TableHead>
                                 </TableRow>
-                            ) : expenses.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="py-16 text-center text-muted-foreground">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="p-3 rounded-full bg-muted/20">
-                                                <DollarSign className="h-6 w-6 text-muted-foreground/50" />
-                                            </div>
-                                            <p className="text-sm font-medium">No expenses recorded</p>
-                                            <p className="text-xs text-muted-foreground">Add your first expense to track spending.</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                expenses.map((ex) => (
-                                    <TableRow key={ex.id} className="hover:bg-zinc-50/50 transition-colors">
-                                        <TableCell className="font-medium text-sm text-foreground pl-6 py-3">{ex.description}</TableCell>
-                                        <TableCell className="py-3">
-                                            <Badge variant="outline" className="text-[10px] font-medium bg-zinc-50 capitalize">
-                                                {ex.category}
-                                            </Badge>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                                            Loading expenses...
                                         </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground py-3">{new Date(ex.date).toLocaleDateString()}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground py-3">{ex.createdBy}</TableCell>
-                                        <TableCell className="text-right font-mono text-sm text-red-600 font-medium pr-6 py-3">-₹{ex.amount.toLocaleString()}</TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : expenses.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="py-16 text-center text-muted-foreground">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="p-3 rounded-full bg-muted/20">
+                                                    <DollarSign className="h-6 w-6 text-muted-foreground/50" />
+                                                </div>
+                                                <p className="text-sm font-medium">No expenses recorded</p>
+                                                <p className="text-xs text-muted-foreground">Add your first expense to track spending.</p>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    expenses.map((ex) => (
+                                        <TableRow key={ex.id} className="hover:bg-zinc-50/50 transition-colors">
+                                            <TableCell className="font-medium text-sm text-foreground pl-6 py-4 whitespace-nowrap">{ex.description}</TableCell>
+                                            <TableCell className="py-4">
+                                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider bg-zinc-50 px-2 py-0.5 whitespace-nowrap">
+                                                    {ex.category}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground py-4 whitespace-nowrap">{new Date(ex.date).toLocaleDateString()}</TableCell>
+                                            <TableCell className="text-sm text-muted-foreground py-4 whitespace-nowrap">{ex.createdBy}</TableCell>
+                                            <TableCell className="text-right font-mono text-sm text-red-600 font-bold pr-6 py-4 whitespace-nowrap">-₹{ex.amount.toLocaleString()}</TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

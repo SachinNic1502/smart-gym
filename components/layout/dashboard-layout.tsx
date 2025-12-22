@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  role: "super_admin" | "branch_admin";
+  role: "super_admin" | "branch_admin" | "member";
   className?: string;
 }
 
@@ -47,7 +47,7 @@ export function DashboardLayout({ children, role, className }: DashboardLayoutPr
         <footer className="w-full py-4 text-center text-sm">
           Engineered by <span className="font-semibold">
             <a href="https://www.agrozonetechnology.com/" target="_blank">
-            <span className="text-yellow-500">Agro</span>zone Technology
+              <span className="text-yellow-500">Agro</span>zone Technology
             </a>
           </span>
         </footer>

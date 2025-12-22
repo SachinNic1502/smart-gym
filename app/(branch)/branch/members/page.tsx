@@ -19,11 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, CalendarCheck, User, Dumbbell, Utensils } from "lucide-react";
+import { CreditCard, CalendarCheck, User, Dumbbell, Utensils, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
-import { ApiError, attendanceApi, membersApi, paymentsApi, plansApi } from "@/lib/api/client";
+import { ApiError, attendanceApi, membersApi, paymentsApi, plansApi, staffApi } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
-import type { AttendanceRecord, DietPlan, Member, Payment, WorkoutPlan } from "@/lib/types";
+import type { AttendanceRecord, DietPlan, Member, Payment, WorkoutPlan, Staff, MembershipPlan } from "@/lib/types";
 
 // Types
 interface MemberProgram {
@@ -44,6 +44,8 @@ export default function MembersPage() {
 
     const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
     const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
+    const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([]);
+    const [trainers, setTrainers] = useState<Staff[]>([]); // Added trainers state
     const [loadingPlans, setLoadingPlans] = useState(false);
 
     const filteredMembers = useMemo(() => {
@@ -112,19 +114,25 @@ export default function MembersPage() {
     const fetchPlans = useCallback(async () => {
         setLoadingPlans(true);
         try {
-            const [w, d] = await Promise.all([
+            const [w, d, m, t] = await Promise.all([
                 plansApi.getWorkoutPlans(),
                 plansApi.getDietPlans(),
+                plansApi.getMembershipPlans(),
+                branchId ? staffApi.list({ branchId, role: "trainer", page: "1", pageSize: "100" }) : Promise.resolve({ data: [] }),
             ]);
             setWorkoutPlans(w.data);
             setDietPlans(d.data);
+            setMembershipPlans(m.data || []);
+            setTrainers((t as any).data || []);
         } catch {
             setWorkoutPlans([]);
             setDietPlans([]);
+            setMembershipPlans([]);
+            setTrainers([]);
         } finally {
             setLoadingPlans(false);
         }
-    }, []);
+    }, [branchId]);
 
     useEffect(() => {
         fetchMembers();
@@ -185,6 +193,10 @@ export default function MembersPage() {
             address: member.address,
             referralSource: member.referralSource,
             notes: member.notes,
+            trainerId: member.trainerId,
+            plan: member.plan,
+            status: member.status as "Active" | "Cancelled" | "Expired" | "Frozen",
+            expiryDate: member.expiryDate,
         });
         setProgramSaveMessage(null);
 
@@ -251,7 +263,11 @@ export default function MembersPage() {
                 dateOfBirth: memberEditForm.dateOfBirth || undefined,
                 address: memberEditForm.address || undefined,
                 referralSource: memberEditForm.referralSource || undefined,
+                trainerId: memberEditForm.trainerId || undefined,
                 notes: memberEditForm.notes || undefined,
+                plan: memberEditForm.plan,
+                status: memberEditForm.status,
+                expiryDate: memberEditForm.expiryDate,
             };
 
             const updated = await membersApi.update(selectedMember.id, payload);
@@ -272,6 +288,23 @@ export default function MembersPage() {
         }
     }, [memberEditForm, selectedMember, toast]);
 
+    const handleDeleteMember = async () => {
+        if (!selectedMember || !window.confirm("Are you sure you want to delete this member? This action cannot be undone.")) return;
+        try {
+            await membersApi.delete(selectedMember.id);
+            toast({
+                title: "Member Deleted",
+                description: `${selectedMember.name} has been permanently deleted.`,
+                variant: "success",
+            });
+            setSelectedMember(null);
+            fetchMembers();
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to delete member";
+            toast({ title: "Error", description: message, variant: "destructive" });
+        }
+    };
+
     const handleCancelMemberEdit = useCallback(() => {
         if (!selectedMember) return;
         setIsEditingMember(false);
@@ -282,6 +315,7 @@ export default function MembersPage() {
             dateOfBirth: selectedMember.dateOfBirth,
             address: selectedMember.address,
             referralSource: selectedMember.referralSource,
+            trainerId: selectedMember.trainerId,
             notes: selectedMember.notes,
         });
     }, [selectedMember]);
@@ -296,21 +330,21 @@ export default function MembersPage() {
         }));
     };
 
-     const handleBlockMember = async (member: Member) => {
-         try {
-             await membersApi.update(member.id, { status: "Cancelled" });
-             toast({
-                 title: "Member Blocked",
-                 description: `${member.name} has been blocked (status set to Cancelled).`,
-                 variant: "success",
-             });
-             // Refresh members list to reflect the status change
-             fetchMembers();
-         } catch (e) {
-             const message = e instanceof ApiError ? e.message : "Failed to block member";
-             toast({ title: "Error", description: message, variant: "destructive" });
-         }
-     };
+    const handleBlockMember = async (member: Member) => {
+        try {
+            await membersApi.update(member.id, { status: "Cancelled" });
+            toast({
+                title: "Member Blocked",
+                description: `${member.name} has been blocked (status set to Cancelled).`,
+                variant: "success",
+            });
+            // Refresh members list to reflect the status change
+            fetchMembers();
+        } catch (e) {
+            const message = e instanceof ApiError ? e.message : "Failed to block member";
+            toast({ title: "Error", description: message, variant: "destructive" });
+        }
+    };
 
     const handleSavePrograms = useCallback(async (memberId: string) => {
         const entry = memberPrograms[memberId] || {};
@@ -340,24 +374,24 @@ export default function MembersPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-foreground">Members</h2>
-                    <p className="text-muted-foreground mt-1">
+                    <p className="text-muted-foreground mt-1 text-sm">
                         Manage your gym members, plans, and access.
                     </p>
                 </div>
-                <div className="flex gap-2 self-start sm:self-auto">
-                    <Button variant="outline" className="shadow-sm">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <Button variant="outline" className="flex-1 sm:flex-none shadow-sm h-9 text-xs">
                         <MessageCircle className="mr-2 h-4 w-4" />
                         Messages
                     </Button>
-                    <Button variant="outline" className="shadow-sm">
+                    <Button variant="outline" className="flex-1 sm:flex-none shadow-sm h-9 text-xs">
                         <FileDown className="mr-2 h-4 w-4" />
                         Export
                     </Button>
-                    <Link href="/branch/members/add">
-                        <Button className="shadow-md shadow-primary/20">
+                    <Link href="/branch/members/add" className="w-full sm:w-auto">
+                        <Button className="w-full shadow-md shadow-primary/20 h-9 text-xs">
                             <UserPlus className="mr-2 h-4 w-4" />
                             Add Member
                         </Button>
@@ -388,24 +422,24 @@ export default function MembersPage() {
 
             <Card className="shadow-sm">
                 <CardHeader className="pb-3 border-b bg-zinc-50/50">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="space-y-1">
                             <CardTitle className="whitespace-nowrap text-lg">All Members</CardTitle>
                             <CardDescription className="text-xs">
                                 Showing {loading ? "..." : filteredMembers.length} active records
                             </CardDescription>
                         </div>
-                        <div className="flex w-full sm:w-auto gap-2">
-                            <div className="relative w-full sm:w-64">
+                        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                            <div className="relative flex-1 lg:w-72">
                                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Search by name, email..."
-                                    className="pl-9 h-9 bg-white"
+                                    className="pl-9 h-9 bg-white w-full"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
-                            <Button variant="outline" size="sm" className="h-9 px-3">
+                            <Button variant="outline" size="sm" className="h-9 px-3 w-full sm:w-auto">
                                 <Filter className="h-4 w-4 mr-2" /> Filter
                             </Button>
                         </div>
@@ -442,101 +476,104 @@ export default function MembersPage() {
                             </Link>
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent bg-zinc-50/50">
-                                    <TableHead className="w-[250px] font-semibold text-xs uppercase tracking-wider text-muted-foreground pl-6">Member</TableHead>
-                                    <TableHead className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Plan</TableHead>
-                                    <TableHead className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Expiry</TableHead>
-                                    <TableHead className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Last Visit</TableHead>
-                                    <TableHead className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Programs</TableHead>
-                                    <TableHead className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs uppercase tracking-wider text-muted-foreground pr-6">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredMembers.map((member) => (
-                                    <TableRow key={member.id} className="hover:bg-zinc-50/50 transition-colors group cursor-pointer" onClick={() => handleManageMember(member)}>
-                                        <TableCell className="pl-6 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-9 w-9 border border-border">
-                                                    <AvatarImage src={member.image} />
-                                                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-                                                        {member.name.substring(0, 2).toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <div className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">{member.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{member.email}</div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="font-normal text-zinc-600 bg-zinc-50">
-                                                {member.plan}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground font-mono">
-                                            {member.expiryDate ? member.expiryDate.split("T")[0] : "—"}
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground font-mono">
-                                            {member.lastVisit ? member.lastVisit.split("T")[0] : "—"}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-2">
-                                                {memberPrograms[member.id]?.workoutPlanId ? (
-                                                    <Badge variant="secondary" className="px-1.5 py-0.5 h-5 text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100">
-                                                        W
-                                                    </Badge>
-                                                ) : null}
-                                                {memberPrograms[member.id]?.dietPlanId ? (
-                                                    <Badge variant="secondary" className="px-1.5 py-0.5 h-5 text-[10px] bg-green-50 text-green-700 hover:bg-green-100 border-green-100">
-                                                        D
-                                                    </Badge>
-                                                ) : null}
-                                                {!memberPrograms[member.id]?.workoutPlanId &&
-                                                    !memberPrograms[member.id]?.dietPlanId && (
-                                                        <span className="text-xs text-muted-foreground italic">None</span>
-                                                    )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant={member.status === "Active" ? "success" : "destructive"}
-                                                className="uppercase text-[10px] font-bold tracking-wider px-2 py-0.5"
-                                            >
-                                                {member.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right pr-6">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-muted-foreground"
-                                                    onClick={() => handleManageMember(member)}
-                                                >
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                                <Link href={`/branch/members/${member.id}/membership`}>
-                                                    <Button variant="outline" size="sm" type="button">
-                                                        Renew
-                                                    </Button>
-                                                </Link>
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    type="button"
-                                                    onClick={() => handleBlockMember(member)}
-                                                >
-                                                    Block
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent bg-zinc-50/50">
+                                        <TableHead className="w-[250px] min-w-[200px] font-semibold text-xs uppercase tracking-wider text-muted-foreground pl-6">Member</TableHead>
+                                        <TableHead className="min-w-[120px] font-semibold text-xs uppercase tracking-wider text-muted-foreground">Plan</TableHead>
+                                        <TableHead className="min-w-[120px] font-semibold text-xs uppercase tracking-wider text-muted-foreground">Expiry</TableHead>
+                                        <TableHead className="min-w-[120px] font-semibold text-xs uppercase tracking-wider text-muted-foreground">Last Visit</TableHead>
+                                        <TableHead className="min-w-[100px] font-semibold text-xs uppercase tracking-wider text-muted-foreground">Programs</TableHead>
+                                        <TableHead className="min-w-[100px] font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                                        <TableHead className="text-right font-semibold text-xs uppercase tracking-wider text-muted-foreground pr-6 min-w-[180px]">Actions</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredMembers.map((member) => (
+                                        <TableRow key={member.id} className="hover:bg-zinc-50/50 transition-colors group cursor-pointer" onClick={() => handleManageMember(member)}>
+                                            <TableCell className="pl-6 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar className="h-9 w-9 border border-border">
+                                                        <AvatarImage src={member.image} />
+                                                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                                                            {member.name.substring(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <div className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">{member.name}</div>
+                                                        <div className="text-xs text-muted-foreground">{member.email}</div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="font-normal text-zinc-600 bg-zinc-50">
+                                                    {member.plan}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground font-mono">
+                                                {member.expiryDate ? member.expiryDate.split("T")[0] : "—"}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground font-mono">
+                                                {member.lastVisit ? member.lastVisit.split("T")[0] : "—"}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-2">
+                                                    {memberPrograms[member.id]?.workoutPlanId ? (
+                                                        <Badge variant="secondary" className="px-1.5 py-0.5 h-5 text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100">
+                                                            W
+                                                        </Badge>
+                                                    ) : null}
+                                                    {memberPrograms[member.id]?.dietPlanId ? (
+                                                        <Badge variant="secondary" className="px-1.5 py-0.5 h-5 text-[10px] bg-green-50 text-green-700 hover:bg-green-100 border-green-100">
+                                                            D
+                                                        </Badge>
+                                                    ) : null}
+                                                    {!memberPrograms[member.id]?.workoutPlanId &&
+                                                        !memberPrograms[member.id]?.dietPlanId && (
+                                                            <span className="text-xs text-muted-foreground italic">None</span>
+                                                        )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant={member.status === "Active" ? "success" : "destructive"}
+                                                    className="uppercase text-[10px] font-bold tracking-wider px-2 py-0.5"
+                                                >
+                                                    {member.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex justify-end gap-1 sm:gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hidden sm:inline-flex"
+                                                        onClick={() => handleManageMember(member)}
+                                                    >
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                    <Link href={`/branch/members/${member.id}/membership`}>
+                                                        <Button variant="outline" size="sm" className="h-8 px-2 text-xs" type="button">
+                                                            Renew
+                                                        </Button>
+                                                    </Link>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        className="h-8 px-2 text-xs"
+                                                        type="button"
+                                                        onClick={() => handleBlockMember(member)}
+                                                    >
+                                                        Block
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>
@@ -563,13 +600,13 @@ export default function MembersPage() {
                             </Avatar>
                             <div className="space-y-1">
                                 <DialogTitle className="text-xl font-bold">{selectedMember?.name}</DialogTitle>
-                                <DialogDescription className="flex items-center gap-2 text-sm">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Badge variant="outline" className="font-mono text-xs text-muted-foreground bg-white">
                                         {selectedMember?.id}
                                     </Badge>
                                     <span>•</span>
                                     <span>{selectedMember?.email}</span>
-                                </DialogDescription>
+                                </div>
                             </div>
                             <div className="ml-auto">
                                 <Badge
@@ -583,29 +620,29 @@ export default function MembersPage() {
                     </DialogHeader>
 
                     <Tabs defaultValue="profile" className="w-full flex-1 min-h-0 flex flex-col">
-                        <div className="px-4 sm:px-6 border-b bg-white shrink-0">
-                            <TabsList className="w-full justify-start h-12 bg-transparent p-0 space-x-6 overflow-x-auto">
-                                <TabsTrigger 
-                                    value="profile" 
-                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
+                        <div className="px-4 sm:px-6 border-b bg-white shrink-0 overflow-x-auto no-scrollbar">
+                            <TabsList className="flex w-fit justify-start h-12 bg-transparent p-0 space-x-6 min-w-max">
+                                <TabsTrigger
+                                    value="profile"
+                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-xs sm:text-sm"
                                 >
                                     <User className="h-4 w-4 mr-2" /> Profile
                                 </TabsTrigger>
-                                <TabsTrigger 
-                                    value="attendance" 
-                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
+                                <TabsTrigger
+                                    value="attendance"
+                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-xs sm:text-sm"
                                 >
                                     <CalendarCheck className="h-4 w-4 mr-2" /> Attendance
                                 </TabsTrigger>
-                                <TabsTrigger 
-                                    value="payments" 
-                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
+                                <TabsTrigger
+                                    value="payments"
+                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-xs sm:text-sm"
                                 >
                                     <CreditCard className="h-4 w-4 mr-2" /> Payments
                                 </TabsTrigger>
-                                <TabsTrigger 
-                                    value="programs" 
-                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none"
+                                <TabsTrigger
+                                    value="programs"
+                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-0 font-medium text-muted-foreground data-[state=active]:text-foreground transition-none text-xs sm:text-sm"
                                 >
                                     <Dumbbell className="h-4 w-4 mr-2" /> Programs
                                 </TabsTrigger>
@@ -644,6 +681,29 @@ export default function MembersPage() {
                                         />
                                     </div>
                                     <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Personal Trainer</Label>
+                                        <select
+                                            className={`flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-pointer" : "cursor-default pointer-events-none"}`}
+                                            value={(isEditingMember ? memberEditForm.trainerId : selectedMember?.trainerId) || ""}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, trainerId: e.target.value }))}
+                                            disabled={!isEditingMember}
+                                        >
+                                            <option value="">No Trainer Assigned</option>
+                                            {trainers.map((t) => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.name}
+                                                </option>
+                                            ))}
+                                            {/* Fallback if trainer not in list */}
+                                            {(isEditingMember ? memberEditForm.trainerId : selectedMember?.trainerId) &&
+                                                !trainers.find(t => t.id === (isEditingMember ? memberEditForm.trainerId : selectedMember?.trainerId)) && (
+                                                    <option value={(isEditingMember ? memberEditForm.trainerId : selectedMember?.trainerId) || ""}>
+                                                        Unknown Trainer ({(isEditingMember ? memberEditForm.trainerId : selectedMember?.trainerId)?.substring(0, 8)}...)
+                                                    </option>
+                                                )}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Date of Birth</Label>
                                         <Input
                                             value={
@@ -658,16 +718,53 @@ export default function MembersPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Current Plan</Label>
-                                        <Input value={selectedMember?.plan ?? ""} readOnly className="bg-zinc-50 border-zinc-200" />
+                                        {isEditingMember ? (
+                                            <select
+                                                className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 border-zinc-200 cursor-pointer"
+                                                value={memberEditForm.plan || ""}
+                                                onChange={(e) => setMemberEditForm((p) => ({ ...p, plan: e.target.value }))}
+                                            >
+                                                <option value="">Select Plan</option>
+                                                {membershipPlans.map(plan => (
+                                                    <option key={plan.id} value={plan.name}>{plan.name}</option>
+                                                ))}
+                                                {/* Fallback option if current plan is not in list */}
+                                                {memberEditForm.plan && !membershipPlans.find(p => p.name === memberEditForm.plan) && (
+                                                    <option value={memberEditForm.plan}>{memberEditForm.plan}</option>
+                                                )}
+                                            </select>
+                                        ) : (
+                                            <Input value={selectedMember?.plan ?? ""} readOnly className="bg-zinc-50 border-zinc-200" />
+                                        )}
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Expiry Date</Label>
                                         <div className="relative">
-                                            <Input value={selectedMember?.expiryDate ? selectedMember.expiryDate.split("T")[0] : ""} readOnly className="bg-zinc-50 border-zinc-200" />
-                                            {selectedMember && new Date(selectedMember.expiryDate) < new Date() && (
+                                            <Input
+                                                type={isEditingMember ? "date" : "text"}
+                                                value={isEditingMember ? (memberEditForm.expiryDate?.split("T")[0] || "") : (selectedMember?.expiryDate ? selectedMember.expiryDate.split("T")[0] : "")}
+                                                readOnly={!isEditingMember}
+                                                onChange={(e) => setMemberEditForm((p) => ({ ...p, expiryDate: e.target.value }))}
+                                                className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200`}
+                                            />
+                                            {!isEditingMember && selectedMember && new Date(selectedMember.expiryDate) < new Date() && (
                                                 <Badge variant="destructive" className="absolute right-2 top-2 text-[10px] h-5">Expired</Badge>
                                             )}
                                         </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Status</Label>
+                                        <select
+                                            className={`flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-pointer" : "cursor-default pointer-events-none"}`}
+                                            value={(isEditingMember ? memberEditForm.status : selectedMember?.status) || ""}
+                                            onChange={(e) => setMemberEditForm((p) => ({ ...p, status: e.target.value as any }))}
+                                            disabled={!isEditingMember}
+                                        >
+                                            <option value="Active">Active</option>
+                                            <option value="Cancelled">Cancelled</option>
+                                            <option value="Expired">Expired</option>
+                                            <option value="Frozen">Frozen</option>
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Branch ID</Label>
@@ -684,10 +781,7 @@ export default function MembersPage() {
                                     <div className="space-y-2 md:col-span-2">
                                         <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Address</Label>
                                         <Input
-                                            value={
-                                                (isEditingMember ? memberEditForm.address : selectedMember?.address) ??
-                                                (isEditingMember ? "" : "—")
-                                            }
+                                            value={(isEditingMember ? memberEditForm.address : selectedMember?.address) || ""}
                                             readOnly={!isEditingMember}
                                             onChange={(e) => setMemberEditForm((p) => ({ ...p, address: e.target.value }))}
                                             className={`${isEditingMember ? "bg-white" : "bg-zinc-50"} border-zinc-200 ${isEditingMember ? "cursor-text" : "cursor-default"}`}
@@ -724,46 +818,51 @@ export default function MembersPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end gap-3 pt-4 border-t">
-                                    {selectedMember ? (
-                                        <Link href={`/branch/members/${selectedMember.id}/membership`}>
-                                            <Button type="button" className="shadow-sm">
-                                                Extend Membership
-                                            </Button>
-                                        </Link>
-                                    ) : null}
-                                    {isEditingMember ? (
-                                        <>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={handleCancelMemberEdit}
-                                                disabled={savingMember}
-                                            >
-                                                Cancel
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                onClick={handleSaveMemberProfile}
-                                                disabled={savingMember}
-                                            >
-                                                {savingMember ? "Saving..." : "Save"}
-                                            </Button>
-                                        </>
-                                    ) : (
-                                        <Button type="button" variant="outline" onClick={() => setIsEditingMember(true)}>
-                                            Edit
+                                {/* Delete & Action Buttons Area */}
+                                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t mt-4">
+                                    {isEditingMember && (
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            onClick={handleDeleteMember}
+                                            className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 shadow-none w-full sm:w-auto"
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-2" /> Delete Member
                                         </Button>
                                     )}
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        onClick={() => selectedMember && handleBlockMember(selectedMember)}
-                                        disabled={savingMember}
-                                    >
-                                        Block Member
-                                    </Button>
+
+                                    <div className="flex flex-wrap justify-end gap-2 w-full sm:w-auto ml-auto">
+                                        {!isEditingMember && selectedMember && (
+                                            <>
+                                                <Link href={`/branch/members/${selectedMember.id}/membership`}>
+                                                    <Button type="button" className="shadow-sm">
+                                                        Extend Membership
+                                                    </Button>
+                                                </Link>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => selectedMember && handleBlockMember(selectedMember)}
+                                                >
+                                                    Block
+                                                </Button>
+                                            </>
+                                        )}
+
+                                        {isEditingMember ? (
+                                            <>
+                                                <Button variant="outline" onClick={handleCancelMemberEdit} disabled={savingMember}>
+                                                    Cancel
+                                                </Button>
+                                                <Button onClick={handleSaveMemberProfile} disabled={savingMember}>
+                                                    {savingMember ? "Saving..." : "Save Changes"}
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button onClick={() => setIsEditingMember(true)}>Edit Profile</Button>
+                                        )}
+                                    </div>
                                 </div>
                             </TabsContent>
 
@@ -785,43 +884,45 @@ export default function MembersPage() {
                                     ) : memberAttendance.length === 0 ? (
                                         <div className="py-12 text-center text-muted-foreground text-sm">No attendance records found.</div>
                                     ) : (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-zinc-50/50 hover:bg-zinc-50/50">
-                                                    <TableHead className="text-xs font-semibold uppercase tracking-wider">Date & Time</TableHead>
-                                                    <TableHead className="text-xs font-semibold uppercase tracking-wider">Method</TableHead>
-                                                    <TableHead className="text-xs font-semibold uppercase tracking-wider">Status</TableHead>
-                                                    <TableHead className="text-xs font-semibold uppercase tracking-wider">Checkout</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {memberAttendance.map((r) => (
-                                                    <TableRow key={r.id} className="hover:bg-zinc-50/50">
-                                                        <TableCell className="font-mono text-xs py-3">
-                                                            {new Date(r.checkInTime).toLocaleString()}
-                                                        </TableCell>
-                                                        <TableCell className="text-xs capitalize py-3">{r.method}</TableCell>
-                                                        <TableCell className="py-3">
-                                                            <Badge
-                                                                variant={
-                                                                    r.status === "success"
-                                                                        ? "success"
-                                                                        : r.status === "failed"
-                                                                        ? "destructive"
-                                                                        : "outline"
-                                                                }
-                                                                className="text-[10px] px-1.5 py-0.5 h-5 uppercase tracking-wide"
-                                                            >
-                                                                {r.status}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-xs text-muted-foreground font-mono py-3">
-                                                            {r.checkOutTime ? new Date(r.checkOutTime).toLocaleString() : "—"}
-                                                        </TableCell>
+                                        <div className="overflow-x-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="bg-zinc-50/50 hover:bg-zinc-50/50">
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[150px]">Date & Time</TableHead>
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[100px]">Method</TableHead>
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[100px]">Status</TableHead>
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[150px]">Checkout</TableHead>
                                                     </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {memberAttendance.map((r) => (
+                                                        <TableRow key={r.id} className="hover:bg-zinc-50/50">
+                                                            <TableCell className="font-mono text-xs py-3 whitespace-nowrap">
+                                                                {new Date(r.checkInTime).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs capitalize py-3">{r.method}</TableCell>
+                                                            <TableCell className="py-3">
+                                                                <Badge
+                                                                    variant={
+                                                                        r.status === "success"
+                                                                            ? "success"
+                                                                            : r.status === "failed"
+                                                                                ? "destructive"
+                                                                                : "outline"
+                                                                    }
+                                                                    className="text-[10px] px-1.5 py-0.5 h-5 uppercase tracking-wide"
+                                                                >
+                                                                    {r.status}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-xs text-muted-foreground font-mono py-3 whitespace-nowrap">
+                                                                {r.checkOutTime ? new Date(r.checkOutTime).toLocaleString() : "—"}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     )}
                                 </div>
                             </TabsContent>
@@ -861,6 +962,12 @@ export default function MembersPage() {
                                                                 </option>
                                                             ))
                                                         )}
+                                                        {memberPrograms[selectedMember.id]?.workoutPlanId &&
+                                                            !workoutPlans.find(p => p.id === memberPrograms[selectedMember.id]?.workoutPlanId) && (
+                                                                <option value={memberPrograms[selectedMember.id]?.workoutPlanId}>
+                                                                    Unknown Plan ({memberPrograms[selectedMember.id]?.workoutPlanId})
+                                                                </option>
+                                                            )}
                                                     </select>
                                                     <p className="text-xs text-muted-foreground">
                                                         Select a workout template from your branch library.
@@ -891,6 +998,12 @@ export default function MembersPage() {
                                                                 </option>
                                                             ))
                                                         )}
+                                                        {memberPrograms[selectedMember.id]?.dietPlanId &&
+                                                            !dietPlans.find(p => p.id === memberPrograms[selectedMember.id]?.dietPlanId) && (
+                                                                <option value={memberPrograms[selectedMember.id]?.dietPlanId}>
+                                                                    Unknown Plan ({memberPrograms[selectedMember.id]?.dietPlanId})
+                                                                </option>
+                                                            )}
                                                     </select>
                                                     <p className="text-xs text-muted-foreground">
                                                         Select a nutrition guide or meal plan.
@@ -898,7 +1011,7 @@ export default function MembersPage() {
                                                 </div>
                                             </div>
                                         )}
-                                        
+
                                         <div className="flex flex-col items-end gap-2 pt-4 border-t mt-4">
                                             {programSaveMessage && (
                                                 <p className="text-xs text-emerald-600 font-medium animate-in fade-in">
@@ -917,10 +1030,10 @@ export default function MembersPage() {
                         </div>
                     </Tabs>
                 </DialogContent>
-            </Dialog>
+            </Dialog >
             <div className="border rounded-md p-4 bg-gray-50 text-center text-muted-foreground text-sm">
                 Program assignment saves to your backend. Progress tracking and next review date can be added later.
             </div>
-        </div>
+        </div >
     );
 }

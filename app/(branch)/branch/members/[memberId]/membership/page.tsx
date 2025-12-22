@@ -148,14 +148,14 @@ export default function MemberMembershipPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Assign Membership</h2>
-          <p className="text-muted-foreground">
-            Choose a plan and set dates for this member's membership.
+          <p className="text-muted-foreground mt-1">
+            Renew or start a new membership for this member.
           </p>
         </div>
-        <Button variant="outline" type="button" onClick={() => router.back()}>
+        <Button variant="outline" type="button" onClick={() => router.back()} className="w-full sm:w-auto">
           Back
         </Button>
       </div>
@@ -244,11 +244,11 @@ export default function MemberMembershipPage() {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>
+          <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={() => router.back()} className="w-full sm:w-auto order-2 sm:order-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || memberLoading || plansLoading}>
+            <Button type="submit" disabled={saving || memberLoading || plansLoading} className="w-full sm:w-auto order-1 sm:order-2 shadow-md shadow-primary/20">
               {saving ? "Saving..." : "Start Membership"}
             </Button>
           </div>

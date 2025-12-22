@@ -22,6 +22,7 @@ import type {
   Expense,
   AttendanceRecord,
   Notification,
+  DietLog,
 } from "@/lib/types";
 
 const API_BASE = "/api";
@@ -49,7 +50,7 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-  
+
   const config: RequestInit = {
     headers: {
       "Content-Type": "application/json",
@@ -277,8 +278,23 @@ export const communicationsApi = {
 
 export const meApi = {
   getProfile: () => request<Member>("/me"),
+  updateProfile: (data: Partial<Member>) =>
+    request<Member>("/me", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     request<void>("/me/password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getMyPrograms: () => request<{ workoutPlan: WorkoutPlan; dietPlan: DietPlan }>("/me/programs"),
+  getDietLogs: (date?: string) => {
+    const query = date ? `?date=${date}` : "";
+    return request<{ date: string; caloriesConsumed: number; waterConsumed: number; logs: DietLog[] }>(`/me/diet-logs${query}`);
+  },
+  logDietEntry: (data: { type: "food" | "water"; calories?: number; waterMl?: number; label?: string; date?: string }) =>
+    request<{ date: string; caloriesConsumed: number; waterConsumed: number; logs: DietLog[] }>("/me/diet-logs", {
       method: "POST",
       body: JSON.stringify(data),
     }),

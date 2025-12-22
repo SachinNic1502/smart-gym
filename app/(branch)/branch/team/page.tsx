@@ -132,18 +132,21 @@ export default function BranchTeamPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white/80 backdrop-blur-md p-6 rounded-2xl border border-white/40 shadow-sm transition-all duration-300 hover:shadow-md lg:p-0 lg:bg-transparent lg:border-none lg:shadow-none">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Team</h2>
-          <p className="text-muted-foreground">
-            Manage your branch staff and their permissions.
-          </p>
+          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 drop-shadow-sm">Directorship & Team</h2>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <p className="text-slate-500 text-sm font-semibold uppercase tracking-wider">
+              Orchestrating branch operations and excellence
+            </p>
+          </div>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Staff
+            <Button className="w-full sm:w-auto shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl h-11 px-8 transition-all hover:scale-[1.02] active:scale-95">
+              <UserPlus className="mr-2 h-5 w-5" />
+              Add Expert
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[420px]">
@@ -215,39 +218,41 @@ export default function BranchTeamPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <Card className="border-t-4 border-t-primary/20">
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Branch Team</CardTitle>
-            <CardDescription>
-              Manage your branch staff directory and access.
-            </CardDescription>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {loading ? "Loading team..." : `Showing ${filteredTeam.length} of ${team.length} team members.`}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
-            <Input
-              placeholder="Search by name or email"
-              className="h-8 max-w-xs text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Status:</span>
-              <select
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
-              >
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+      <Card className="shadow-sm border-border/60 bg-white rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+        <CardHeader className="pb-4 border-b border-border/40 bg-zinc-50/30">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-lg font-black text-slate-800">Branch Directory</CardTitle>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                {loading ? "Initializing..." : `${filteredTeam.length} TEAM MEMBERS FOUND`}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+              <div className="relative flex-1 lg:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Find specialist by name or email..."
+                  className="pl-10 h-10 bg-white border-slate-200 rounded-xl focus-visible:ring-primary/20 text-sm font-medium"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2 min-w-[140px]">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <select
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-4 py-1 text-[11px] font-black uppercase tracking-wider outline-none focus:ring-1 focus:ring-primary/20"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+                >
+                  <option value="all">Global Status</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Lapsed</option>
+                </select>
+              </div>
             </div>
           </div>
+        </CardHeader>
+        <CardContent className="p-0">
 
           {error ? (
             <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
@@ -255,21 +260,21 @@ export default function BranchTeamPage() {
             </div>
           ) : null}
 
-          <div className="rounded-md overflow-x-auto">
+          <div className="overflow-x-auto no-scrollbar">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[220px]">Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[120px] text-right">Actions</TableHead>
+                <TableRow className="hover:bg-transparent bg-slate-50/50">
+                  <TableHead className="w-[300px] min-w-[240px] h-12 text-[10px] font-black uppercase tracking-widest text-slate-400 pl-8">Directorship / Staff</TableHead>
+                  <TableHead className="min-w-[200px] h-12 text-[10px] font-black uppercase tracking-widest text-slate-400">Communication</TableHead>
+                  <TableHead className="min-w-[140px] h-12 text-[10px] font-black uppercase tracking-widest text-slate-400">Assigned Role</TableHead>
+                  <TableHead className="min-w-[160px] h-12 text-[10px] font-black uppercase tracking-widest text-slate-400">System Status</TableHead>
+                  <TableHead className="text-right h-12 text-[10px] font-black uppercase tracking-widest text-slate-400 pr-8 min-w-[120px]">Management</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                    <TableCell colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
                       Loading team...
                     </TableCell>
                   </TableRow>
@@ -277,7 +282,7 @@ export default function BranchTeamPage() {
                   <TableRow>
                     <TableCell
                       colSpan={5}
-                      className="py-6 text-center text-xs text-muted-foreground"
+                      className="py-10 text-center text-xs text-muted-foreground"
                     >
                       No team members found.
                     </TableCell>
@@ -299,45 +304,48 @@ export default function BranchTeamPage() {
                     }
 
                     return (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <TableRow key={member.id} className="group transition-all hover:bg-slate-50/80 border-slate-100 cursor-pointer">
+                        <TableCell className="pl-8 py-4">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-11 w-11 border-2 border-white shadow-sm group-hover:scale-105 transition-transform">
+                              <AvatarFallback className="bg-slate-100 text-slate-500 text-[13px] font-black">{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm font-medium">{member.name}</p>
-                              <p className="text-xs text-muted-foreground">{member.email}</p>
+                              <p className="font-bold text-slate-800 text-[15px] tracking-tight group-hover:text-primary transition-colors">{member.name}</p>
+                              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Team member</p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{member.email}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
+                        <TableCell className="py-4">
+                          <div className="flex flex-col">
+                            <span className="text-[13px] font-bold text-slate-600">{member.email}</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{member.phone || "No contact"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-slate-100 text-slate-600 border-transparent rounded-lg">
                             {member.role}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-4">
                           <div className="flex flex-col items-start gap-1">
                             <Badge
                               variant={member.status === "active" ? "success" : "destructive"}
-                              className="text-xs"
+                              className={`font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-lg shadow-sm ${member.status === 'active' ? 'bg-emerald-500 text-white border-transparent' : ''}`}
                             >
                               {member.status}
                             </Badge>
-                            <span className="text-[10px] text-muted-foreground">{hint}</span>
+                            <span className="text-[10px] font-bold text-slate-400 italic truncate max-w-[140px] opacity-70">{hint}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right pr-8 py-4">
                           <Button
                             variant="outline"
-                            size="sm"
-                            type="button"
-                            className="text-xs"
+                            className="h-9 px-4 text-[10px] font-black uppercase tracking-widest border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition-all text-slate-600"
                             onClick={() =>
                               toast({
-                                title: "Manage staff",
-                                description: "Staff management from this page will be available soon.",
+                                title: "Identity Management",
+                                description: "Credential controls will be available in the next sync.",
                                 variant: "info",
                               })
                             }
@@ -354,6 +362,6 @@ export default function BranchTeamPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 }

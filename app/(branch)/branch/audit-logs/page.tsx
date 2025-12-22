@@ -67,7 +67,7 @@ export default function BranchAuditLogsPage() {
         page: "1",
         pageSize: "50",
       };
-      
+
       // Apply filters if set
       if (filters.action) params.action = filters.action;
       if (filters.userName) params.userName = filters.userName;
@@ -96,7 +96,7 @@ export default function BranchAuditLogsPage() {
   }, [loadLogs]);
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Audit Logs</h2>
           <p className="text-muted-foreground">
@@ -198,61 +198,63 @@ export default function BranchAuditLogsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Staff</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Type</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
-                    Loading audit logs...
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-zinc-50/50 hover:bg-zinc-50/50">
+                  <TableHead className="pl-6 min-w-[180px] text-xs font-bold uppercase tracking-wider">Time</TableHead>
+                  <TableHead className="min-w-[150px] text-xs font-bold uppercase tracking-wider">Staff</TableHead>
+                  <TableHead className="min-w-[120px] text-xs font-bold uppercase tracking-wider">Action</TableHead>
+                  <TableHead className="min-w-[200px] text-xs font-bold uppercase tracking-wider">Target</TableHead>
+                  <TableHead className="pr-6 text-right text-xs font-bold uppercase tracking-wider">Type</TableHead>
                 </TableRow>
-              ) : error ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-xs text-rose-700">
-                    {error}
-                    <div className="mt-3">
-                      <Button size="sm" variant="outline" type="button" onClick={loadLogs}>
-                        Retry
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : logs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
-                    No audit logs found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                logs.map((log) => (
-                  <TableRow key={log.id} className="hover:bg-gray-50">
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="font-medium">{log.userName}</TableCell>
-                    <TableCell className="text-sm">{log.action}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {log.resource}: {log.resourceId}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {log.resource}
-                      </Badge>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-12 text-center text-xs text-muted-foreground">
+                      Loading audit logs...
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-12 text-center text-xs text-rose-700">
+                      {error}
+                      <div className="mt-3">
+                        <Button size="sm" variant="outline" type="button" onClick={loadLogs}>
+                          Retry
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : logs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-16 text-center text-xs text-muted-foreground">
+                      No audit logs found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  logs.map((log) => (
+                    <TableRow key={log.id} className="hover:bg-zinc-50/50 transition-colors">
+                      <TableCell className="pl-6 py-4 text-xs font-mono text-muted-foreground whitespace-nowrap">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="py-4 font-semibold text-sm text-foreground">{log.userName}</TableCell>
+                      <TableCell className="py-4 text-sm font-medium">{log.action}</TableCell>
+                      <TableCell className="py-4 text-xs text-muted-foreground italic">
+                        {log.resource}: <span className="font-mono">{log.resourceId}</span>
+                      </TableCell>
+                      <TableCell className="pr-6 text-right py-4">
+                        <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5">
+                          {log.resource}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

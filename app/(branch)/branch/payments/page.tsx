@@ -201,7 +201,7 @@ export default function PaymentsPage() {
             </div>
 
             {/* Stats Overview */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
                 <Card className="border-border/60 shadow-sm relative overflow-hidden group">
                     <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -256,10 +256,12 @@ export default function PaymentsPage() {
             ) : null}
 
             <Tabs defaultValue="transactions" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-[400px] h-10 p-1 bg-zinc-100/80 rounded-lg mb-6">
-                    <TabsTrigger value="transactions" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm">All Transactions</TabsTrigger>
-                    <TabsTrigger value="renewals" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm">Pending Renewals</TabsTrigger>
-                </TabsList>
+                <div className="overflow-x-auto no-scrollbar mb-6">
+                    <TabsList className="flex w-full min-w-max sm:grid sm:max-w-[400px] grid-cols-2 h-10 p-1 bg-zinc-100/80 rounded-lg">
+                        <TabsTrigger value="transactions" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm">All Transactions</TabsTrigger>
+                        <TabsTrigger value="renewals" className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm text-sm">Pending Renewals</TabsTrigger>
+                    </TabsList>
+                </div>
 
                 {/* Transactions Tab */}
                 <TabsContent value="transactions" className="space-y-4 focus-visible:ring-0 mt-0">
@@ -299,103 +301,105 @@ export default function PaymentsPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="hover:bg-transparent bg-zinc-50/50">
-                                        <TableHead className="w-[140px] pl-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice ID</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Member</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Method</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                                        <TableHead className="text-right pr-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                                                Loading payments...
-                                            </TableCell>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent bg-zinc-50/50">
+                                            <TableHead className="w-[140px] pl-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice ID</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Member</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Method</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                                            <TableHead className="text-right pr-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</TableHead>
                                         </TableRow>
-                                    ) : filteredPayments.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="py-16 text-center text-muted-foreground">
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <div className="p-3 rounded-full bg-muted/20">
-                                                        <Search className="h-6 w-6 text-muted-foreground/50" />
-                                                    </div>
-                                                    <p className="text-sm font-medium">No payments found</p>
-                                                    <p className="text-xs max-w-xs mx-auto">Try adjusting your filters or search terms.</p>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredPayments.map((p) => (
-                                            <TableRow key={p.id} className="hover:bg-zinc-50/50 transition-colors">
-                                                <TableCell className="font-mono text-xs text-muted-foreground pl-6 py-3">
-                                                    {p.invoiceNumber ?? p.id.slice(0, 8)}
-                                                </TableCell>
-                                                <TableCell className="font-medium text-sm text-foreground py-3">
-                                                    {p.memberName}
-                                                </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground py-3">
-                                                    {new Date(p.createdAt).toLocaleDateString()}
-                                                </TableCell>
-                                                <TableCell className="text-sm font-medium py-3">
-                                                    {`₹${p.amount.toLocaleString()}`}
-                                                </TableCell>
-                                                <TableCell className="text-xs capitalize py-3">
-                                                    {p.method}
-                                                </TableCell>
-                                                <TableCell className="py-3">
-                                                    <Badge
-                                                        variant={p.status === "completed" ? "success" : p.status === "pending" ? "warning" : "destructive"}
-                                                        className="uppercase text-[10px] font-bold tracking-wider px-2 py-0.5"
-                                                    >
-                                                        {p.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right pr-6 py-3">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0"
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const csv = [
-                                                                ["Invoice #", "Member", "Date", "Amount", "Status", "Description"],
-                                                                [
-                                                                    p.invoiceNumber || p.id,
-                                                                    p.memberName || "—",
-                                                                    new Date(p.createdAt).toLocaleDateString(),
-                                                                    String(p.amount),
-                                                                    p.status,
-                                                                    p.description || "",
-                                                                ],
-                                                            ]
-                                                                .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-                                                                .join("\n");
-                                                            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                                                            const url = URL.createObjectURL(blob);
-                                                            const a = document.createElement("a");
-                                                            a.href = url;
-                                                            a.download = `invoice_${p.invoiceNumber || p.id}.csv`;
-                                                            document.body.appendChild(a);
-                                                            a.click();
-                                                            a.remove();
-                                                            URL.revokeObjectURL(url);
-                                                            toast({ title: "Invoice downloaded", description: "CSV exported for this invoice.", variant: "success" });
-                                                        }}
-                                                    >
-                                                        <Download className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                                    </Button>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
+                                                    Loading payments...
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                                        ) : filteredPayments.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={7} className="py-16 text-center text-muted-foreground">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <div className="p-3 rounded-full bg-muted/20">
+                                                            <Search className="h-6 w-6 text-muted-foreground/50" />
+                                                        </div>
+                                                        <p className="text-sm font-medium">No payments found</p>
+                                                        <p className="text-xs max-w-xs mx-auto">Try adjusting your filters or search terms.</p>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            filteredPayments.map((p) => (
+                                                <TableRow key={p.id} className="hover:bg-zinc-50/50 transition-colors">
+                                                    <TableCell className="font-mono text-xs text-muted-foreground pl-6 py-4 whitespace-nowrap">
+                                                        {p.invoiceNumber ?? p.id.slice(0, 8)}
+                                                    </TableCell>
+                                                    <TableCell className="font-medium text-sm text-foreground py-4 whitespace-nowrap">
+                                                        {p.memberName}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm text-muted-foreground py-4 whitespace-nowrap">
+                                                        {new Date(p.createdAt).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm font-medium py-4 whitespace-nowrap">
+                                                        {`₹${p.amount.toLocaleString()}`}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs capitalize py-4">
+                                                        {p.method}
+                                                    </TableCell>
+                                                    <TableCell className="py-4">
+                                                        <Badge
+                                                            variant={p.status === "completed" ? "success" : p.status === "pending" ? "warning" : "destructive"}
+                                                            className="uppercase text-[10px] font-bold tracking-wider px-2 py-0.5 whitespace-nowrap"
+                                                        >
+                                                            {p.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right pr-6 py-4">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0"
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const csv = [
+                                                                    ["Invoice #", "Member", "Date", "Amount", "Status", "Description"],
+                                                                    [
+                                                                        p.invoiceNumber || p.id,
+                                                                        p.memberName || "—",
+                                                                        new Date(p.createdAt).toLocaleDateString(),
+                                                                        String(p.amount),
+                                                                        p.status,
+                                                                        p.description || "",
+                                                                    ],
+                                                                ]
+                                                                    .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+                                                                    .join("\n");
+                                                                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                                                                const url = URL.createObjectURL(blob);
+                                                                const a = document.createElement("a");
+                                                                a.href = url;
+                                                                a.download = `invoice_${p.invoiceNumber || p.id}.csv`;
+                                                                document.body.appendChild(a);
+                                                                a.click();
+                                                                a.remove();
+                                                                URL.revokeObjectURL(url);
+                                                                toast({ title: "Invoice downloaded", description: "CSV exported for this invoice.", variant: "success" });
+                                                            }}
+                                                        >
+                                                            <Download className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -410,69 +414,71 @@ export default function PaymentsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="hover:bg-transparent bg-zinc-50/50">
-                                        <TableHead className="pl-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Member</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Plan</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Expiry Date</TableHead>
-                                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                                        <TableHead className="text-right pr-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                                                Loading renewals...
-                                            </TableCell>
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent bg-zinc-50/50">
+                                            <TableHead className="pl-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Member</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Plan</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Expiry Date</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                                            <TableHead className="text-right pr-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Action</TableHead>
                                         </TableRow>
-                                    ) : renewals.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="py-16 text-center text-muted-foreground">
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <div className="p-3 rounded-full bg-muted/20">
-                                                        <CheckCircle2 className="h-6 w-6 text-emerald-600/50" />
-                                                    </div>
-                                                    <p className="text-sm font-medium">All clear!</p>
-                                                    <p className="text-xs text-muted-foreground">No memberships expiring soon.</p>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        renewals.slice(0, 50).map((m) => {
-                                            const expiry = new Date(m.expiryDate);
-                                            const isExpired = m.status === "Expired" || expiry < new Date();
-                                            const expiryLabel = Number.isNaN(expiry.getTime()) ? m.expiryDate : expiry.toLocaleDateString();
-
-                                            return (
-                                                <TableRow key={m.id} className="hover:bg-zinc-50/50 transition-colors">
-                                                    <TableCell className="font-medium text-sm text-foreground pl-6 py-3">{m.name}</TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground py-3">{m.plan}</TableCell>
-                                                    <TableCell className={`text-sm py-3 font-mono ${isExpired ? "text-red-600 font-medium" : "text-muted-foreground"}`}>{expiryLabel}</TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Badge variant={isExpired ? "destructive" : "warning"} className="text-[10px] px-1.5 py-0.5 h-5 uppercase tracking-wide">
-                                                            {isExpired ? "Expired" : "Expiring Soon"}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right pr-6 py-3">
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="default"
-                                                                className="h-7 text-xs bg-primary hover:bg-primary/90 shadow-sm"
-                                                                onClick={() => router.push(`/branch/members/${m.id}/membership`)}
-                                                            >
-                                                                Renew
-                                                            </Button>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loading ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                                                    Loading renewals...
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : renewals.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="py-16 text-center text-muted-foreground">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <div className="p-3 rounded-full bg-muted/20">
+                                                            <CheckCircle2 className="h-6 w-6 text-emerald-600/50" />
                                                         </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
+                                                        <p className="text-sm font-medium">All clear!</p>
+                                                        <p className="text-xs text-muted-foreground">No memberships expiring soon.</p>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            renewals.slice(0, 50).map((m) => {
+                                                const expiry = new Date(m.expiryDate);
+                                                const isExpired = m.status === "Expired" || expiry < new Date();
+                                                const expiryLabel = Number.isNaN(expiry.getTime()) ? m.expiryDate : expiry.toLocaleDateString();
+
+                                                return (
+                                                    <TableRow key={m.id} className="hover:bg-zinc-50/50 transition-colors">
+                                                        <TableCell className="font-medium text-sm text-foreground pl-6 py-4 whitespace-nowrap">{m.name}</TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground py-4 whitespace-nowrap">{m.plan}</TableCell>
+                                                        <TableCell className={`text-sm py-4 font-mono whitespace-nowrap ${isExpired ? "text-red-600 font-medium" : "text-muted-foreground"}`}>{expiryLabel}</TableCell>
+                                                        <TableCell className="py-4">
+                                                            <Badge variant={isExpired ? "destructive" : "warning"} className="text-[10px] px-1.5 py-0.5 h-5 uppercase tracking-wide whitespace-nowrap">
+                                                                {isExpired ? "Expired" : "Expiring Soon"}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right pr-6 py-4">
+                                                            <div className="flex justify-end gap-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="default"
+                                                                    className="h-7 text-xs bg-primary hover:bg-primary/90 shadow-sm whitespace-nowrap"
+                                                                    onClick={() => router.push(`/branch/members/${m.id}/membership`)}
+                                                                >
+                                                                    Renew
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

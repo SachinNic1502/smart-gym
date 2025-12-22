@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Home, User, CreditCard, Dumbbell, Apple, Activity, BookOpen, RefreshCw } from "lucide-react";
+import { Calendar, Home, User, CreditCard, Dumbbell, Apple, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -23,8 +23,8 @@ export default function MemberLayout({
                     SmartFit
                 </div>
                 <Link href="/portal/profile" className="h-8 w-8 rounded-full bg-gray-200 overflow-hidden cursor-pointer block relative">
-                    <Image 
-                        src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" 
+                    <Image
+                        src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex"
                         alt="Profile"
                         fill
                         className="object-cover"
@@ -41,63 +41,40 @@ export default function MemberLayout({
                 <div className="flex justify-between items-center overflow-x-auto">
                     <Link
                         href="/portal/dashboard"
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${
-                            isActive("/portal/dashboard") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${isActive("/portal/dashboard") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
+                            }`}
                     >
                         <Home className="h-5 w-5" />
                         <span>Home</span>
                     </Link>
                     <Link
                         href="/portal/workouts"
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${
-                            isActive("/portal/workouts") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${isActive("/portal/workouts") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
+                            }`}
                     >
                         <Dumbbell className="h-5 w-5" />
                         <span>Workout</span>
                     </Link>
                     <Link
                         href="/portal/diet"
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${
-                            isActive("/portal/diet") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${isActive("/portal/diet") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
+                            }`}
                     >
                         <Apple className="h-5 w-5" />
                         <span>Nutrition</span>
                     </Link>
                     <Link
-                        href="/portal/bookings"
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${
-                            isActive("/portal/bookings") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
-                        }`}
-                    >
-                        <BookOpen className="h-5 w-5" />
-                        <span>Classes</span>
-                    </Link>
-                    <Link
-                        href="/portal/metrics"
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${
-                            isActive("/portal/metrics") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
-                        }`}
-                    >
-                        <Activity className="h-5 w-5" />
-                        <span>Progress</span>
-                    </Link>
-                    <Link
                         href="/portal/renewal"
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${
-                            isActive("/portal/renewal") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${isActive("/portal/renewal") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
+                            }`}
                     >
                         <RefreshCw className="h-5 w-5" />
                         <span>Renew</span>
                     </Link>
                     <Link
                         href="/portal/profile"
-                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${
-                            isActive("/portal/profile") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
-                        }`}
+                        className={`flex flex-col items-center gap-1 text-[10px] font-medium min-w-0 flex-shrink-0 ${isActive("/portal/profile") ? "text-primary" : "text-gray-400 hover:text-primary transition-colors"
+                            }`}
                     >
                         <User className="h-5 w-5" />
                         <span>Profile</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type ChangeEvent } from "react";
+import dynamic from "next/dynamic";
 import { Bell, Search, LogOut, User as UserIcon, Settings, Menu } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { useAuth } from "@/hooks/use-auth";
-import { NotificationCenter } from "@/components/ui/notification-center";
+
+const NotificationCenter = dynamic(
+    () => import("@/components/ui/notification-center").then((mod) => mod.NotificationCenter),
+    {
+        ssr: false,
+        loading: () => (
+            <Button variant="ghost" size="sm" className="relative">
+                <Bell className="h-4 w-4" />
+            </Button>
+        ),
+    }
+);
 
 interface HeaderProps {
     onMenuClick?: () => void;

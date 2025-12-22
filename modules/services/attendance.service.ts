@@ -57,11 +57,13 @@ export const attendanceService = {
 
     if (member.status !== "Active" || isExpiredByDate) {
       // Record failed attempt
+      const now = formatDate();
       const record = await attendanceRepository.createAsync({
         memberId,
         memberName: member.name,
         branchId,
-        checkInTime: formatDate(),
+        date: now.split("T")[0],
+        checkInTime: now,
         method,
         status: "failed",
         deviceId,
@@ -77,11 +79,13 @@ export const attendanceService = {
     }
 
     // Create new check-in
+    const now = formatDate();
     const record = await attendanceRepository.createAsync({
       memberId,
       memberName: member.name,
       branchId,
-      checkInTime: formatDate(),
+      date: now.split("T")[0],
+      checkInTime: now,
       method,
       status: "success",
       deviceId,

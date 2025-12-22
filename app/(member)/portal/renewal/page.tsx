@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  Calendar, 
-  CreditCard, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
+import {
+  Calendar,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
   TrendingUp,
   Star,
   Gift,
@@ -70,12 +70,17 @@ export default function MemberRenewalPage() {
 
       // Fetch payment history
       if (profileRes?.id) {
-        const paymentsRes = await paymentsApi.list({ 
-          memberId: profileRes.id, 
-          page: "1", 
-          pageSize: "5" 
-        });
-        setPayments(paymentsRes.data ?? []);
+        try {
+          const paymentsRes = await paymentsApi.list({
+            memberId: profileRes.id,
+            page: "1",
+            pageSize: "5"
+          });
+          setPayments(paymentsRes.data ?? []);
+        } catch (err) {
+          console.warn("Failed to load payments history", err);
+          // Don't fail the whole page load if payments unauthorized
+        }
       }
     } catch (e) {
       const message = e instanceof ApiError ? e.message : "Failed to load renewal data";
@@ -129,10 +134,10 @@ export default function MemberRenewalPage() {
         newExpiryDate.setDate(newExpiryDate.getDate() + selectedPlan.bonusDays);
       }
 
-      toast({ 
-        title: "Membership Renewed!", 
+      toast({
+        title: "Membership Renewed!",
         description: `Your ${selectedPlan.plan.name} membership has been renewed successfully.`,
-        variant: "success" 
+        variant: "success"
       });
 
       setRenewalDialog(false);
@@ -140,10 +145,10 @@ export default function MemberRenewalPage() {
       loadData(); // Reload data
     } catch (e) {
       const message = e instanceof ApiError ? e.message : "Renewal failed";
-      toast({ 
-        title: "Renewal Failed", 
+      toast({
+        title: "Renewal Failed",
         description: message,
-        variant: "destructive" 
+        variant: "destructive"
       });
     } finally {
       setProcessing(false);
@@ -253,11 +258,10 @@ export default function MemberRenewalPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {availablePlans.map((option, index) => (
-              <div 
-                key={option.plan.id} 
-                className={`relative border rounded-lg p-6 ${
-                  option.popular ? 'border-primary ring-2 ring-primary/20' : 'border-gray-200'
-                }`}
+              <div
+                key={option.plan.id}
+                className={`relative border rounded-lg p-6 ${option.popular ? 'border-primary ring-2 ring-primary/20' : 'border-gray-200'
+                  }`}
               >
                 {option.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -312,7 +316,7 @@ export default function MemberRenewalPage() {
                   )}
                   <Dialog open={renewalDialog && selectedPlan?.plan.id === option.plan.id} onOpenChange={setRenewalDialog}>
                     <DialogTrigger asChild>
-                      <Button 
+                      <Button
                         className="w-full"
                         variant={option.popular ? "default" : "outline"}
                         onClick={() => setSelectedPlan(option)}
@@ -339,15 +343,15 @@ export default function MemberRenewalPage() {
                           )}
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            onClick={processRenewal} 
+                          <Button
+                            onClick={processRenewal}
                             disabled={processing}
                             className="flex-1"
                           >
                             {processing ? "Processing..." : "Confirm Renewal"}
                           </Button>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             onClick={() => setRenewalDialog(false)}
                             disabled={processing}
                           >

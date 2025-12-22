@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if ("response" in scoped) return scoped.response;
 
     const result = await memberService.getMemberPrograms(memberId);
-    
+
     if (!result.success) {
       return errorResponse(result.error || "Member not found", 404);
     }
@@ -42,8 +42,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PUT /api/members/[memberId]/programs - Assign programs to member
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+// POST /api/members/[memberId]/programs - Assign programs to member
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { memberId } = await params;
 
@@ -59,13 +59,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if ("response" in scoped) return scoped.response;
 
     const body = await parseBody<ProgramsRequest>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
 
     const result = await memberService.assignPrograms(memberId, body.workoutPlanId, body.dietPlanId);
-    
+
     if (!result.success) {
       return errorResponse(result.error || "Failed to assign programs", 404);
     }

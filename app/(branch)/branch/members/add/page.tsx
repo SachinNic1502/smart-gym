@@ -151,8 +151,8 @@ function AddMemberContent() {
         description: collectPaymentNow
           ? "Member created and payment recorded"
           : selectedPlan
-          ? `Assigned plan: ${selectedPlan.name}`
-          : "Member created successfully",
+            ? `Assigned plan: ${selectedPlan.name}`
+            : "Member created successfully",
         variant: "success",
       });
 
@@ -168,14 +168,14 @@ function AddMemberContent() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Add Member</h2>
-          <p className="text-muted-foreground">
-            Capture personal, contact, and basic profile information for a new branch member.
+          <p className="text-muted-foreground mt-1">
+            Capture personal and contact info for a new member.
           </p>
         </div>
-        <Button variant="outline" type="button" onClick={() => router.push("/branch/members")}>
+        <Button variant="outline" type="button" onClick={() => router.push("/branch/members")} className="w-full sm:w-auto">
           Cancel
         </Button>
       </div>
@@ -400,11 +400,11 @@ function AddMemberContent() {
           </div>
         ) : null}
 
-        <div className="md:col-span-2 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => router.push("/branch/members")}>
+        <div className="md:col-span-2 flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t mt-4">
+          <Button type="button" variant="outline" onClick={() => router.push("/branch/members")} className="w-full sm:w-auto order-2 sm:order-1">
             Clear
           </Button>
-          <Button type="submit" disabled={saving || !form.name.trim() || !form.phone.trim()}>
+          <Button type="submit" disabled={saving || !form.name.trim() || !form.phone.trim()} className="w-full sm:w-auto order-1 sm:order-2 shadow-md shadow-primary/20">
             {saving ? "Saving..." : "Save Member"}
           </Button>
         </div>

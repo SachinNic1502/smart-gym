@@ -14,3 +14,4 @@ export * from "./staff.model";
 export * from "./class.model";
 export * from "./workout-plan.model";
 export * from "./diet-plan.model";
+export * from "./diet-log.model";

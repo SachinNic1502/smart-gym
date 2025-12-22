@@ -7,7 +7,7 @@ import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 // GET /api/attendance - List attendance records
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireSession(["super_admin", "branch_admin"]);
+    const auth = await requireSession(["super_admin", "branch_admin", "member"]);
     if ("response" in auth) return auth.response;
 
     const { searchParams } = new URL(request.url);
@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
 
     const filters = {
       branchId: scoped.branchId,
-      memberId: searchParams.get("memberId") || undefined,
+      // If member, force their own ID; otherwise allow filtering by memberId param
+      memberId: auth.session.role === "member" ? auth.session.sub : (searchParams.get("memberId") || undefined),
       date: searchParams.get("date") || undefined,
       status: searchParams.get("status") || undefined,
     };
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<CheckInRequest>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }

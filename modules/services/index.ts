@@ -14,3 +14,4 @@ export { dashboardService, type SuperAdminStats, type BranchStats } from "./dash
 export { deviceService, type CreateDeviceData, type UpdateDeviceData, type DeviceListResult } from "./device.service";
 export { auditService, type AuditListResult } from "./audit.service";
 export { settingsService } from "./settings.service";
+export { dietService } from "./diet.service";

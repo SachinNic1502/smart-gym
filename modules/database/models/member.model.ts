@@ -1,7 +1,7 @@
 import mongoose, { Schema, type Model } from "mongoose";
 import type { Member } from "@/lib/types";
 
-export interface MemberDocument extends Member, Document {}
+export interface MemberDocument extends Member, Document { }
 
 const MemberSchema = new Schema<MemberDocument>(
   {
@@ -19,6 +19,7 @@ const MemberSchema = new Schema<MemberDocument>(
     branchId: { type: String, required: true },
     workoutPlanId: { type: String },
     dietPlanId: { type: String },
+    trainerId: { type: String },
     referralSource: { type: String },
     notes: { type: String },
     createdAt: { type: String, required: true },

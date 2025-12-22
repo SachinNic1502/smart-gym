@@ -10,7 +10,7 @@ import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 // GET /api/payments - List payments
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireSession(["super_admin", "branch_admin"]);
+    const auth = await requireSession(["super_admin", "branch_admin", "member"]);
     if ("response" in auth) return auth.response;
 
     const { searchParams } = new URL(request.url);
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
     if ("response" in scoped) return scoped.response;
-    
+
     const filters = {
       branchId: scoped.branchId,
       memberId: searchParams.get("memberId") || undefined,
@@ -26,6 +26,11 @@ export async function GET(request: NextRequest) {
       startDate: searchParams.get("startDate") || undefined,
       endDate: searchParams.get("endDate") || undefined,
     };
+
+    // If user is a member, they can only view their own payments
+    if (auth.session.role === "member") {
+      filters.memberId = auth.session.sub;
+    }
 
     const result = await paymentService.getPayments(filters, pagination);
     return successResponse(result);
@@ -49,16 +54,21 @@ interface PaymentRequest {
 // POST /api/payments - Create a new payment
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireSession(["super_admin", "branch_admin"]);
+    const auth = await requireSession(["super_admin", "branch_admin", "member"]);
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<PaymentRequest>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
 
     const { memberId, branchId, planId, amount, method, description, skipMemberUpdate } = body;
+
+    // Members can only make payments for themselves
+    if (auth.session.role === "member" && memberId !== auth.session.sub) {
+      return errorResponse("You can only make payments for yourself", 403);
+    }
 
     const scoped = resolveBranchScope(auth.session, branchId);
     if ("response" in scoped) return scoped.response;
@@ -86,11 +96,11 @@ export async function POST(request: NextRequest) {
 
     if (result.data?.payment) {
       const payment = result.data.payment;
-      
+
       // Send notification to member about payment received
       try {
         const member = memberRepository.findById(payment.memberId);
-        
+
         if (member) {
           await NotificationService.sendTemplateNotification(
             payment.memberId,

@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
 
     const email = "admin@smartfit.com";
+    // branch@gmail.com
 
     // Check if super admin already exists
     const existing = await UserModel.findOne({ email }).lean();

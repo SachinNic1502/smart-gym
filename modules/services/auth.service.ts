@@ -5,7 +5,7 @@
 import { userRepository } from "@/modules/database";
 import type { User } from "@/lib/types";
 import { connectToDatabase } from "@/modules/database/mongoose";
-import { UserModel } from "@/modules/database/models";
+import { UserModel, MemberModel } from "@/modules/database/models";
 import { verifyPassword as verifyPasswordHash } from "@/modules/database/password";
 import { signSessionJwt, verifySessionJwt, type JwtSessionPayload, type JwtRole } from "@/lib/auth/jwt";
 
@@ -76,7 +76,7 @@ export const authService = {
 
     // Fallback to existing in-memory user repository (development seed data)
     const user = userRepository.findByEmail(email);
-    
+
     if (!user) {
       return { success: false, error: "Invalid email or password" };
     }
@@ -111,13 +111,39 @@ export const authService = {
    */
   async sendOtp(phone: string): Promise<OtpResult> {
     const normalized = phone.replace(/\D/g, "");
-    
+
     if (normalized.length < 10) {
       return { success: false, error: "Invalid phone number" };
     }
 
+    let userExists = false;
+
+    // 1. Check in-memory users
     const user = userRepository.findByPhone(phone);
-    if (!user || user.role !== "member") {
+    if (user && user.role === "member") {
+      userExists = true;
+    }
+
+    // 2. If not found, check MongoDB members
+    if (!userExists) {
+      try {
+        await connectToDatabase();
+        // Simple regex search for phone in MongoDB
+        // Note: In production better phone normalization/hashing is needed
+        const member = await MemberModel.findOne({
+          phone: { $regex: normalized.slice(-10), $options: "i" }
+        }).exec();
+
+        if (member) {
+          userExists = true;
+        }
+      } catch (err) {
+        console.error("Error looking up member in MongoDB:", err);
+        // Fallback to false, proceed to error
+      }
+    }
+
+    if (!userExists) {
       return { success: false, error: "No member found with this phone number" };
     }
 
@@ -150,24 +176,52 @@ export const authService = {
 
     userRepository.clearOtp(phone);
 
-    const user = userRepository.findByPhone(phone);
-    if (!user) {
-      return { success: false, error: "Member not found" };
+    // 1. Check in-memory users
+    let user = userRepository.findByPhone(phone);
+    if (user) {
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          avatar: user.avatar,
+          branchId: user.branchId,
+        },
+        redirectUrl: "/portal/dashboard",
+      };
     }
 
-    return {
-      success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        avatar: user.avatar,
-        branchId: user.branchId,
-      },
-      redirectUrl: "/portal/dashboard",
-    };
+    // 2. Check MongoDB members
+    try {
+      await connectToDatabase();
+      const normalized = phone.replace(/\D/g, "");
+      const member = await MemberModel.findOne({
+        phone: { $regex: normalized.slice(-10), $options: "i" }
+      }).exec();
+
+      if (member) {
+        return {
+          success: true,
+          user: {
+            id: member.id,
+            name: member.name,
+            email: member.email,
+            phone: member.phone,
+            role: "member",
+            avatar: member.image, // Map image to avatar
+            branchId: member.branchId,
+          },
+          redirectUrl: "/portal/dashboard",
+        };
+      }
+    } catch (err) {
+      console.error("Error finding member in MongoDB:", err);
+    }
+
+    return { success: false, error: "Member not found" };
   },
 
   /**

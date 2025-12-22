@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const { session } = auth;
-    
+
     // For members, the session.sub is the member ID
     const memberId = session.sub;
     if (!memberId) {
@@ -98,5 +98,46 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Change password error:", error);
     return errorResponse("Failed to change password", 500);
+  }
+}
+// PUT /api/me - Update current user's profile
+export async function PUT(request: NextRequest) {
+  try {
+    const auth = await requireSession(["member"]);
+    if ("response" in auth) return auth.response;
+
+    const { session } = auth;
+    const memberId = session.sub;
+
+    if (!memberId) {
+      return errorResponse("Member ID not found in session", 400);
+    }
+
+    const body = await request.json();
+    const { name, email, phone, dateOfBirth, address } = body;
+
+    // Validate required fields
+    if (!name || !phone) {
+      return errorResponse("Name and phone are required", 400);
+    }
+
+    // Update member
+    const updatedMember = await memberRepository.updateAsync(memberId, {
+      name,
+      email,
+      phone,
+      dateOfBirth,
+      address,
+    });
+
+    if (!updatedMember) {
+      return errorResponse("Failed to update profile", 500);
+    }
+
+    return successResponse(updatedMember, "Profile updated successfully");
+
+  } catch (error) {
+    console.error("Update profile error:", error);
+    return errorResponse("Failed to update profile", 500);
   }
 }

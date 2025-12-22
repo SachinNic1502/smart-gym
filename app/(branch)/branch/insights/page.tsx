@@ -8,6 +8,7 @@ import { Users, Wallet, LineChart, MapPin } from "lucide-react";
 import { ApiError, dashboardApi, leadsApi, membersApi, paymentsApi } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Lead, Member, Payment } from "@/lib/types";
+import { Label } from "@radix-ui/react-label";
 
 type RangePreset = "30" | "90" | "custom";
 
@@ -202,77 +203,81 @@ export default function BranchInsightsPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-t-4 border-t-primary/30">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <Card className="border-t-4 border-t-primary/30 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Active members</CardTitle>
+            <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active members</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : membersTotal}</p>
-            <p className="text-[11px] text-muted-foreground">Active status</p>
+            <p className="text-[11px] text-muted-foreground mt-1 underline decoration-primary/20">Active status</p>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-emerald-300">
+        <Card className="border-t-4 border-t-emerald-300 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Collections</CardTitle>
+            <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Collections</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
               {loading ? "—" : formatInr(paymentsSummary?.totalAmount ?? 0)}
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground mt-1 truncate">
               {loading ? "" : `${paymentsSummary?.completedCount ?? 0} completed payments`}
             </p>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-blue-300">
+        <Card className="border-t-4 border-t-blue-300 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">New leads</CardTitle>
+            <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">New leads</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : leadsTotal}</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground mt-1">
               {loading || conversionRate === null ? "" : `Conversion ${conversionRate}%`}
             </p>
           </CardContent>
         </Card>
-        <Card className="border-t-4 border-t-rose-300">
+        <Card className="border-t-4 border-t-rose-300 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-rose-500 opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Churn risk</CardTitle>
+            <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Churn risk</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{loading ? "—" : churnRisk}</p>
-            <p className="text-[11px] text-muted-foreground">Based on last visit (sample)</p>
+            <p className="text-[11px] text-muted-foreground mt-1 italic">Based on 30d inactivity</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Branch performance snapshot for the last {rangePreset === "custom" ? "custom" : `${rangePreset} days`}.</span>
-        <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-1 py-0.5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground bg-muted/20 p-3 rounded-lg border border-border/40">
+        <span className="font-medium">Insights for the last {rangePreset === "custom" ? "custom period" : `${rangePreset} days`}.</span>
+        <div className="inline-flex items-center gap-1 rounded-md border border-border bg-background p-1 w-fit">
           <Button
             type="button"
             size="sm"
             variant={rangePreset === "30" ? "secondary" : "ghost"}
-            className="h-7 rounded-full px-3 text-[11px]"
+            className="h-8 rounded-sm px-3 text-[11px] font-bold uppercase tracking-wider transition-all"
             onClick={() => setRangePreset("30")}
           >
-            30 days
+            30d
           </Button>
           <Button
             type="button"
             size="sm"
             variant={rangePreset === "90" ? "secondary" : "ghost"}
-            className="h-7 rounded-full px-3 text-[11px]"
+            className="h-8 rounded-sm px-3 text-[11px] font-bold uppercase tracking-wider transition-all"
             onClick={() => setRangePreset("90")}
           >
-            90 days
+            90d
           </Button>
           <Button
             type="button"
             size="sm"
             variant={rangePreset === "custom" ? "secondary" : "ghost"}
-            className="h-7 rounded-full px-3 text-[11px]"
+            className="h-8 rounded-sm px-3 text-[11px] font-bold uppercase tracking-wider transition-all"
             onClick={() => setRangePreset("custom")}
           >
             Custom
@@ -281,17 +286,17 @@ export default function BranchInsightsPage() {
       </div>
 
       {rangePreset === "custom" ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span>From</span>
-            <Input type="date" className="h-8 w-40" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end justify-end border p-4 rounded-lg bg-zinc-50/50">
+          <div className="space-y-1.5 flex-1 max-w-[200px]">
+            <Label className="text-[10px] font-bold uppercase text-muted-foreground">From Date</Label>
+            <Input type="date" className="h-9 bg-background" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
           </div>
-          <div className="flex items-center gap-2">
-            <span>To</span>
-            <Input type="date" className="h-8 w-40" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+          <div className="space-y-1.5 flex-1 max-w-[200px]">
+            <Label className="text-[10px] font-bold uppercase text-muted-foreground">To Date</Label>
+            <Input type="date" className="h-9 bg-background" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
           </div>
-          <Button type="button" size="sm" variant="outline" className="h-8" onClick={fetchInsights}>
-            Apply
+          <Button type="button" size="sm" className="h-9 font-bold px-6 shadow-sm" onClick={fetchInsights}>
+            Apply Range
           </Button>
         </div>
       ) : null}

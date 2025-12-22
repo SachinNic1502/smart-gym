@@ -7,7 +7,7 @@ import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 // GET /api/staff - List staff
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireSession(["super_admin", "branch_admin"]);
+    const auth = await requireSession(["super_admin", "branch_admin", "member"]);
     if ("response" in auth) return auth.response;
 
     const { searchParams } = new URL(request.url);
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
     if ("response" in scoped) return scoped.response;
-    
+
     const filters = {
       branchId: scoped.branchId,
       role: (searchParams.get("role") as StaffRole) || undefined,
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<Partial<Staff>>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }

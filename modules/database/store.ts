@@ -23,6 +23,7 @@ import type {
   BroadcastMessage,
   SystemSettings,
   Notification,
+  DietLog,
 } from "@/lib/types";
 
 // ============================================
@@ -47,6 +48,7 @@ export interface DataStore {
   auditLogs: AuditLog[];
   communications: BroadcastMessage[];
   notifications: Notification[];
+  dietLogs: DietLog[];
   otps: Map<string, string>;
   passwords: Map<string, string>;
 }
@@ -402,6 +404,7 @@ class Database {
       auditLogs: [],
       communications: [],
       notifications: [],
+      dietLogs: [],
       otps: new Map(),
       passwords: new Map([
         ["admin@smartfit.com", "admin123"],

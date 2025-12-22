@@ -64,6 +64,7 @@ export interface Member {
   branchId: string;
   workoutPlanId?: string;
   dietPlanId?: string;
+  trainerId?: string;
   referralSource?: string;
   notes?: string;
   passwordHash?: string;
@@ -88,10 +89,11 @@ export interface AttendanceRecord {
   memberId: string;
   memberName: string;
   branchId: string;
+  date: string; // YYYY-MM-DD
   checkInTime: string;
   checkOutTime?: string;
   method: AttendanceMethod;
-  status: AttendanceStatus;
+  status: AttendanceStatus | "Present";
   deviceId?: string;
 }
 
@@ -147,6 +149,7 @@ export interface WorkoutExercise {
   reps: string;
   restSeconds: number;
   notes?: string;
+  videoUrl?: string;
 }
 
 export interface DietPlan {
@@ -163,6 +166,17 @@ export interface DietMeal {
   time: string;
   items: string[];
   calories: number;
+}
+
+export interface DietLog {
+  id: string;
+  memberId: string;
+  date: string; // YYYY-MM-DD
+  type: "food" | "water";
+  calories?: number;
+  waterMl?: number;
+  label?: string;
+  createdAt: string;
 }
 
 // ============================================
@@ -209,7 +223,7 @@ export interface BroadcastMessage {
 // Expense Types
 // ============================================
 
-export type ExpenseCategory = 
+export type ExpenseCategory =
   | "rent"
   | "utilities"
   | "equipment"
@@ -309,7 +323,7 @@ export interface PaginatedResponse<T> {
 // Notification Types
 // ============================================
 
-export type NotificationType = 
+export type NotificationType =
   | "member_check_in"
   | "member_check_out"
   | "payment_received"
