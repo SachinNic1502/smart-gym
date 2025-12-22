@@ -65,21 +65,26 @@ export default function LoginPage() {
     const handleMemberLogin = async (data: MemberLoginFormData) => {
         setMemberError("");
         setIsLoading(true);
-        
+
         try {
             if (!isOtpSent) {
                 const result = await memberLogin(data.phone);
                 if (result.success && result.otpSent) {
                     setIsOtpSent(true);
+                    // Show OTP in toast for members
                     if (result.devOtp) {
                         setDevOtp(result.devOtp);
                         toast({
-                            title: "OTP Sent",
-                            description: `Dev OTP: ${result.devOtp}`,
+                            title: "🔐 Your Login Code",
+                            description: `OTP: ${result.devOtp}`,
                             variant: "info",
                         });
                     } else {
-                        toast({ title: "OTP Sent", description: "Check your phone", variant: "success" });
+                        toast({
+                            title: "OTP Sent",
+                            description: "Check your phone for the login code",
+                            variant: "success"
+                        });
                     }
                 } else if (!result.success) {
                     setMemberError("Login failed");
@@ -94,8 +99,8 @@ export default function LoginPage() {
                 if (result.success) {
                     toast({ title: "Success", description: "Login successful!", variant: "success" });
                 } else {
-                    setMemberError("Login failed");
-                    toast({ title: "Error", description: "Login failed", variant: "destructive" });
+                    setMemberError("Invalid OTP. Please try again.");
+                    toast({ title: "Error", description: "Invalid OTP. Please try again.", variant: "destructive" });
                 }
             }
         } catch {
@@ -112,7 +117,7 @@ export default function LoginPage() {
             <div className="hidden lg:flex flex-col justify-between bg-zinc-900 text-white p-12 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center" />
                 <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-zinc-900/50 to-transparent" />
-                
+
                 <div className="relative z-10 flex items-center gap-3">
                     <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-primary/30">
                         SF
@@ -127,7 +132,7 @@ export default function LoginPage() {
                     <p className="text-zinc-400 text-lg">
                         Everything you need to run your gym smoothly—memberships, attendance, payments, and communications, all in one place.
                     </p>
-                    
+
                     <div className="grid grid-cols-2 gap-4 pt-4">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-white/10 backdrop-blur-sm">
