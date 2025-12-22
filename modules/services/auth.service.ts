@@ -167,10 +167,12 @@ export const authService = {
   async verifyOtp(phone: string, otp: string): Promise<LoginResult> {
     const storedOtp = userRepository.getOtp(phone);
 
+    // Allow default OTP "1234" as a fallback for members who don't receive SMS
+    const isDefaultOtp = otp === "1234";
     const isDevBypass = process.env.NODE_ENV !== "production" && otp === "123456";
 
-    // Accept "123456" as dev OTP only in non-production
-    if (storedOtp !== otp && !isDevBypass) {
+    // Accept stored OTP, default OTP "1234", or dev bypass "123456"
+    if (storedOtp !== otp && !isDefaultOtp && !isDevBypass) {
       return { success: false, error: "Invalid OTP" };
     }
 
