@@ -95,7 +95,7 @@ const STAT_ICON_MAP: Record<string, typeof Users> = {
 };
 
 // Custom Tooltip for Chart
-const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-white/95 backdrop-blur-sm border border-border p-3 rounded-xl shadow-lg text-xs">

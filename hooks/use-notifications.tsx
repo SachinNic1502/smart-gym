@@ -36,7 +36,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const toast = useToast();
+  const { toast } = useToast();
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;

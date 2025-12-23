@@ -46,7 +46,7 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  const toast = useToast();
+  const { toast } = useToast();
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);

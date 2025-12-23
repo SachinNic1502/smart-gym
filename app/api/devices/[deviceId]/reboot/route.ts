@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/utils";
 import { deviceService } from "@/modules/services";
 
-export async function POST(request: NextRequest, { params }: { params: { deviceId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ deviceId: string }> }) {
     try {
         const { deviceId } = await params;
         const result = await deviceService.getDevice(deviceId); // Verify existence
