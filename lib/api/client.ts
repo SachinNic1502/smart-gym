@@ -73,6 +73,34 @@ async function request<T>(
   return data.data as T;
 }
 
+async function requestFull<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const url = `${API_BASE}${endpoint}`;
+
+  const config: RequestInit = {
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+    ...options,
+  };
+
+  const response = await fetch(url, config);
+  const data: ApiResponse<T> = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new ApiError(
+      data.error || "An error occurred",
+      response.status,
+      data
+    );
+  }
+
+  return data;
+}
+
 // ============================================
 // Auth API
 // ============================================
@@ -162,7 +190,7 @@ export const branchesApi = {
   get: (id: string) => request<Branch>(`/branches/${id}`),
 
   create: (data: Partial<Branch>) =>
-    request<Branch>("/branches", {
+    requestFull<Branch>("/branches", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -523,6 +551,15 @@ export const devicesApi = {
 
   delete: (id: string) =>
     request<{ id: string }>(`/devices/${id}`, { method: "DELETE" }),
+
+  sync: (id: string) =>
+    request<{ success: boolean; message: string }>(`/devices/${id}/sync`, { method: "POST" }),
+
+  reboot: (id: string) =>
+    request<{ success: boolean; message: string }>(`/devices/${id}/reboot`, { method: "POST" }),
+
+  flash: (id: string) =>
+    request<{ success: boolean; message: string }>(`/devices/${id}/flash`, { method: "POST" }),
 };
 
 // ============================================

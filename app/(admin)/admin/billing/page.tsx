@@ -16,7 +16,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { Check, Zap, Building2, Plus } from "lucide-react";
+import { Check, Zap, Building2, Plus, DollarSign, Wallet, History, FileText, ArrowRight, TrendingUp, CreditCard, Sparkles, Filter, MoreVertical, Pencil, Trash2, Power } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { paymentsApi, adminPlansApi, branchesApi, ApiError } from "@/lib/api/client";
 import type { MembershipPlan, Payment } from "@/lib/types";
@@ -40,7 +40,7 @@ export default function SaaSPlansPage() {
         featuresText: "",
     });
     const [formErrors, setFormErrors] = useState<{ name?: string; durationDays?: string; price?: string }>({});
-    const toast = useToast();
+    const { toast } = useToast();
 
     const [payments, setPayments] = useState<Payment[]>([]);
     const [paymentSummary, setPaymentSummary] = useState<{
@@ -189,7 +189,7 @@ export default function SaaSPlansPage() {
             await refreshPlans();
             toast({
                 title: "Plan created",
-                description: "Plan saved to database.",
+                description: "New membership plan has been saved.",
                 variant: "success",
             });
         } catch (error) {
@@ -252,517 +252,388 @@ export default function SaaSPlansPage() {
     };
 
     const handleDeletePlan = async (plan: MembershipPlan) => {
-        if (typeof window !== "undefined") {
-            const confirmed = window.confirm(`Delete plan "${plan.name}"?`);
-            if (!confirmed) return;
-        }
-        try {
-            await adminPlansApi.delete(plan.id);
-            await refreshPlans();
-            toast({ title: "Plan deleted", variant: "destructive" });
-        } catch (error) {
-            const message = error instanceof ApiError ? error.message : "Failed to delete plan";
-            toast({ title: message, variant: "destructive" });
-        }
+        toast({
+            title: "Delete Plan?",
+            description: `Delete plan "${plan.name}"? This cannot be undone.`,
+            variant: "warning",
+            duration: Infinity,
+            action: ({ dismiss }) => (
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" className="h-8 px-3 text-xs hover:bg-amber-100 text-amber-900" onClick={dismiss}>Cancel</Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 px-3 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                        onClick={async () => {
+                            dismiss();
+                            try {
+                                await adminPlansApi.delete(plan.id);
+                                await refreshPlans();
+                                toast({ title: "Plan deleted", variant: "success" });
+                            } catch (error) {
+                                const message = error instanceof ApiError ? error.message : "Failed to delete plan";
+                                toast({ title: message, variant: "destructive" });
+                            }
+                        }}
+                    >
+                        Confirm
+                    </Button>
+                </div>
+            )
+        });
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Billing & Plans</h2>
-                <p className="text-muted-foreground">Manage subscription tiers for your gym branches.</p>
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-                Prices shown are per branch, exclusive of taxes.
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card className="border border-dashed">
-                    <CardHeader className="py-3">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Active branches</CardTitle>
-                        <CardDescription className="text-2xl font-bold text-foreground">{activeBranchesCount}</CardDescription>
-                    </CardHeader>
-                </Card>
-                <Card className="border border-dashed">
-                    <CardHeader className="py-3">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Monthly recurring</CardTitle>
-                        <CardDescription className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold">
-                                ₹{paymentSummary ? paymentSummary.totalAmount.toLocaleString() : 0}
-                            </span>
-                            <span className="text-xs text-muted-foreground">completed payments total</span>
-                        </CardDescription>
-                    </CardHeader>
-                </Card>
-                <Card className="border border-dashed bg-primary/5">
-                    <CardHeader className="py-3 flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Pending invoices</CardTitle>
-                            <CardDescription className="text-2xl font-bold text-foreground">
-                                {paymentSummary ? paymentSummary.pendingCount : 0}
-                            </CardDescription>
+        <div className="space-y-10 animate-in fade-in duration-700 pb-12">
+            {/* Header Section */}
+            <div className="relative bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 text-white p-10 rounded-[2.5rem] shadow-2xl overflow-hidden mx-1 border border-white/10">
+                <div className="absolute top-0 right-0 p-12 opacity-10 transform translate-x-12 -translate-y-12">
+                    <CreditCard className="w-80 h-80" />
+                </div>
+                <div className="relative z-10 flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                                <Wallet className="h-7 w-7 text-white" />
+                            </div>
+                            <h2 className="text-4xl font-black tracking-tight">Billing & Plans</h2>
                         </div>
-                        <Zap className="h-5 w-5 text-primary" />
-                    </CardHeader>
-                </Card>
-            </div>
-
-            <div className="space-y-6">
-                <div>
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-semibold text-muted-foreground">Membership plans</h3>
-                        <Dialog
-                            open={isCreateDialogOpen}
-                            onOpenChange={(open) => {
-                                setIsCreateDialogOpen(open);
-                                if (!open) {
-                                    resetPlanForm();
-                                }
-                            }}
-                        >
-                            <DialogTrigger asChild>
-                                <Button className="bg-primary hover:bg-primary/90">
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Create Plan
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[480px]">
-                                <DialogHeader>
-                                    <DialogTitle>Create Plan</DialogTitle>
-                                    <DialogDescription>
-                                        Create a membership plan. This will be saved in the database.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 py-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="plan-name">
-                                            Plan name <span className="text-red-500">*</span>
-                                        </Label>
-                                        <Input
-                                            id="plan-name"
-                                            placeholder="e.g. Corporate"
-                                            value={planForm.name}
-                                            onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
-                                        />
-                                        {formErrors.name && (
-                                            <p className="text-xs text-red-500">{formErrors.name}</p>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="plan-description">Short description</Label>
-                                        <Input
-                                            id="plan-description"
-                                            placeholder="How this plan is used"
-                                            value={planForm.description}
-                                            onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="plan-duration">Duration (days) *</Label>
-                                            <Input
-                                                id="plan-duration"
-                                                type="number"
-                                                min={1}
-                                                value={planForm.durationDays}
-                                                onChange={(e) => setPlanForm({ ...planForm, durationDays: e.target.value })}
-                                            />
-                                            {formErrors.durationDays && (
-                                                <p className="text-xs text-red-500">{formErrors.durationDays}</p>
-                                            )}
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="plan-price">Price (₹) *</Label>
-                                            <Input
-                                                id="plan-price"
-                                                type="number"
-                                                min={0}
-                                                value={planForm.price}
-                                                onChange={(e) => setPlanForm({ ...planForm, price: e.target.value })}
-                                            />
-                                            {formErrors.price && (
-                                                <p className="text-xs text-red-500">{formErrors.price}</p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="plan-currency">Currency</Label>
-                                            <Input
-                                                id="plan-currency"
-                                                placeholder="INR"
-                                                value={planForm.currency}
-                                                onChange={(e) => setPlanForm({ ...planForm, currency: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="plan-active">Status</Label>
-                                            <select
-                                                id="plan-active"
-                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                                value={planForm.isActive ? "active" : "inactive"}
-                                                onChange={(e) => setPlanForm({ ...planForm, isActive: e.target.value === "active" })}
-                                            >
-                                                <option value="active">Active</option>
-                                                <option value="inactive">Inactive</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="plan-features">Features (one per line)</Label>
-                                        <textarea
-                                            id="plan-features"
-                                            className="min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                            placeholder="Gym access\nGroup classes\nLocker"
-                                            value={planForm.featuresText}
-                                            onChange={(e) => setPlanForm({ ...planForm, featuresText: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setIsCreateDialogOpen(false);
-                                            resetPlanForm();
-                                        }}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        onClick={handleCreatePlan}
-                                        disabled={!planForm.name.trim()}
-                                    >
-                                        Save Plan
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
+                        <p className="text-emerald-50 text-xl font-light max-w-2xl leading-relaxed">
+                            Manage subscription plans and monitor payments from all gym branches.
+                        </p>
+                        <div className="flex items-center gap-6 pt-2">
+                            <div className="flex items-center gap-2">
+                                <TrendingUp className="h-5 w-5 text-emerald-300" />
+                                <span className="text-sm font-black uppercase tracking-widest text-emerald-200">System Online</span>
+                            </div>
+                        </div>
                     </div>
 
-                    {plansError && <p className="text-xs text-red-500 mb-2">{plansError}</p>}
-
-                    {plansLoading ? (
-                        <p className="text-xs text-muted-foreground">Loading plans...</p>
-                    ) : plans.length === 0 ? (
-                        <Card className="border-dashed border-muted-foreground/40">
-                            <CardContent className="py-8 flex flex-col items-center justify-center text-center space-y-3 text-xs text-muted-foreground">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-1">
-                                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                    <Dialog
+                        open={isCreateDialogOpen}
+                        onOpenChange={(open) => {
+                            setIsCreateDialogOpen(open);
+                            if (!open) resetPlanForm();
+                        }}
+                    >
+                        <DialogTrigger asChild>
+                            <Button className="bg-white text-emerald-700 hover:bg-emerald-50 font-black px-8 py-8 rounded-[2rem] shadow-2xl transition-all hover:scale-105 active:scale-95 text-lg">
+                                <Plus className="mr-2 h-6 w-6" />
+                                Create Plan
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[500px] rounded-[2.5rem]">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-black">Create Membership Plan</DialogTitle>
+                                <DialogDescription className="font-semibold text-gray-400">
+                                    Add a new subscription plan for your branches.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-6 py-4">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-bold ml-1">Plan Name</Label>
+                                    <Input
+                                        placeholder="e.g. Enterprise Elite"
+                                        className="h-12 rounded-2xl"
+                                        value={planForm.name}
+                                        onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                                    />
+                                    {formErrors.name && (
+                                        <p className="text-xs text-red-500 font-bold ml-1">{formErrors.name}</p>
+                                    )}
                                 </div>
-                                <div>
-                                    <p className="font-semibold text-foreground text-sm">No plans yet</p>
-                                    <p>Create your first membership plan to start billing.</p>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-bold ml-1">Description</Label>
+                                    <Input
+                                        placeholder="High-volume branch solution"
+                                        className="h-12 rounded-2xl"
+                                        value={planForm.description}
+                                        onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                                    />
                                 </div>
-                                <Button type="button" size="sm" onClick={() => setIsCreateDialogOpen(true)}>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Create plan
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-bold ml-1">Duration (Days)</Label>
+                                        <Input
+                                            type="number"
+                                            className="h-12 rounded-2xl"
+                                            value={planForm.durationDays}
+                                            onChange={(e) => setPlanForm({ ...planForm, durationDays: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-bold ml-1">Price (₹)</Label>
+                                        <Input
+                                            type="number"
+                                            className="h-12 rounded-2xl"
+                                            value={planForm.price}
+                                            onChange={(e) => setPlanForm({ ...planForm, price: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-bold ml-1">Features (One per line)</Label>
+                                    <textarea
+                                        className="min-h-[120px] w-full rounded-2xl border-gray-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="Dynamic Billing\nAdvanced Analytics\nFull API Access"
+                                        value={planForm.featuresText}
+                                        onChange={(e) => setPlanForm({ ...planForm, featuresText: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-3">
+                                <Button variant="ghost" className="h-12 rounded-2xl font-bold" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                                <Button className="h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 font-black px-10 shadow-lg shadow-emerald-100" onClick={handleCreatePlan}>
+                                    Create Plan
                                 </Button>
-                            </CardContent>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid gap-6 md:grid-cols-3 px-1">
+                <Card className="border-0 shadow-xl bg-white group hover:shadow-2xl transition-all rounded-[1.5rem] overflow-hidden">
+                    <CardHeader className="p-8 flex flex-row items-center justify-between pb-2">
+                        <div className="space-y-1">
+                            <p className="text-xs font-black text-emerald-500 uppercase tracking-widest">Total Revenue</p>
+                            <CardTitle className="text-4xl font-black text-gray-800 tracking-tighter">₹{paymentSummary ? paymentSummary.totalAmount.toLocaleString() : 0}</CardTitle>
+                        </div>
+                        <div className="p-4 bg-emerald-50 rounded-2xl text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                            <TrendingUp className="h-7 w-7" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="px-8 pb-8">
+                        <p className="text-xs font-bold text-gray-400">Total amount from completed payments</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-0 shadow-xl bg-white group hover:shadow-2xl transition-all rounded-[1.5rem] overflow-hidden">
+                    <CardHeader className="p-8 flex flex-row items-center justify-between pb-2">
+                        <div className="space-y-1">
+                            <p className="text-xs font-black text-blue-500 uppercase tracking-widest">Active Branches</p>
+                            <CardTitle className="text-4xl font-black text-gray-800 tracking-tighter">{activeBranchesCount}</CardTitle>
+                        </div>
+                        <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 group-hover:bg-blue-500 group-hover:text-white transition-all">
+                            <Building2 className="h-7 w-7" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="px-8 pb-8">
+                        <p className="text-xs font-bold text-gray-400">Total number of active gym branches</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-0 shadow-xl bg-white group hover:shadow-2xl transition-all rounded-[1.5rem] overflow-hidden border-b-4 border-amber-400">
+                    <CardHeader className="p-8 flex flex-row items-center justify-between pb-2">
+                        <div className="space-y-1">
+                            <p className="text-xs font-black text-amber-500 uppercase tracking-widest">Pending Payments</p>
+                            <CardTitle className="text-4xl font-black text-gray-800 tracking-tighter">{paymentSummary ? paymentSummary.pendingCount : 0}</CardTitle>
+                        </div>
+                        <div className="p-4 bg-amber-50 rounded-2xl text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                            <Zap className="h-7 w-7" />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="px-8 pb-8">
+                        <p className="text-xs font-bold text-gray-400">Payments waiting for approval</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Plans Section */}
+            <div className="space-y-6">
+                <div className="px-2 flex items-center justify-between">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-800">Subscription Plans</h3>
+                        <p className="text-sm font-medium text-gray-400 uppercase tracking-widest mt-1">Manage the plans available for branches</p>
+                    </div>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-3">
+                    {plansLoading ? (
+                        [1, 2, 3].map(i => <Card key={i} className="h-64 animate-pulse bg-gray-50 border-0 rounded-3xl" />)
+                    ) : plans.length === 0 ? (
+                        <Card className="md:col-span-3 border-4 border-dashed border-gray-100 rounded-[2.5rem] py-20 flex flex-col items-center gap-6">
+                            <div className="p-6 bg-slate-50 rounded-3xl opacity-30">
+                                <Sparkles className="h-16 w-16" />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-black text-gray-400 uppercase tracking-widest">No Plans Found</p>
+                                <p className="font-bold text-gray-300 mt-2 italic">Create a plan to start onboarding branches</p>
+                            </div>
+                            <Button size="lg" className="rounded-2xl" onClick={() => setIsCreateDialogOpen(true)}>
+                                Create First Plan
+                            </Button>
                         </Card>
                     ) : (
-                        <div className="grid gap-4 md:grid-cols-3">
-                            {plans.map((plan) => (
-                                <Card key={plan.id} className="border-2 border-muted hover:border-primary/50 transition-all">
-                                    <CardHeader>
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <CardTitle className="text-lg">{plan.name}</CardTitle>
-                                                <CardDescription>{plan.description}</CardDescription>
-                                            </div>
-                                            <Badge variant={plan.isActive ? "success" : "outline"} className="text-xs">
-                                                {plan.isActive ? "Active" : "Inactive"}
+                        plans.map((p, idx) => (
+                            <Card key={p.id} className={`group relative border-0 shadow-xl rounded-[2rem] overflow-hidden hover:shadow-2xl transition-all ${p.isActive ? 'bg-white' : 'bg-slate-50 opacity-80'}`}>
+                                <div className={`h-2 w-full ${idx % 2 === 0 ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                                <CardHeader className="p-8">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <Badge className={`mb-3 px-3 py-1 text-[9px] font-black uppercase tracking-widest border-0 rounded-lg ${p.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
+                                                {p.isActive ? 'Active' : 'Inactive'}
                                             </Badge>
+                                            <CardTitle className="text-2xl font-black text-gray-800 tracking-tight">{p.name}</CardTitle>
+                                            <CardDescription className="text-xs font-bold text-gray-400 mt-2 leading-relaxed">
+                                                {p.description || 'No description provided'}
+                                            </CardDescription>
                                         </div>
-                                        <div className="mt-4 flex items-center justify-between">
-                                            <div>
-                                                <span className="text-3xl font-bold">₹{plan.price.toLocaleString()}</span>
-                                                <span className="text-muted-foreground">/{plan.durationDays} days</span>
+                                    </div>
+                                    <div className="mt-8">
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-sm font-bold text-gray-400">₹</span>
+                                            <span className="text-5xl font-black text-gray-900 tracking-tighter">{p.price.toLocaleString()}</span>
+                                            <span className="text-xs font-black text-gray-400 uppercase ml-2">/ {p.durationDays} Days</span>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="px-8 pb-8 pt-0">
+                                    <div className="space-y-4 mb-8">
+                                        {(p.features || []).slice(0, 5).map(f => (
+                                            <div key={f} className="flex items-center gap-3">
+                                                <div className="p-1 bg-emerald-50 rounded-full text-emerald-600">
+                                                    <Check className="h-3 w-3" />
+                                                </div>
+                                                <span className="text-xs font-bold text-gray-600">{f}</span>
                                             </div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <ul className="space-y-2 text-sm">
-                                            {(plan.features || []).slice(0, 6).map((feature) => (
-                                                <li key={feature} className="flex items-center">
-                                                    <Check className="mr-2 h-4 w-4 text-green-500" /> {feature}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <div className="mt-4 flex flex-wrap gap-2">
-                                            <Button type="button" size="sm" variant="outline" onClick={() => openEditPlan(plan)}>
-                                                Edit
-                                            </Button>
-                                            <Button type="button" size="sm" variant="outline" onClick={() => handleToggleActive(plan)}>
-                                                {plan.isActive ? "Disable" : "Enable"}
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                className="text-red-600 hover:text-red-700"
-                                                onClick={() => handleDeletePlan(plan)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2 pt-4 border-t border-gray-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-slate-50 text-gray-600 hover:bg-slate-100" onClick={() => openEditPlan(p)}>
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-slate-50 text-gray-600 hover:bg-slate-100" onClick={() => handleToggleActive(p)}>
+                                            <Power className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100" onClick={() => handleDeletePlan(p)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                        <Button className="h-10 flex-1 rounded-xl bg-slate-900 font-bold text-[10px] uppercase tracking-widest text-white hover:bg-black">
+                                            View Details
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))
                     )}
                 </div>
             </div>
 
-            <Dialog
-                open={isEditDialogOpen}
-                onOpenChange={(open) => {
-                    setIsEditDialogOpen(open);
-                    if (!open) {
-                        setEditingPlan(null);
-                        resetPlanForm();
-                    }
-                }}
-            >
-                <DialogContent className="sm:max-w-[480px]">
-                    <DialogHeader>
-                        <DialogTitle>Edit Plan</DialogTitle>
-                        <DialogDescription>Update this plan. Changes are saved in the database.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-plan-name">Plan name</Label>
-                            <Input
-                                id="edit-plan-name"
-                                value={planForm.name}
-                                onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
-                            />
+            {/* Payment History */}
+            <Card className="border-0 shadow-2xl shadow-slate-200/50 rounded-[2rem] overflow-hidden mx-1">
+                <CardHeader className="bg-white border-b border-gray-100 p-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-4 bg-indigo-50 rounded-2xl text-indigo-600">
+                            <History className="h-7 w-7" />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-plan-description">Short description</Label>
-                            <Input
-                                id="edit-plan-description"
-                                value={planForm.description}
-                                onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-plan-duration">Duration (days)</Label>
-                                <Input
-                                    id="edit-plan-duration"
-                                    type="number"
-                                    min={1}
-                                    value={planForm.durationDays}
-                                    onChange={(e) => setPlanForm({ ...planForm, durationDays: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-plan-price">Price (₹)</Label>
-                                <Input
-                                    id="edit-plan-price"
-                                    type="number"
-                                    min={0}
-                                    value={planForm.price}
-                                    onChange={(e) => setPlanForm({ ...planForm, price: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-plan-currency">Currency</Label>
-                                <Input
-                                    id="edit-plan-currency"
-                                    value={planForm.currency}
-                                    onChange={(e) => setPlanForm({ ...planForm, currency: e.target.value })}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-plan-active">Status</Label>
-                                <select
-                                    id="edit-plan-active"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                    value={planForm.isActive ? "active" : "inactive"}
-                                    onChange={(e) => setPlanForm({ ...planForm, isActive: e.target.value === "active" })}
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-plan-features">Features</Label>
-                            <textarea
-                                id="edit-plan-features"
-                                className="min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                value={planForm.featuresText}
-                                onChange={(e) => setPlanForm({ ...planForm, featuresText: e.target.value })}
-                            />
+                        <div>
+                            <CardTitle className="text-2xl font-black text-gray-800 tracking-tight">Payment History</CardTitle>
+                            <CardDescription className="font-bold text-gray-400">Recent payments and invoices from all branches</CardDescription>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setIsEditDialogOpen(false);
-                                setEditingPlan(null);
-                                resetPlanForm();
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <Button onClick={handleUpdatePlan} disabled={!editingPlan}>
-                            Save changes
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Card>
-                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <CardTitle>Invoices</CardTitle>
-                        <CardDescription>Latest billing history from your branches.</CardDescription>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-                        <Select
-                            key={statusFilter}
-                            defaultValue={statusFilter}
-                            onValueChange={(value) => {
-                                setStatusFilter(value);
-                                setPage(1);
-                            }}
-                        >
-                            <SelectTrigger className="w-[150px] h-8 text-xs">
-                                <SelectValue placeholder="Status" />
+                    <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-1.5 rounded-2xl border border-gray-100">
+                        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>
+                            <SelectTrigger className="w-[140px] h-9 rounded-xl border-0 bg-white shadow-sm font-black text-[10px] uppercase tracking-widest">
+                                <SelectValue placeholder="All Statuses" />
                             </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All statuses</SelectItem>
-                                <SelectItem value="completed">Paid</SelectItem>
+                            <SelectContent className="rounded-xl border-0 shadow-2xl">
+                                <SelectItem value="all">All Statuses</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="failed">Failed</SelectItem>
-                                <SelectItem value="refunded">Refunded</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            type="button"
-                            onClick={() => {
-                                setPeriodFilter("this_month");
-                                setPage(1);
-                            }}
-                        >
-                            This month
+                        <Button variant="outline" size="sm" className={`h-9 rounded-xl font-bold text-[10px] uppercase tracking-widest border-0 shadow-sm ${periodFilter === 'this_month' ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-white text-gray-600'}`} onClick={() => { setPeriodFilter("this_month"); setPage(1); }}>
+                            This Month
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            type="button"
-                            onClick={() => {
-                                setStatusFilter("all");
-                                setPeriodFilter("all");
-                                setPage(1);
-                            }}
-                        >
-                            Clear
+                        <div className="h-6 w-[1px] bg-gray-200 mx-1" />
+                        <Button variant="ghost" size="sm" className="h-9 rounded-xl font-black text-[10px] uppercase tracking-widest text-gray-400 hover:text-gray-900" onClick={() => { setStatusFilter("all"); setPeriodFilter("all"); setPage(1); }}>
+                            Reset
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            type="button"
-                            onClick={() => {
-                                if (payments.length === 0) return;
-                                const headers = ["Invoice #", "Member", "Amount", "Status", "Date"];
-                                const rows = payments.map((p) => [
-                                    p.invoiceNumber || p.id,
-                                    p.memberName,
-                                    p.amount.toString(),
-                                    p.status,
-                                    new Date(p.createdAt).toLocaleDateString(),
-                                ]);
-                                const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
-                                const blob = new Blob([csv], { type: "text/csv" });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = `invoices-${new Date().toISOString().split("T")[0]}.csv`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                                toast({ title: "Exported", description: "Invoices exported to CSV.", variant: "success" });
-                            }}
-                            disabled={payments.length === 0}
-                        >
+                        <Button variant="ghost" size="sm" className="h-9 rounded-xl bg-slate-900 text-white hover:bg-black font-black text-[10px] uppercase tracking-widest px-5 ml-2" onClick={() => {
+                            if (payments.length === 0) return;
+                            const h = ["Invoice", "Branch", "Amount", "Status", "Date"];
+                            const r = payments.map(p => [p.invoiceNumber || p.id, p.memberName, p.amount.toString(), p.status, new Date(p.createdAt).toISOString()]);
+                            const csv = [h, ...r].map(row => row.join(",")).join("\n");
+                            const b = new Blob([csv], { type: "text/csv" });
+                            const u = URL.createObjectURL(b);
+                            const a = document.createElement("a");
+                            a.href = u; a.download = `payments-${Date.now()}.csv`; a.click();
+                            toast({ title: "Payments Exported", variant: "success" });
+                        }}>
                             Export CSV
                         </Button>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    {paymentsError && (
-                        <p className="mb-2 text-xs text-red-500">{paymentsError}</p>
-                    )}
+                <CardContent className="p-0">
+                    {paymentsError && <div className="p-8 text-center text-rose-500 font-bold">{paymentsError}</div>}
                     {paymentsLoading ? (
-                        <p className="text-xs text-muted-foreground">Loading invoices...</p>
+                        <div className="p-20 text-center flex flex-col items-center gap-4">
+                            <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Loading payments...</p>
+                        </div>
                     ) : payments.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No invoices found.</p>
+                        <div className="p-24 text-center opacity-30 flex flex-col items-center gap-4">
+                            <FileText className="h-16 w-16" />
+                            <p className="text-xl font-black text-gray-500 uppercase tracking-widest">No payments found</p>
+                        </div>
                     ) : (
-                        <div className="space-y-4">
-                            {payments.map((payment) => (
-                                <div
-                                    key={payment.id}
-                                    className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
-                                            <Building2 className="h-5 w-5" />
+                        <div className="divide-y divide-gray-50">
+                            {payments.map((p, i) => (
+                                <div key={p.id} className="group p-8 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                                    <div className="flex items-center gap-6">
+                                        <div className={`p-4 rounded-2xl flex items-center justify-center ${i % 2 === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                            <Building2 className="h-6 w-6" />
                                         </div>
                                         <div>
-                                            <p className="font-medium text-sm">{payment.memberName}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Invoice #{payment.invoiceNumber || payment.id} •
-                                                {" "}
-                                                {new Date(payment.createdAt).toLocaleString()}
+                                            <div className="flex items-center gap-3">
+                                                <p className="text-lg font-black text-gray-800 tracking-tight">{p.memberName}</p>
+                                                <Badge variant="outline" className="font-bold text-[9px] uppercase tracking-widest text-gray-400 border-gray-200">#{p.invoiceNumber || p.id.slice(0, 8)}</Badge>
+                                            </div>
+                                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                                                Paid on {new Date(p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-bold">₹{payment.amount.toLocaleString()}</span>
-                                        <Badge
-                                            variant={payment.status === "completed" ? "success" : "destructive"}
-                                        >
-                                            {payment.status === "completed"
-                                                ? "Paid"
-                                                : payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                                    <div className="flex items-center gap-8">
+                                        <div className="text-right">
+                                            <p className="text-2xl font-black text-gray-900 tracking-tighter">₹{p.amount.toLocaleString()}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Amount</p>
+                                        </div>
+                                        <Badge className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm border-0 ${p.status === "completed" ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}>
+                                            {p.status === "completed" ? "COMPLETED" : p.status.toUpperCase()}
                                         </Badge>
+                                        <Button variant="ghost" size="icon" className="rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <ArrowRight className="h-5 w-5 text-gray-400" />
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
+
                     {!paymentsLoading && payments.length > 0 && (
-                        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>
+                        <div className="p-8 border-t border-gray-50 flex items-center justify-between">
+                            <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <span className="h-2 w-2 rounded-full bg-indigo-500" />
                                 Page {page} of {totalPages}
                             </span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    type="button"
+                                    className="h-10 rounded-xl px-6 font-black text-[10px] uppercase border-gray-200"
                                     disabled={page <= 1}
-                                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
                                 >
                                     Previous
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    type="button"
+                                    className="h-10 rounded-xl px-6 font-black text-[10px] uppercase border-gray-200"
                                     disabled={page >= totalPages}
-                                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                 >
                                     Next
                                 </Button>

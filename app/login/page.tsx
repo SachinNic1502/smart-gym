@@ -16,7 +16,7 @@ import { useToast } from "@/components/ui/toast-provider";
 type UserRole = "super_admin" | "branch_admin" | "member";
 
 export default function LoginPage() {
-    const toast = useToast();
+    const { toast } = useToast();
     const { login, memberLogin } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [isOtpSent, setIsOtpSent] = useState(false);

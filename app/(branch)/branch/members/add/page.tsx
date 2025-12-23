@@ -14,7 +14,7 @@ import type { MembershipPlan, PaymentMethod } from "@/lib/types";
 function AddMemberContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const toast = useToast();
+  const { toast } = useToast();
 
   const { user } = useAuth();
   const branchId = user?.branchId;

@@ -166,16 +166,15 @@ export const deviceRepository = {
   async updateAsync(id: string, data: Partial<Device>): Promise<Device | undefined> {
     // Update in-memory first
     const updated = this.update(id, data);
-    if (!updated) return undefined;
 
     await connectToDatabase();
     const persisted = await DeviceModel.findOneAndUpdate(
       { id },
-      { ...updated },
+      { ...data }, // Since service passes merged data, we can just replace/set
       { new: true },
     ).lean<Device | null>();
 
-    return persisted ?? updated;
+    return persisted ?? updated ?? undefined;
   },
 
   async deleteAsync(id: string): Promise<boolean> {

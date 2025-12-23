@@ -25,7 +25,7 @@ import { Html5Qrcode } from "html5-qrcode";
 
 export default function AttendancePage() {
     const [isManualOpen, setIsManualOpen] = useState(false);
-    const toast = useToast();
+    const { toast } = useToast();
 
     const { user } = useAuth();
     const branchId = user?.branchId;

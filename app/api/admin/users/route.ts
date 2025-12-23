@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     });
 
     const actorUserId = auth.session.sub;
-    const actor = authService.getUserById(actorUserId);
+    const actor = await authService.getUserById(actorUserId);
     const ipAddress = getRequestIp(request);
 
     auditService.logAction({

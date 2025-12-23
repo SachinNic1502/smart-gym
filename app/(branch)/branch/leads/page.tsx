@@ -55,7 +55,7 @@ function BranchLeadsPageContent() {
 
   const { user } = useAuth();
   const branchId = user?.branchId;
-  const toast = useToast();
+  const { toast } = useToast();
 
   const loadLeads = useCallback(async () => {
     if (!branchId) return;

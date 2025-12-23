@@ -144,6 +144,17 @@ export const deviceSchema = z
     },
   );
 
+export const deviceUpdateSchema = deviceSchema.partial().refine(
+  (data) => {
+    if (data.connectionType === "lan" && !data.ipAddress && data.ipAddress !== undefined) return false;
+    if (data.connectionType === "cloud" && !data.cloudUrl && data.cloudUrl !== undefined) return false;
+    return true;
+  },
+  {
+    message: "Missing required connection details",
+  }
+);
+
 // ============================================
 // Payment Validation Schemas
 // ============================================

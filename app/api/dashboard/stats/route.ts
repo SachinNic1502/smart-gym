@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     if (auth.session.role === "super_admin") {
-      const stats = await dashboardService.getSuperAdminStats();
+      const { searchParams } = new URL(request.url);
+      const branchId = searchParams.get("branchId") || undefined;
+      const stats = await dashboardService.getSuperAdminStats(branchId);
       return successResponse(stats);
     } else {
       const branchId = auth.session.branchId;

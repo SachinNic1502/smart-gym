@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Users, ShieldCheck, Mail, Phone, Building, Search, SlidersHorizontal, UserPlus, Fingerprint, Settings2, MoreVertical, Shield } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +18,7 @@ import { adminUsersApi, branchesApi, ApiError } from "@/lib/api/client";
 import { createBranchAdminSchema, type CreateBranchAdminFormData } from "@/lib/validations/auth";
 
 export default function TeamPage() {
-  const toast = useToast();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [admins, setAdmins] = useState<User[]>([]);
@@ -158,235 +158,264 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Team</h2>
-          <p className="text-muted-foreground">
-            Manage internal Super Admin users who can access this SaaS control panel.
-          </p>
+    <div className="space-y-8 animate-in fade-in duration-700 pb-12">
+      {/* Header Section */}
+      <div className="relative bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-700 text-white p-8 rounded-[2rem] shadow-2xl overflow-hidden mx-1 border border-white/10">
+        <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-12 -translate-y-12">
+          <Shield className="w-64 h-64" />
         </div>
-        <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-          <DialogTrigger asChild>
-            <Button type="button">
-              <Plus className="mr-2 h-4 w-4" />
-              Invite Admin
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Branch Admin</DialogTitle>
-              <DialogDescription>
-                Create a branch admin with login credentials and branch assignment.
-              </DialogDescription>
-            </DialogHeader>
-            <form
-              onSubmit={inviteForm.handleSubmit(handleInviteAdmin)}
-              className="mt-4 space-y-4"
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="admin-name">Full Name</Label>
-                  <Input
-                    id="admin-name"
-                    placeholder="Alex Manager"
-                    {...inviteForm.register("name")}
-                  />
-                  {inviteForm.formState.errors.name && (
-                    <p className="text-xs text-red-500">
-                      {inviteForm.formState.errors.name.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="admin-email">Email</Label>
-                  <Input
-                    id="admin-email"
-                    type="email"
-                    placeholder="manager@branch.com"
-                    {...inviteForm.register("email")}
-                  />
-                  {inviteForm.formState.errors.email && (
-                    <p className="text-xs text-red-500">
-                      {inviteForm.formState.errors.email.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="admin-phone">Phone (optional)</Label>
-                  <Input
-                    id="admin-phone"
-                    placeholder="+1 (555) 000-0000"
-                    {...inviteForm.register("phone")}
-                  />
-                  {inviteForm.formState.errors.phone && (
-                    <p className="text-xs text-red-500">
-                      {inviteForm.formState.errors.phone.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="admin-branch">Branch</Label>
-                  <select
-                    id="admin-branch"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                    {...inviteForm.register("branchId")}
-                  >
-                    <option value="">Select branch</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
-                  {inviteForm.formState.errors.branchId && (
-                    <p className="text-xs text-red-500">
-                      {inviteForm.formState.errors.branchId.message}
-                    </p>
-                  )}
-                </div>
+        <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
+                <Users className="h-6 w-6 text-white" />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="admin-password">Password</Label>
-                <Input
-                  id="admin-password"
-                  type="password"
-                  placeholder="Min 6 characters"
-                  {...inviteForm.register("password")}
-                />
-                {inviteForm.formState.errors.password && (
-                  <p className="text-xs text-red-500">
-                    {inviteForm.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsInviteOpen(false)}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? "Creating..." : "Create Admin"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-      <Card className="border-t-4 border-t-primary/20">
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Admin Users</CardTitle>
-            <CardDescription>
-              Admin users who can access this SaaS control panel.
-            </CardDescription>
+              <h2 className="text-4xl font-black tracking-tight">Team</h2>
+            </div>
+            <p className="text-orange-50 mt-1 text-lg font-light max-w-xl">
+              Manage admins and assign them to specific gym branches.
+            </p>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            Showing {filteredTeam.length} of {admins.length} admins.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
-            <Input
-              placeholder="Search by name or email"
-              className="h-8 max-w-xs text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Status:</span>
+
+          <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-white text-orange-700 hover:bg-orange-50 font-bold px-6 py-6 rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95">
+                <UserPlus className="mr-2 h-5 w-5" />
+                Invite Admin
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] rounded-[2rem]">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold">Invite New Admin</DialogTitle>
+                <DialogDescription className="font-medium text-gray-500">
+                  Fill in the details below to add a new administrator.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={inviteForm.handleSubmit(handleInviteAdmin)}
+                className="mt-6 space-y-6"
+              >
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-name" className="text-sm font-semibold ml-1">Name</Label>
+                    <Input
+                      id="admin-name"
+                      placeholder="Alex Manager"
+                      className="h-11 rounded-xl"
+                      {...inviteForm.register("name")}
+                    />
+                    {inviteForm.formState.errors.name && (
+                      <p className="text-xs text-red-500 font-medium ml-1">
+                        {inviteForm.formState.errors.name.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-email" className="text-sm font-semibold ml-1">Email</Label>
+                    <Input
+                      id="admin-email"
+                      type="email"
+                      placeholder="manager@branch.com"
+                      className="h-11 rounded-xl"
+                      {...inviteForm.register("email")}
+                    />
+                    {inviteForm.formState.errors.email && (
+                      <p className="text-xs text-red-500 font-medium ml-1">
+                        {inviteForm.formState.errors.email.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-phone" className="text-sm font-semibold ml-1">Phone</Label>
+                    <Input
+                      id="admin-phone"
+                      placeholder="+1 (555) 000-0000"
+                      className="h-11 rounded-xl"
+                      {...inviteForm.register("phone")}
+                    />
+                    {inviteForm.formState.errors.phone && (
+                      <p className="text-xs text-red-500 font-medium ml-1">
+                        {inviteForm.formState.errors.phone.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-branch" className="text-sm font-semibold ml-1">Assign to Branch</Label>
+                    <select
+                      id="admin-branch"
+                      className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500"
+                      {...inviteForm.register("branchId")}
+                    >
+                      <option value="">Select Branch...</option>
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </option>
+                      ))}
+                    </select>
+                    {inviteForm.formState.errors.branchId && (
+                      <p className="text-xs text-red-500 font-medium ml-1">
+                        {inviteForm.formState.errors.branchId.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password" className="text-sm font-semibold ml-1">Password</Label>
+                  <Input
+                    id="admin-password"
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    className="h-11 rounded-xl"
+                    {...inviteForm.register("password")}
+                  />
+                  {inviteForm.formState.errors.password && (
+                    <p className="text-xs text-red-500 font-medium ml-1">
+                      {inviteForm.formState.errors.password.message}
+                    </p>
+                  )}
+                </div>
+                <DialogFooter className="gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-11 rounded-xl"
+                    onClick={() => setIsInviteOpen(false)}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSaving} className="h-11 rounded-xl bg-orange-600 hover:bg-orange-700 font-bold px-8 shadow-lg shadow-orange-100">
+                    {isSaving ? "Inviting..." : "Invite Admin"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Admin Registry */}
+      <Card className="border-0 shadow-2xl shadow-slate-200/50 rounded-3xl overflow-hidden mx-1">
+        <CardHeader className="bg-white border-b border-gray-100 pb-6 pt-8 px-8 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-orange-50 rounded-2xl text-orange-600">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold text-gray-800">Admin List</CardTitle>
+              <CardDescription className="font-medium">
+                Manage your gym admins ({admins.length} total)
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative w-full sm:w-64 group">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
+              <Input
+                placeholder="Search by name or email"
+                className="pl-10 h-10 bg-gray-50 border-gray-200 focus:bg-white focus:ring-orange-500 rounded-xl transition-all text-xs font-bold"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-2 px-3">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-gray-400" />
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">Status</span>
+              </div>
               <select
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                className="h-8 rounded-lg border-0 bg-white shadow-sm px-3 text-xs font-black text-gray-700 focus:ring-2 focus:ring-orange-500"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
               >
-                <option value="all">All</option>
+                <option value="all">All Roles</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </div>
           </div>
-
-          <div className="rounded-md overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[220px]">Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[120px] text-right">Actions</TableHead>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table className="min-w-[900px]">
+              <TableHeader className="bg-gray-50/50">
+                <TableRow className="hover:bg-transparent border-0">
+                  <TableHead className="font-bold text-gray-600 px-8 py-4 uppercase text-[11px] tracking-wider">Admin Details</TableHead>
+                  <TableHead className="font-bold text-gray-600 py-4 uppercase text-[11px] tracking-wider">Branch</TableHead>
+                  <TableHead className="font-bold text-gray-600 py-4 uppercase text-[11px] tracking-wider font-semibold">Role</TableHead>
+                  <TableHead className="font-bold text-gray-600 py-4 uppercase text-[11px] tracking-wider">Status</TableHead>
+                  <TableHead className="text-right font-bold text-gray-600 px-8 py-4 uppercase text-[11px] tracking-wider">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="py-6 text-center text-xs text-muted-foreground"
-                    >
-                      Loading admin users...
+                    <TableCell colSpan={5} className="py-20 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Loading admins...</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : filteredTeam.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="py-6 text-center text-xs text-muted-foreground"
-                    >
-                      No admins match your filters.
+                    <TableCell colSpan={5} className="py-24 text-center">
+                      <div className="flex flex-col items-center gap-4 opacity-30">
+                        <Users className="h-16 w-16" />
+                        <p className="font-black text-gray-500 uppercase tracking-widest text-lg">No admins found</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTeam.map((member) => {
+                  filteredTeam.map((member, index) => {
                     const isSuperAdmin = member.role === "super_admin";
                     const status = "Active";
                     const statusHint = isSuperAdmin
-                      ? "Full platform access"
-                      : "Manages a specific branch";
+                      ? "All Branches"
+                      : (branches.find(b => b.id === member.branchId)?.name || 'Regional Scope');
 
                     return (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      <TableRow key={member.id} className="group hover:bg-orange-50/30 transition-all border-b border-gray-50">
+                        <TableCell className="px-8 py-5">
+                          <div className="flex items-center gap-4">
+                            <Avatar className={`h-11 w-11 rounded-2xl shadow-sm border border-white bg-gradient-to-br ${index % 2 === 0 ? 'from-orange-500 to-amber-600' : 'from-yellow-500 to-orange-600'}`}>
+                              <AvatarFallback className="text-white font-black text-xs">{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm font-medium">{member.name}</p>
-                              <p className="text-xs text-muted-foreground">{member.email}</p>
+                              <p className="font-black text-gray-900 group-hover:text-orange-600 transition-colors uppercase text-xs tracking-tight">{member.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Mail className="h-3 w-3 text-gray-400" />
+                                <span className="text-[10px] font-bold text-gray-500 lowercase">{member.email}</span>
+                              </div>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{member.email}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
+                          <div className="flex items-center gap-2">
+                            <Building className="h-3.5 w-3.5 text-gray-400" />
+                            <p className="text-xs font-black text-gray-600 uppercase tracking-tighter">{statusHint}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`font-black text-[9px] uppercase tracking-widest border-0 py-1 px-3 ${isSuperAdmin ? 'bg-slate-900 text-white' : 'bg-orange-50 text-orange-700'}`}>
                             {isSuperAdmin ? "Super Admin" : "Branch Admin"}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col items-start gap-1">
-                            <Badge
-                              variant={status === "Active" ? "success" : "destructive"}
-                              className="text-xs"
-                            >
-                              {status}
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground">{statusHint}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                            <span className="text-[10px] font-black text-gray-700 uppercase tracking-widest">{status}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-8 text-right">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            type="button"
-                            className="text-xs"
+                            className="h-10 rounded-2xl bg-white border border-gray-100 shadow-sm text-gray-900 hover:bg-gray-50 font-black text-[10px] px-4 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={() => handleOpenManage(member)}
                           >
+                            <Settings2 className="mr-2 h-3.5 w-3.5" />
                             Manage
                           </Button>
                         </TableCell>
@@ -400,57 +429,60 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* Manage Admin Dialog */}
+      {/* Edit Admin Dialog */}
       <Dialog open={isManageOpen} onOpenChange={(open) => {
         setIsManageOpen(open);
         if (!open) setSelectedAdmin(null);
       }}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[480px] rounded-[2rem]">
           <DialogHeader>
-            <DialogTitle>Manage Admin</DialogTitle>
-            <DialogDescription>
-              Update admin details and optionally reset their password.
+            <DialogTitle className="text-2xl font-bold">Edit Admin</DialogTitle>
+            <DialogDescription className="font-medium text-gray-500">
+              Update details for {selectedAdmin?.name}.
             </DialogDescription>
           </DialogHeader>
           <form
             onSubmit={manageForm.handleSubmit(handleUpdateAdmin)}
-            className="mt-4 space-y-4"
+            className="mt-6 space-y-6"
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label htmlFor="manage-name">Full Name</Label>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="manage-name" className="text-sm font-semibold ml-1">Name</Label>
                 <Input
                   id="manage-name"
                   placeholder="Full name"
+                  className="h-11 rounded-xl"
                   {...manageForm.register("name", { required: true })}
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="manage-email">Email</Label>
+              <div className="space-y-2">
+                <Label htmlFor="manage-email" className="text-sm font-semibold ml-1">Email</Label>
                 <Input
                   id="manage-email"
                   type="email"
                   placeholder="email@example.com"
+                  className="h-11 rounded-xl"
                   {...manageForm.register("email", { required: true })}
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="manage-phone">Phone</Label>
+              <div className="space-y-2">
+                <Label htmlFor="manage-phone" className="text-sm font-semibold ml-1">Phone</Label>
                 <Input
                   id="manage-phone"
                   placeholder="+1 (555) 000-0000"
+                  className="h-11 rounded-xl"
                   {...manageForm.register("phone")}
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="manage-branch">Branch</Label>
+              <div className="space-y-2">
+                <Label htmlFor="manage-branch" className="text-sm font-semibold ml-1">Branch</Label>
                 {selectedAdmin?.role === "branch_admin" ? (
                   <select
                     id="manage-branch"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                    className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500"
                     {...manageForm.register("branchId")}
                   >
-                    <option value="">Select branch</option>
+                    <option value="">Select Branch...</option>
                     {branches.map((branch) => (
                       <option key={branch.id} value={branch.id}>
                         {branch.name}
@@ -458,41 +490,36 @@ export default function TeamPage() {
                     ))}
                   </select>
                 ) : (
-                  <Input
-                    id="manage-branch"
-                    value="All branches"
-                    readOnly
-                  />
+                  <div className="h-11 flex items-center px-4 bg-slate-900 rounded-xl text-white font-black text-[10px] uppercase tracking-widest border-0">
+                    All Branches
+                  </div>
                 )}
               </div>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="manage-password">New Password (optional)</Label>
-              <p className="text-[11px] text-muted-foreground">
-                Super admin can set a new password for this admin. Leave blank to keep the current password.
-              </p>
+            <div className="space-y-2">
+              <Label htmlFor="manage-password" className="text-sm font-semibold ml-1">Update Password</Label>
               <Input
                 id="manage-password"
                 type="password"
-                placeholder="Min 6 characters, or leave blank to keep current password"
+                placeholder="Leave blank to keep current password"
+                className="h-11 rounded-xl"
                 {...manageForm.register("password", { minLength: 6 })}
               />
-              {manageForm.formState.errors.password && (
-                <p className="text-xs text-red-500">
-                  Password must be at least 6 characters.
-                </p>
-              )}
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1 ml-1 leading-relaxed">
+                Passwords must be at least 6 characters long.
+              </p>
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 pt-4">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
+                className="h-11 rounded-xl font-bold"
                 onClick={() => setIsManageOpen(false)}
                 disabled={isSaving}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSaving}>
+              <Button type="submit" disabled={isSaving} className="h-11 rounded-xl bg-slate-900 hover:bg-black text-white font-bold px-8 shadow-lg shadow-slate-200">
                 {isSaving ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>

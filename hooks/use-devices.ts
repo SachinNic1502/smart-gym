@@ -78,41 +78,24 @@ export function useDevice(deviceId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!deviceId) {
-      setDevice(null);
+  const fetchDevice = useCallback(async () => {
+    if (!deviceId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await devicesApi.get(deviceId);
+      setDevice(result);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Failed to fetch device";
+      setError(message);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    let cancelled = false;
-
-    const fetchDevice = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const result = await devicesApi.get(deviceId);
-        if (!cancelled) {
-          setDevice(result);
-        }
-      } catch (err) {
-        const message = err instanceof ApiError ? err.message : "Failed to fetch device";
-        if (!cancelled) {
-          setError(message);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchDevice();
-
-    return () => {
-      cancelled = true;
-    };
   }, [deviceId]);
 
-  return { device, loading, error };
+  useEffect(() => {
+    fetchDevice();
+  }, [fetchDevice]);
+
+  return { device, loading, error, refetch: fetchDevice };
 }

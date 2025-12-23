@@ -40,7 +40,7 @@ export default function BranchDietPlansPage() {
     meals: []
   });
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const toast = useToast();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

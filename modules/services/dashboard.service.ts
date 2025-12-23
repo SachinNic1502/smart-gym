@@ -57,40 +57,50 @@ export const dashboardService = {
   /**
    * Get super admin dashboard stats
    */
-  async getSuperAdminStats(): Promise<SuperAdminStats> {
+  async getSuperAdminStats(branchId?: string): Promise<SuperAdminStats> {
     const branches = await branchRepository.findAllAsync();
     const activeBranches = branches.data.filter(b => b.status === "active").length;
-    
-    const members = await memberRepository.findAllAsync();
-    const activeMembers = members.data.filter(m => m.status === "Active").length;
-    
-    const deviceStats = await deviceRepository.getStatsAsync();
 
-    const allPayments = (await paymentRepository.findAllAsync()).data;
+    // If branchId is provided, we filter everything by that branch
+    const members = branchId
+      ? { data: (await memberRepository.findByBranchAsync(branchId)), total: (await memberRepository.findByBranchAsync(branchId)).length }
+      : await memberRepository.findAllAsync();
+
+    const activeMembers = members.data.filter((m: any) => m.status === "Active").length;
+
+    const deviceStats = await deviceRepository.getStatsAsync(branchId);
+
+    const allPayments = branchId
+      ? (await paymentRepository.findAllAsync({ branchId })).data
+      : (await paymentRepository.findAllAsync()).data;
+
     const now = new Date();
     const thirtyDaysAgoIso = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const last30Completed = allPayments.filter(
-      p => p.status === "completed" && p.createdAt >= thirtyDaysAgoIso
+      (p: any) => p.status === "completed" && p.createdAt >= thirtyDaysAgoIso
     );
-    const monthlyRevenue = last30Completed.reduce((sum, p) => sum + p.amount, 0);
+    const monthlyRevenue = last30Completed.reduce((sum: number, p: any) => sum + p.amount, 0);
 
     // Member composition (Active / Churned / Expired)
-    const activeCount = members.data.filter(m => m.status === "Active").length;
-    const expiredCount = members.data.filter(m => m.status === "Expired").length;
+    const activeCount = members.data.filter((m: any) => m.status === "Active").length;
+    const expiredCount = members.data.filter((m: any) => m.status === "Expired").length;
     const churnedCount = members.data.filter(
-      m => m.status === "Cancelled" || m.status === "Frozen"
+      (m: any) => m.status === "Cancelled" || m.status === "Frozen"
     ).length;
 
     const churnRatePercent =
       members.total > 0 ? (churnedCount / members.total) * 100 : 0;
 
     // Avg attendance (last 30 days): average daily unique check-ins / active members
-    const attendanceRecords = (await attendanceRepository.findAllAsync()).data;
+    const attendanceRecords = branchId
+      ? (await attendanceRepository.findAllAsync({ branchId })).data
+      : (await attendanceRepository.findAllAsync()).data;
+
     const daysWindow = 30;
     const dailyUnique = new Map<string, Set<string>>();
     attendanceRecords
-      .filter(r => r.status === "success" && r.checkInTime >= thirtyDaysAgoIso)
-      .forEach(r => {
+      .filter((r: any) => r.status === "success" && r.checkInTime >= thirtyDaysAgoIso)
+      .forEach((r: any) => {
         const dayKey = r.checkInTime.slice(0, 10);
         const set = dailyUnique.get(dayKey) ?? new Set<string>();
         set.add(r.memberId);
@@ -98,7 +108,7 @@ export const dashboardService = {
       });
 
     const totalUniqueAcrossDays = Array.from(dailyUnique.values()).reduce(
-      (sum, set) => sum + set.size,
+      (sum: number, set: Set<string>) => sum + set.size,
       0,
     );
     const avgDailyUnique = totalUniqueAcrossDays / daysWindow;
@@ -124,7 +134,7 @@ export const dashboardService = {
     const newPerMonth = new Map<string, number>();
     const churnPerMonth = new Map<string, number>();
 
-    members.data.forEach(m => {
+    members.data.forEach((m: any) => {
       if (m.createdAt) {
         const createdKey = m.createdAt.slice(0, 7); // YYYY-MM
         newPerMonth.set(createdKey, (newPerMonth.get(createdKey) || 0) + 1);
@@ -143,14 +153,14 @@ export const dashboardService = {
 
     // Top branches by revenue and member count
     const revenueByBranch = new Map<string, number>();
-    const completedPayments = allPayments.filter(p => p.status === "completed");
-    completedPayments.forEach(p => {
+    const completedPayments = allPayments.filter((p: any) => p.status === "completed");
+    completedPayments.forEach((p: any) => {
       const current = revenueByBranch.get(p.branchId) || 0;
       revenueByBranch.set(p.branchId, current + p.amount);
     });
 
     const membersByBranch = new Map<string, number>();
-    members.data.forEach(m => {
+    members.data.forEach((m: any) => {
       const current = membersByBranch.get(m.branchId) || 0;
       membersByBranch.set(m.branchId, current + 1);
     });
@@ -170,19 +180,19 @@ export const dashboardService = {
     return {
       stats: [
         {
-          title: "Total Branches",
-          value: branches.total,
-          change: `${activeBranches} active`,
+          title: branchId ? "Local Branches" : "Total Branches",
+          value: branchId ? 1 : branches.total,
+          change: branchId ? "Selected Region" : `${activeBranches} active`,
           trend: "up",
         },
         {
-          title: "Total Members",
+          title: branchId ? "Branch Members" : "Total Members",
           value: members.total.toLocaleString(),
           change: `${activeMembers} active`,
           trend: "up",
         },
         {
-          title: "Global Revenue",
+          title: branchId ? "Branch Revenue" : "Global Revenue",
           value: `₹${monthlyRevenue.toLocaleString()}`,
           change: "Last 30 days",
           trend: "up",
@@ -207,12 +217,12 @@ export const dashboardService = {
         },
       ],
       charts: {
-        revenueByMonth: await this.getRevenueByMonth(),
+        revenueByMonth: await this.getRevenueByMonth(branchId),
         newVsChurnedByMonth,
         memberComposition,
         topBranches,
       },
-      recentActivity: await this.getRecentActivity(),
+      recentActivity: await this.getRecentActivity(branchId),
     };
   },
 
@@ -222,12 +232,12 @@ export const dashboardService = {
   async getBranchStats(branchId: string): Promise<BranchStats> {
     const members = await memberRepository.findByBranchAsync(branchId);
     const activeMembers = members.filter(m => m.status === "Active").length;
-    
+
     const liveCheckIns = await attendanceRepository.getLiveCountAsync(branchId);
     const todayCollection = await paymentRepository.getTodayTotalAsync(branchId);
     const weekCollection = await paymentRepository.getWeekTotalAsync(branchId);
     const monthRenewals = await paymentRepository.getMonthRenewalsAsync(branchId);
-    
+
     const expiringSoon = await memberRepository.getExpiringSoonAsync(branchId, 7);
     const expiringToday = await memberRepository.getExpiringTodayAsync(branchId);
 
@@ -293,11 +303,12 @@ export const dashboardService = {
   },
 
   // Helper methods
-  async getRevenueByMonth() {
-    const payments = (await paymentRepository.findAllAsync()).data.filter(p => p.status === "completed");
+  async getRevenueByMonth(branchId?: string) {
+    const all = await paymentRepository.findAllAsync(branchId ? { branchId } : undefined);
+    const payments = all.data.filter((p: any) => p.status === "completed");
     const monthMap = new Map<string, number>();
 
-    payments.forEach(p => {
+    payments.forEach((p: any) => {
       const date = new Date(p.createdAt);
       const monthName = date.toLocaleString("en-US", { month: "short" });
       monthMap.set(monthName, (monthMap.get(monthName) || 0) + p.amount);
@@ -346,12 +357,13 @@ export const dashboardService = {
     }));
   },
 
-  async getRecentActivity() {
-    const payments = (await paymentRepository.findAllAsync()).data
-      .filter(p => p.status === "completed")
+  async getRecentActivity(branchId?: string) {
+    const all = await paymentRepository.findAllAsync(branchId ? { branchId } : undefined);
+    const payments = all.data
+      .filter((p: any) => p.status === "completed")
       .slice(0, 5);
 
-    return payments.map(p => ({
+    return payments.map((p: any) => ({
       name: p.memberName,
       action: p.description || "Membership Payment",
       amount: `+₹${p.amount.toLocaleString()}`,

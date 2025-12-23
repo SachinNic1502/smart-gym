@@ -17,7 +17,7 @@ import type { Member } from "@/lib/types";
 
 export default function ProfilePage() {
     const { user, logout } = useAuth();
-    const toast = useToast();
+    const { toast } = useToast();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

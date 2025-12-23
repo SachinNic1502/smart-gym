@@ -13,7 +13,7 @@ import type { AttendanceRecord } from "@/lib/types";
 
 export default function AttendancePage() {
     const { user } = useAuth();
-    const toast = useToast();
+    const { toast } = useToast();
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [checkingIn, setCheckingIn] = useState(false);

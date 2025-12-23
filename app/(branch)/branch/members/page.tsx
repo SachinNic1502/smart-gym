@@ -64,7 +64,7 @@ export default function MembersPage() {
     const [savingMember, setSavingMember] = useState(false);
     const [memberPrograms, setMemberPrograms] = useState<Record<string, MemberProgram>>({});
     const [programSaveMessage, setProgramSaveMessage] = useState<string | null>(null);
-    const toast = useToast();
+    const { toast } = useToast();
 
     const [memberAttendance, setMemberAttendance] = useState<AttendanceRecord[]>([]);
     const [attendanceLoading, setAttendanceLoading] = useState(false);
@@ -289,20 +289,44 @@ export default function MembersPage() {
     }, [memberEditForm, selectedMember, toast]);
 
     const handleDeleteMember = async () => {
-        if (!selectedMember || !window.confirm("Are you sure you want to delete this member? This action cannot be undone.")) return;
-        try {
-            await membersApi.delete(selectedMember.id);
-            toast({
-                title: "Member Deleted",
-                description: `${selectedMember.name} has been permanently deleted.`,
-                variant: "success",
-            });
-            setSelectedMember(null);
-            fetchMembers();
-        } catch (e) {
-            const message = e instanceof ApiError ? e.message : "Failed to delete member";
-            toast({ title: "Error", description: message, variant: "destructive" });
-        }
+        if (!selectedMember) return;
+        const memberToDelete = selectedMember;
+
+        toast({
+            title: "Delete Member?",
+            description: `Permanently delete ${memberToDelete.name}?`,
+            variant: "warning",
+            duration: Infinity,
+            action: ({ dismiss }) => (
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" className="h-8 px-3 text-xs hover:bg-amber-100 text-amber-900" onClick={dismiss}>Cancel</Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 px-3 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                        onClick={async () => {
+                            dismiss();
+                            try {
+                                await membersApi.delete(memberToDelete.id);
+                                toast({
+                                    title: "Member Deleted",
+                                    description: `${memberToDelete.name} has been permanently deleted.`,
+                                    variant: "success",
+                                });
+                                // Only clear selection if we deleted the currently selected member
+                                setSelectedMember((current) => current?.id === memberToDelete.id ? null : current);
+                                fetchMembers();
+                            } catch (e) {
+                                const message = e instanceof ApiError ? e.message : "Failed to delete member";
+                                toast({ title: "Error", description: message, variant: "destructive" });
+                            }
+                        }}
+                    >
+                        Confirm
+                    </Button>
+                </div>
+            )
+        });
     };
 
     const handleCancelMemberEdit = useCallback(() => {
@@ -917,6 +941,71 @@ export default function MembersPage() {
                                                             </TableCell>
                                                             <TableCell className="text-xs text-muted-foreground font-mono py-3 whitespace-nowrap">
                                                                 {r.checkOutTime ? new Date(r.checkOutTime).toLocaleString() : "—"}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="payments" className="mt-0">
+                                {paymentsError ? (
+                                    <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 flex items-center justify-between gap-3">
+                                        <span>{paymentsError}</span>
+                                        {selectedMember ? (
+                                            <Button size="sm" variant="outline" className="bg-white text-rose-700 border-rose-200 hover:bg-rose-50" onClick={() => loadMemberPayments(selectedMember)}>
+                                                Retry
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+
+                                <div className="rounded-lg border bg-white overflow-hidden">
+                                    {paymentsLoading ? (
+                                        <div className="py-12 text-center text-muted-foreground text-sm">Loading payment history...</div>
+                                    ) : memberPayments.length === 0 ? (
+                                        <div className="py-12 text-center text-muted-foreground text-sm">No payment records found.</div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="bg-zinc-50/50 hover:bg-zinc-50/50">
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[150px]">Date</TableHead>
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[100px]">Amount</TableHead>
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[100px]">Method</TableHead>
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[150px]">Description</TableHead>
+                                                        <TableHead className="text-xs font-semibold uppercase tracking-wider min-w-[100px]">Status</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {memberPayments.map((p) => (
+                                                        <TableRow key={p.id} className="hover:bg-zinc-50/50">
+                                                            <TableCell className="font-mono text-xs py-3 whitespace-nowrap">
+                                                                {new Date(p.createdAt).toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell className="font-semibold text-xs py-3">
+                                                                ₹{p.amount}
+                                                            </TableCell>
+                                                            <TableCell className="text-xs capitalize py-3">{p.method}</TableCell>
+                                                            <TableCell className="text-xs text-muted-foreground py-3">
+                                                                {p.description || "—"}
+                                                            </TableCell>
+                                                            <TableCell className="py-3">
+                                                                <Badge
+                                                                    variant={
+                                                                        p.status === "completed"
+                                                                            ? "success"
+                                                                            : p.status === "failed"
+                                                                                ? "destructive"
+                                                                                : "warning"
+                                                                    }
+                                                                    className="text-[10px] px-1.5 py-0.5 h-5 uppercase tracking-wide"
+                                                                >
+                                                                    {p.status}
+                                                                </Badge>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}

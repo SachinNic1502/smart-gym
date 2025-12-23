@@ -24,9 +24,9 @@
 - [x] **Class Booking**: View Schedule.
 
 ## Phase 3: Backend & Data (Next.js API / Server Actions)
-- [ ] **Database Setup**: Connect to Database (PostgreSQL with Prisma).
-- [ ] **Auth**: Implementation of NextAuth.js (Credentials Provider).
-- [ ] **API Routes**: Create CRUD endpoints for Branches, Members, Attendance.
+- [x] **Database Setup**: Connect to Database (MongoDB with Mongoose). *Switched from Prisma/PostgreSQL to MongoDB*
+- [x] **Auth**: Implementation of Custom Auth (Credentials Provider) with JWT and MongoDB adapter.
+- [x] **API Routes**: Create CRUD endpoints for Branches, Members, Attendance, and Users using Async Repositories.
 
 ## Phase 4: Biometric Integration
 - [ ] **Device API**: Endpoints for device heartbeats and command queues.

@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import type { BroadcastMessage, MessageChannel } from "@/lib/types";
 
 export default function CommunicationsPage() {
-    const toast = useToast();
+    const { toast } = useToast();
     const { user } = useAuth();
     const branchId = user?.branchId;
 

@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
 export default function ExpensesPage() {
-    const toast = useToast();
+    const { toast } = useToast();
     const { user } = useAuth();
     const branchId = user?.branchId;
 

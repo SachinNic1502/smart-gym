@@ -22,9 +22,10 @@ export interface DeviceListResult extends PaginatedResult<Device> {
 }
 
 export type CreateDeviceData = DeviceFormData;
-export type UpdateDeviceData = DeviceFormData;
+export type UpdateDeviceData = Partial<DeviceFormData>;
 
-async function findBranchById(branchId: string) {
+async function findBranchById(branchId?: string) {
+  if (!branchId) return undefined;
   // Prefer in-memory branch first (seed data), then fall back to Mongo-backed branch
   const inMemory = branchRepository.findById(branchId);
   if (inMemory) return inMemory;
@@ -98,10 +99,17 @@ export const deviceService = {
       return { success: false, error: "Device not found" };
     }
 
+    let branchName = existing.branchName;
     const branch = await findBranchById(data.branchId);
-    if (!branch) {
+
+    // Validating branch existence
+    if (branch) {
+      branchName = branch.name;
+    } else if (data.branchId !== existing.branchId) {
+      // Only error if we are changing to a new, non-existent branch
       return { success: false, error: "Branch not found" };
     }
+    // If branch not found but ID is same, we assume it's a legacy/mock ID and keep existing branchName (so we don't block updates)
 
     const allowedStatuses: Device["status"][] = ["online", "offline", "maintenance"];
     const status: Device["status"] =
@@ -110,21 +118,21 @@ export const deviceService = {
         : existing.status ?? "online";
 
     const updated = await deviceRepository.updateAsync(id, {
-      name: data.name.trim(),
-      type: data.type,
+      name: (data.name || existing.name).trim(),
+      type: data.type || existing.type,
       status,
-      branchId: data.branchId,
-      branchName: branch.name,
+      branchId: data.branchId || existing.branchId,
+      branchName: branchName, // Use resolved or existing name
       firmwareVersion: data.firmwareVersion,
       model: data.model,
-      connectionType: data.connectionType,
-      ipAddress: data.connectionType === "lan" ? data.ipAddress : undefined,
-      cloudUrl: data.connectionType === "cloud" ? data.cloudUrl : undefined,
+      connectionType: data.connectionType || existing.connectionType, // Fallback if not provided
+      ipAddress: data.connectionType === "lan" ? data.ipAddress : (data.connectionType ? undefined : existing.ipAddress),
+      cloudUrl: data.connectionType === "cloud" ? data.cloudUrl : (data.connectionType ? undefined : existing.cloudUrl),
       lastPing: data.lastPing ?? existing.lastPing,
     });
 
     if (!updated) {
-      return { success: false, error: "Device not found" };
+      return { success: false, error: "Device not found" }; // Corrected error message
     }
 
     return { success: true, data: updated };

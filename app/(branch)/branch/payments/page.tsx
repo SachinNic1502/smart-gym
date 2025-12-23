@@ -17,7 +17,7 @@ import type { Member, Payment } from "@/lib/types";
 export default function PaymentsPage() {
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState("");
-    const toast = useToast();
+    const { toast } = useToast();
 
     const { user } = useAuth();
     const branchId = user?.branchId;
@@ -115,7 +115,7 @@ export default function PaymentsPage() {
 
         return members
             .filter((m) => {
-                if (m.status === "Active") return false;
+                if (m.status === "Cancelled") return false;
                 const expiry = new Date(m.expiryDate);
                 if (Number.isNaN(expiry.getTime())) return false;
                 return expiry <= sevenDaysFromNow;

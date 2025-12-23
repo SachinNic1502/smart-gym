@@ -31,7 +31,7 @@ interface RenewalOption {
 
 export default function MemberRenewalPage() {
   const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
 
   const [profile, setProfile] = useState<Member | null>(null);
   const [currentPlan, setCurrentPlan] = useState<MembershipPlan | null>(null);

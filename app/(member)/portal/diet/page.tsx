@@ -25,7 +25,7 @@ import type { DietPlan, DietLog } from "@/lib/types";
 
 export default function DietPage() {
   const { user } = useAuth();
-  const toast = useToast();
+  const { toast } = useToast();
 
   const [plan, setPlan] = useState<DietPlan | null>(null);
   const [loading, setLoading] = useState(true);

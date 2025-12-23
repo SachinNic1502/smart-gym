@@ -25,7 +25,7 @@ import type { GymClass, Staff, ClassType } from "@/lib/types";
 export default function ClassesPage() {
     const { user } = useAuth();
     const branchId = user?.branchId;
-    const toast = useToast();
+    const { toast } = useToast();
 
     const [activeTab, setActiveTab] = useState("classes");
 

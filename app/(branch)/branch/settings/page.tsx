@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import type { Branch, MembershipPlan, Device } from "@/lib/types";
 
 export default function SettingsPage() {
-    const toast = useToast();
+    const { toast } = useToast();
     const { user } = useAuth();
     const branchId = user?.branchId;
 

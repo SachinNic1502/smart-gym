@@ -15,7 +15,7 @@ export default function MemberMembershipPage() {
   const router = useRouter();
   const params = useParams<{ memberId: string }>();
   const memberId = params?.memberId;
-  const toast = useToast();
+  const { toast } = useToast();
 
   const { user } = useAuth();
 

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { deviceService, auditService } from "@/modules/services";
-import { deviceSchema } from "@/lib/validations/auth";
+import { deviceSchema, deviceUpdateSchema } from "@/lib/validations/auth";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 import { forbiddenResponse } from "@/lib/api/utils";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return errorResponse("Invalid request body");
     }
 
-    const validation = deviceSchema.safeParse(body);
+    const validation = deviceUpdateSchema.safeParse(body);
     if (!validation.success) {
       const issues = validation.error.issues;
       return errorResponse(issues[0]?.message || "Validation failed", 422);
@@ -72,9 +72,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if ("response" in scoped) return scoped.response;
 
     const result = await deviceService.updateDevice(deviceId, {
-      ...validation.data,
-      branchId: scoped.branchId ?? validation.data.branchId,
-    });
+      ...existing.data, // Spread existing data first
+      ...validation.data, // Override with updates
+      branchId: scoped.branchId ?? requestedBranchId, // Ensure scoped branchId
+    } as any);
 
     if (!result.success || !result.data) {
       const status =

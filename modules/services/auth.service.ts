@@ -260,7 +260,13 @@ export const authService = {
   /**
    * Get user by ID
    */
-  getUserById(id: string): User | undefined {
+  async getUserById(id: string): Promise<User | undefined> {
+    try {
+      const dbUser = await userRepository.findByIdAsync(id);
+      if (dbUser) return dbUser;
+    } catch (e) {
+      console.error("Error fetching user from DB:", e);
+    }
     return userRepository.findById(id);
   },
 };

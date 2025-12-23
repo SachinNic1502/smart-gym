@@ -32,7 +32,7 @@ import type { AuditLog } from "@/lib/types";
 export default function BranchAuditLogsPage() {
   const { user } = useAuth();
   const branchId = user?.branchId;
-  const toast = useToast();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

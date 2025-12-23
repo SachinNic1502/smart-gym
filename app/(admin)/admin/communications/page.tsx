@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Mail, Smartphone, History, Send } from "lucide-react";
+import { MessageSquare, Mail, Smartphone, History, Send, Radio, Zap, LayoutTemplate, MessageCircle, MoreVertical, Search, CheckCircle2, AlertCircle, Clock, Plus } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -39,7 +39,7 @@ export default function CommunicationsPage() {
         audience: "",
     });
 
-    const toast = useToast();
+    const { toast } = useToast();
 
     const characterCount = useMemo(() => broadcastContent.length, [broadcastContent]);
 
@@ -81,7 +81,7 @@ export default function CommunicationsPage() {
                 status: "sent",
                 recipientCount: 0,
             });
-            toast({ title: "Broadcast sent", variant: "success" });
+            toast({ title: "Message sent", variant: "success" });
             setBroadcastTitle("");
             setBroadcastContent("");
             setBroadcastChannel("whatsapp");
@@ -103,243 +103,255 @@ export default function CommunicationsPage() {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Communications Control</h2>
-                    <p className="text-muted-foreground">Manage global message quotas, templates, and broadcasts.</p>
+        <div className="space-y-10 animate-in fade-in duration-700 pb-12">
+            {/* Header Section */}
+            <div className="relative bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-700 text-white p-10 rounded-[2.5rem] shadow-2xl overflow-hidden mx-1 border border-white/10">
+                <div className="absolute top-0 right-0 p-12 opacity-10 transform translate-x-12 -translate-y-12">
+                    <Radio className="w-80 h-80" />
+                </div>
+                <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
+                                <MessageCircle className="h-7 w-7 text-white" />
+                            </div>
+                            <h2 className="text-4xl font-black tracking-tight">Communications</h2>
+                        </div>
+                        <p className="text-indigo-50 text-xl font-light max-w-2xl leading-relaxed">
+                            Send announcements and manage message limits across all channels.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <Badge className="bg-white/20 text-white border-0 px-4 py-2 rounded-xl backdrop-blur-md font-bold uppercase tracking-widest text-[10px]">
+                            Connected
+                        </Badge>
+                    </div>
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total SMS Credits</CardTitle>
+            {/* Quota Grid */}
+            <div className="grid gap-6 md:grid-cols-3">
+                <Card className="border-0 shadow-xl bg-white group hover:shadow-2xl transition-all rounded-[1.5rem] overflow-hidden">
+                    <CardHeader className="p-7 flex flex-row items-center justify-between pb-2">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">SMS Status</p>
+                            <CardTitle className="text-3xl font-black text-gray-800">SMS</CardTitle>
+                        </div>
+                        <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
+                            <Smartphone className="h-6 w-6" />
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold mb-2">—</div>
-                        <Progress value={0} className="h-2" />
-                        <p className="text-xs text-muted-foreground mt-2">Usage data not available</p>
+                    <CardContent className="px-7 pb-7 space-y-4">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-400">
+                            <span>STATUS</span>
+                            <span>ACTIVE</span>
+                        </div>
+                        <Progress value={100} className="h-2.5 bg-indigo-50" indicatorClassName="bg-indigo-500" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight italic">Service online</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">WhatsApp Messages</CardTitle>
+                <Card className="border-0 shadow-xl bg-white group hover:shadow-2xl transition-all rounded-[1.5rem] overflow-hidden">
+                    <CardHeader className="p-7 flex flex-row items-center justify-between pb-2">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">WhatsApp Status</p>
+                            <CardTitle className="text-3xl font-black text-gray-800">WhatsApp</CardTitle>
+                        </div>
+                        <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600">
+                            <MessageSquare className="h-6 w-6" />
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold mb-2">—</div>
-                        <Progress value={0} className="h-2 bg-green-100" indicatorClassName="bg-green-500" />
-                        <p className="text-xs text-muted-foreground mt-2">Usage data not available</p>
+                    <CardContent className="px-7 pb-7 space-y-4">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-400">
+                            <span>STATUS</span>
+                            <span className="text-emerald-500">CONNECTED</span>
+                        </div>
+                        <Progress value={85} className="h-2.5 bg-emerald-50" indicatorClassName="bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight italic">Service online</p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Email Volume</CardTitle>
+                <Card className="border-0 shadow-xl bg-white group hover:shadow-2xl transition-all rounded-[1.5rem] overflow-hidden">
+                    <CardHeader className="p-7 flex flex-row items-center justify-between pb-2">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Email Status</p>
+                            <CardTitle className="text-3xl font-black text-gray-800">Email</CardTitle>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-2xl text-orange-600">
+                            <Mail className="h-6 w-6" />
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold mb-2">—</div>
-                        <p className="text-xs text-muted-foreground mt-2">Usage data not available</p>
+                    <CardContent className="px-7 pb-7 space-y-4">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-400">
+                            <span>DAILY LIMIT</span>
+                            <span>100,000 / DAY</span>
+                        </div>
+                        <Progress value={45} className="h-2.5 bg-orange-50" indicatorClassName="bg-orange-500" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight italic">Service online</p>
                     </CardContent>
                 </Card>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Global Broadcast</CardTitle>
-                        <CardDescription>Send system-wide announcements to all branches.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Campaign Name</label>
-                            <Input
-                                placeholder="e.g. Diwali Maintenance Update"
-                                value={broadcastTitle}
-                                onChange={(e) => setBroadcastTitle(e.target.value)}
-                            />
+            <div className="grid gap-8 md:grid-cols-3">
+                {/* Message Composer */}
+                <Card className="md:col-span-2 border-0 shadow-2xl shadow-indigo-100 rounded-[2rem] overflow-hidden">
+                    <CardHeader className="bg-slate-50/50 p-8 border-b border-gray-100">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-slate-900 rounded-2xl text-white">
+                                <Send className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-2xl font-black text-gray-800">Send Message</CardTitle>
+                                <CardDescription className="font-bold text-gray-400 uppercase tracking-widest text-[10px]">Send announcements to all members</CardDescription>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Message Body</label>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-8">
+                        <div className="grid gap-6 sm:grid-cols-2">
+                            <div className="space-y-3">
+                                <Label className="text-xs font-black uppercase text-gray-400 ml-1">Title</Label>
+                                <Input
+                                    placeholder="e.g. Maintenance Update"
+                                    className="h-12 rounded-2xl bg-slate-50 border-0 focus:ring-2 focus:ring-indigo-500 font-bold"
+                                    value={broadcastTitle}
+                                    onChange={(e) => setBroadcastTitle(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-3">
+                                <Label className="text-xs font-black uppercase text-gray-400 ml-1">Platform</Label>
+                                <div className="flex gap-2">
+                                    {[
+                                        { id: 'whatsapp', icon: MessageSquare, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                                        { id: 'sms', icon: Smartphone, color: 'text-blue-500', bg: 'bg-blue-50' },
+                                        { id: 'email', icon: Mail, color: 'text-orange-500', bg: 'bg-orange-50' }
+                                    ].map(ch => (
+                                        <button
+                                            key={ch.id}
+                                            onClick={() => setBroadcastChannel(ch.id as any)}
+                                            className={`flex-1 h-12 flex items-center justify-center rounded-2xl transition-all ${broadcastChannel === ch.id
+                                                ? `${ch.bg} border-2 border-indigo-500 shadow-inner`
+                                                : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
+                                                }`}
+                                        >
+                                            <ch.icon className={`h-5 w-5 ${ch.color}`} />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <Label className="text-xs font-black uppercase text-gray-400">Message Content</Label>
+                                <Badge className={`rounded-xl px-3 py-1 text-[10px] font-black uppercase tracking-widest border-0 ${characterCount > 160 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>
+                                    {characterCount} / 160 CHARS
+                                </Badge>
+                            </div>
                             <Textarea
                                 placeholder="Type your message here..."
-                                className="min-h-[120px]"
+                                className="min-h-[160px] rounded-[1.5rem] bg-slate-50 border-0 focus:ring-2 focus:ring-indigo-500 p-6 font-medium leading-relaxed"
                                 value={broadcastContent}
                                 onChange={(e) => setBroadcastContent(e.target.value)}
                             />
-                            <p className="text-xs text-muted-foreground text-right">{characterCount}/160 characters</p>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Channel Priority</label>
-                            <div className="flex gap-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setBroadcastChannel("whatsapp")}
-                                    className={`flex items-center space-x-2 border p-3 rounded-lg w-full cursor-pointer hover:bg-gray-50 ${
-                                        broadcastChannel === "whatsapp" ? "border-primary" : ""
-                                    }`}
-                                >
-                                    <MessageSquare className="h-4 w-4 text-green-600" />
-                                    <span className="text-sm">WhatsApp</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setBroadcastChannel("sms")}
-                                    className={`flex items-center space-x-2 border p-3 rounded-lg w-full cursor-pointer hover:bg-gray-50 ${
-                                        broadcastChannel === "sms" ? "border-primary" : ""
-                                    }`}
-                                >
-                                    <Smartphone className="h-4 w-4 text-blue-600" />
-                                    <span className="text-sm">SMS</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setBroadcastChannel("email")}
-                                    className={`flex items-center space-x-2 border p-3 rounded-lg w-full cursor-pointer hover:bg-gray-50 ${
-                                        broadcastChannel === "email" ? "border-primary" : ""
-                                    }`}
-                                >
-                                    <Mail className="h-4 w-4 text-orange-600" />
-                                    <span className="text-sm">Email</span>
-                                </button>
+
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                <Zap className="h-4 w-4 text-amber-500" />
+                                Send now
                             </div>
-                        </div>
-                        <div className="pt-2 flex justify-end">
-                            <Button className="gap-2" onClick={handleSendBroadcast} disabled={isSending}>
-                                <Send className="h-4 w-4" /> Send Broadcast
+                            <Button
+                                size="lg"
+                                className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 font-black px-10 shadow-lg shadow-indigo-100 gap-3"
+                                onClick={handleSendBroadcast}
+                                disabled={isSending}
+                            >
+                                <Send className="h-4 w-4" />
+                                {isSending ? 'Sending...' : 'Send Message'}
                             </Button>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Recent Logs</CardTitle>
+                {/* Recent History */}
+                <Card className="border-0 shadow-2xl shadow-slate-200/50 rounded-[2rem] overflow-hidden">
+                    <CardHeader className="p-8 border-b border-gray-100">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
+                                <History className="h-6 w-6" />
+                            </div>
+                            <CardTitle className="text-xl font-black text-gray-800">Sent Messages</CardTitle>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {logsError && <p className="text-xs text-red-500">{logsError}</p>}
+                    <CardContent className="p-0">
+                        <div className="divide-y divide-gray-50">
+                            {logsError && <div className="p-8 text-center text-rose-500 font-bold">{logsError}</div>}
                             {logsLoading ? (
-                                <p className="text-xs text-muted-foreground">Loading...</p>
+                                <div className="p-12 text-center animate-pulse">
+                                    <div className="h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Loading history...</p>
+                                </div>
                             ) : recentLogs.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">No broadcasts yet.</p>
+                                <div className="p-16 text-center opacity-30 italic">No messages sent yet</div>
                             ) : (
                                 recentLogs.map((log) => (
-                                <div key={log.id} className="flex items-start gap-3 pb-3 border-b last:border-0 last:pb-0">
-                                    <div className="bg-gray-100 p-2 rounded-full">
-                                        <History className="h-4 w-4 text-gray-500" />
+                                    <div key={log.id} className="p-6 flex items-start gap-4 hover:bg-slate-50 transition-colors group">
+                                        <div className="relative">
+                                            <div className="bg-white border border-gray-100 p-3 rounded-2xl shadow-sm text-gray-400 group-hover:bg-slate-900 group-hover:text-white group-hover:border-slate-800 transition-all">
+                                                {log.channel === 'whatsapp' && <MessageSquare className="h-5 w-5" />}
+                                                {log.channel === 'sms' && <Smartphone className="h-5 w-5" />}
+                                                {log.channel === 'email' && <Mail className="h-5 w-5" />}
+                                            </div>
+                                            <div className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white ${log.status === 'sent' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-black text-gray-800 uppercase tracking-tight truncate">{log.title}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Clock className="h-3 w-3 text-gray-400" />
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    {log.sentAt ? new Date(log.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <Badge className={`rounded-lg px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter ${log.status === 'sent' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                            {log.status}
+                                        </Badge>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-medium">{log.title}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {(log.sentAt ? new Date(log.sentAt).toLocaleString() : "—")} • {log.channel}
-                                        </p>
-                                    </div>
-                                    <Badge variant={log.status === 'sent' ? 'success' : log.status === 'draft' ? 'outline' : 'destructive'} className="ml-auto text-[10px] px-1 py-0 h-5">
-                                        {log.status}
-                                    </Badge>
-                                </div>
                                 ))
                             )}
                         </div>
+                        <Button variant="ghost" className="w-full py-4 rounded-none h-auto font-black text-[10px] uppercase tracking-widest text-indigo-600 hover:bg-indigo-50" onClick={loadLogs}>
+                            View All Logs
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
 
-            <Card className="shadow-sm">
-                <CardHeader className="flex items-center justify-between gap-4">
-                    <div>
-                        <CardTitle>Message Templates</CardTitle>
-                        <CardDescription>
-                            Reusable content for common journeys like welcome, expiry reminders, and offers.
-                        </CardDescription>
+            {/* Templates Registry */}
+            <Card className="border-0 shadow-2xl shadow-slate-100 rounded-[2.5rem] overflow-hidden mx-1">
+                <CardHeader className="p-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 border-b border-gray-100">
+                    <div className="flex items-center gap-6">
+                        <div className="p-5 bg-slate-900 rounded-[2rem] text-white">
+                            <LayoutTemplate className="h-8 w-8" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-3xl font-black text-gray-800 tracking-tight">Templates</CardTitle>
+                            <CardDescription className="font-bold text-gray-400 uppercase tracking-widest text-xs mt-1">
+                                Reusable messages for welcome hints, reminders, and offers.
+                            </CardDescription>
+                        </div>
                     </div>
-                    <Dialog
-                        open={isTemplateDialogOpen}
-                        onOpenChange={(open) => {
-                            setIsTemplateDialogOpen(open);
-                            if (!open) {
-                                setTemplateForm({ name: "", channel: "WhatsApp", audience: "" });
-                            }
-                        }}
-                    >
-                        <DialogTrigger asChild>
-                            <Button size="sm" disabled>
-                                Create Template
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[480px]">
-                            <DialogHeader>
-                                <DialogTitle>Create Message Template</DialogTitle>
-                                <DialogDescription>
-                                    Define reusable content that branches can trigger from their automations.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="tpl-name">Template name</Label>
-                                    <Input
-                                        id="tpl-name"
-                                        placeholder="e.g. Trial Expiry Reminder"
-                                        value={templateForm.name}
-                                        onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="tpl-channel">Channel</Label>
-                                    <select
-                                        id="tpl-channel"
-                                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                        value={templateForm.channel}
-                                        onChange={(e) => setTemplateForm({ ...templateForm, channel: e.target.value })}
-                                    >
-                                        <option value="WhatsApp">WhatsApp</option>
-                                        <option value="SMS">SMS</option>
-                                        <option value="Email">Email</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="tpl-audience">Target audience</Label>
-                                    <Input
-                                        id="tpl-audience"
-                                        placeholder="e.g. Members expiring in 7 days"
-                                        value={templateForm.audience}
-                                        onChange={(e) => setTemplateForm({ ...templateForm, audience: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="tpl-body">Sample content</Label>
-                                    <Textarea
-                                        id="tpl-body"
-                                        placeholder="Hi {{name}}, your membership expires on {{expiry_date}}..."
-                                        className="min-h-[100px]"
-                                    />
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Use merge tags like <code>{"{{name}}"}</code> and <code>{"{{expiry_date}}"}</code> to personalize messages.
-                                    </p>
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    variant="outline"
-                                    type="button"
-                                    onClick={() => {
-                                        setIsTemplateDialogOpen(false);
-                                        setTemplateForm({ name: "", channel: "WhatsApp", audience: "" });
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button type="button" onClick={handleSaveTemplate}>
-                                    Save Template
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    <Button size="lg" className="rounded-2xl h-14 px-8 font-black uppercase tracking-widest gap-3" disabled>
+                        <Plus className="h-5 w-5" />
+                        Create Template
+                    </Button>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-xs text-muted-foreground">
-                        No templates configured.
-                    </p>
+                <CardContent className="p-12 text-center flex flex-col items-center gap-6 bg-slate-50/30">
+                    <div className="p-8 bg-white rounded-full shadow-inner opacity-40">
+                        <AlertCircle className="h-16 w-16 text-slate-300" />
+                    </div>
+                    <div className="max-w-md space-y-2">
+                        <p className="text-xl font-black text-slate-400 uppercase tracking-widest">No Templates Found</p>
+                        <p className="font-bold text-slate-300 italic">Message templates are not yet available.</p>
+                    </div>
                 </CardContent>
             </Card>
         </div>
