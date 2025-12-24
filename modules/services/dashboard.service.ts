@@ -229,7 +229,7 @@ export const dashboardService = {
   /**
    * Get branch dashboard stats
    */
-  async getBranchStats(branchId: string): Promise<BranchStats> {
+  async getBranchStats(branchId: string, period?: string): Promise<BranchStats> {
     const members = await memberRepository.findByBranchAsync(branchId);
     const activeMembers = members.filter(m => m.status === "Active").length;
 
@@ -295,7 +295,7 @@ export const dashboardService = {
         },
       ],
       charts: {
-        attendanceTrend: await this.getAttendanceTrend(branchId),
+        attendanceTrend: await this.getAttendanceTrend(branchId, period),
       },
       recentCheckIns: await this.getRecentCheckIns(branchId),
       expiringMembers: await this.getExpiringMembers(branchId),
@@ -335,21 +335,93 @@ export const dashboardService = {
     }));
   },
 
-  async getAttendanceTrend(branchId: string) {
-    const today = new Date().toISOString().split("T")[0];
-    const result = await attendanceRepository.findAllAsync({ branchId, date: today });
-    const records = result.data;
+  async getAttendanceTrend(branchId: string, period: string = "day") {
+    const now = new Date();
+    let startDate = new Date();
+    let aggregationType: "hour" | "day" | "week" | "month" = "hour";
+
+    if (period === "week") {
+      startDate.setDate(now.getDate() - 7);
+      aggregationType = "day";
+    } else if (period === "month") {
+      startDate.setDate(1); // 1st of current month
+      aggregationType = "week";
+    } else if (period === "year") {
+      startDate.setMonth(0, 1); // 1st Jan of current year
+      aggregationType = "month";
+    } else {
+      // Day - strict filter for "today"
+      startDate = new Date();
+    }
+    startDate.setHours(0, 0, 0, 0);
+
+    const result = await attendanceRepository.findAllAsync({ branchId });
+    // Filter by date range
+    const records = result.data.filter((r: any) => {
+      const rDate = new Date(r.checkInTime);
+      if (period === "day") {
+        return rDate.toDateString() === now.toDateString();
+      }
+      return rDate >= startDate;
+    });
 
     const buckets = new Map<string, number>();
 
-    records.forEach(r => {
+    // Initialize buckets based on type to ensure continuous axis
+    if (aggregationType === "hour") {
+      const dString = now.toISOString().split('T')[0];
+      for (let i = 6; i <= 22; i++) { // Initialize from 6 AM to 10 PM (typical gym hours)
+        const label = `${dString}T${i.toString().padStart(2, "0")}:00:00`;
+        buckets.set(label, 0);
+      }
+    } else if (aggregationType === "day") {
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        buckets.set(d.toISOString().split('T')[0], 0);
+      }
+    } else if (aggregationType === "month") {
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      monthNames.forEach(m => buckets.set(m, 0));
+    }
+    // "week" (inside month) buckets can be dynamic "Week 1"..."Week 5"
+
+    records.forEach((r: any) => {
       const date = new Date(r.checkInTime);
-      const hour = date.getHours();
-      const label = `${hour.toString().padStart(2, "0")}:00`;
+      let label = "";
+
+      if (aggregationType === "hour") {
+        const hour = date.getHours();
+        label = `${date.toISOString().split("T")[0]}T${hour.toString().padStart(2, "0")}:00:00`;
+      } else if (aggregationType === "day") {
+        label = date.toISOString().split("T")[0];
+      } else if (aggregationType === "week") {
+        const day = date.getDate();
+        const week = Math.ceil(day / 7);
+        label = `Week ${week}`;
+      } else if (aggregationType === "month") {
+        label = date.toLocaleString("en-US", { month: "short" });
+      }
+
       buckets.set(label, (buckets.get(label) || 0) + 1);
     });
 
-    const labels = Array.from(buckets.keys()).sort();
+    // For "day" (hour), fill empty hours if needed or just sort
+    // For "week" (day), sort by date
+    // For "month" (week), sort Week 1..5
+    // For "year" (month), sort Jan..Dec
+
+    const labels = Array.from(buckets.keys());
+
+    if (aggregationType === "month") {
+      // Sort months by calendar order
+      const monthOrder: Record<string, number> = { "Jan": 0, "Feb": 1, "Mar": 2, "Apr": 3, "May": 4, "Jun": 5, "Jul": 6, "Aug": 7, "Sep": 8, "Oct": 9, "Nov": 10, "Dec": 11 };
+      labels.sort((a, b) => monthOrder[a] - monthOrder[b]);
+    } else if (aggregationType === "week") {
+      labels.sort(); // Week 1, Week 2... ok alphabetically
+    } else {
+      labels.sort(); // ISO dates ok alphabetically
+    }
 
     return labels.map(time => ({
       time,

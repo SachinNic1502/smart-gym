@@ -1,8 +1,4 @@
-/**
- * Device Repository
- */
-
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { DeviceModel } from "../models";
 import { paginate, type PaginationOptions, type PaginatedResult, generateId, formatDate } from "./base.repository";
@@ -68,19 +64,23 @@ export const deviceRepository = {
   },
 
   async getStatsAsync(branchId?: string) {
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
 
-    const baseQuery: Record<string, unknown> = {};
-    if (branchId) baseQuery.branchId = branchId;
+      const baseQuery: Record<string, unknown> = {};
+      if (branchId) baseQuery.branchId = branchId;
 
-    const [total, online, offline, maintenance] = await Promise.all([
-      DeviceModel.countDocuments(baseQuery).exec(),
-      DeviceModel.countDocuments({ ...baseQuery, status: "online" }).exec(),
-      DeviceModel.countDocuments({ ...baseQuery, status: "offline" }).exec(),
-      DeviceModel.countDocuments({ ...baseQuery, status: "maintenance" }).exec(),
-    ]);
+      const [total, online, offline, maintenance] = await Promise.all([
+        DeviceModel.countDocuments(baseQuery).exec(),
+        DeviceModel.countDocuments({ ...baseQuery, status: "online" }).exec(),
+        DeviceModel.countDocuments({ ...baseQuery, status: "offline" }).exec(),
+        DeviceModel.countDocuments({ ...baseQuery, status: "maintenance" }).exec(),
+      ]);
 
-    return { total, online, offline, maintenance };
+      return { total, online, offline, maintenance };
+    } catch {
+      return this.getStats(branchId);
+    }
   },
 
   create(data: Omit<Device, "id" | "createdAt">): Device {
@@ -91,6 +91,7 @@ export const deviceRepository = {
       createdAt: formatDate(),
     };
     store.devices.push(device);
+    persistStore();
     return device;
   },
 
@@ -104,7 +105,7 @@ export const deviceRepository = {
       ...data,
       id,
     };
-
+    persistStore();
     return store.devices[index];
   },
 
@@ -113,6 +114,7 @@ export const deviceRepository = {
     const index = store.devices.findIndex(d => d.id === id);
     if (index === -1) return false;
     store.devices.splice(index, 1);
+    persistStore();
     return true;
   },
 
@@ -121,7 +123,11 @@ export const deviceRepository = {
   // ============================================
 
   async findAllAsync(filters?: DeviceFilters, pagination?: PaginationOptions): Promise<PaginatedResult<Device>> {
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findAll(filters, pagination);
+    }
 
     const query: Record<string, unknown> = {};
     if (filters?.branchId) {
@@ -150,37 +156,49 @@ export const deviceRepository = {
   },
 
   async findByIdAsync(id: string): Promise<Device | undefined> {
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findById(id);
+    }
     const doc = await DeviceModel.findOne({ id }).lean<Device | null>();
     return doc ?? undefined;
   },
 
   async createAsync(data: Omit<Device, "id" | "createdAt">): Promise<Device> {
-    // Keep in-memory store in sync
     const device = this.create(data);
-    await connectToDatabase();
-    await DeviceModel.create(device);
+    try {
+      await connectToDatabase();
+      await DeviceModel.create(device);
+    } catch {
+      // ignore and keep in-memory/disk
+    }
     return device;
   },
 
   async updateAsync(id: string, data: Partial<Device>): Promise<Device | undefined> {
-    // Update in-memory first
     const updated = this.update(id, data);
-
-    await connectToDatabase();
-    const persisted = await DeviceModel.findOneAndUpdate(
-      { id },
-      { ...data }, // Since service passes merged data, we can just replace/set
-      { new: true },
-    ).lean<Device | null>();
-
-    return persisted ?? updated ?? undefined;
+    try {
+      await connectToDatabase();
+      const persisted = await DeviceModel.findOneAndUpdate(
+        { id },
+        { ...data },
+        { new: true },
+      ).lean<Device | null>();
+      return persisted ?? updated ?? undefined;
+    } catch {
+      return updated;
+    }
   },
 
   async deleteAsync(id: string): Promise<boolean> {
     const deleted = this.delete(id);
-    await connectToDatabase();
-    await DeviceModel.deleteOne({ id }).exec();
+    try {
+      await connectToDatabase();
+      await DeviceModel.deleteOne({ id }).exec();
+    } catch {
+      // ignore
+    }
     return deleted;
   },
 };

@@ -1,8 +1,4 @@
-/**
- * Communication/Broadcast Repository
- */
-
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { generateId, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
 import type { BroadcastMessage, MessageChannel } from "@/lib/types";
 
@@ -41,6 +37,7 @@ export const communicationRepository = {
       id: generateId("MSG"),
     };
     store.communications.unshift(message);
+    persistStore();
     return message;
   },
 
@@ -54,6 +51,7 @@ export const communicationRepository = {
       ...data,
       id,
     };
+    persistStore();
     return store.communications[index];
   },
 
@@ -62,6 +60,7 @@ export const communicationRepository = {
     const index = store.communications.findIndex(c => c.id === id);
     if (index === -1) return false;
     store.communications.splice(index, 1);
+    persistStore();
     return true;
   },
 };

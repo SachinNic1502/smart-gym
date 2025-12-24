@@ -1,13 +1,12 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Apple, GlassWater, Flame, Utensils, Clock, Trash2, Droplets } from "lucide-react";
+import { Plus, Apple, GlassWater, Flame, Utensils, Clock, Trash2, Droplets, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,35 +35,45 @@ export default function DietPage() {
 
   const [isLogMealOpen, setIsLogMealOpen] = useState(false);
   const [mealForm, setMealForm] = useState({ label: "", calories: 300 });
+  const [mealSearch, setMealSearch] = useState("");
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
+    if (!user) return;
+
     try {
+      // Use local date for logs to ensure we see "Today" from user's perspective
+      const localDate = new Date();
+      const dateParam = localDate.toLocaleDateString('en-CA'); // YYYY-MM-DD
+
       const [programs, summary] = await Promise.all([
         meApi.getMyPrograms(),
-        meApi.getDietLogs() // Defaults to today
+        meApi.getDietLogs(dateParam)
       ]);
 
       if (programs.dietPlan) {
         setPlan(programs.dietPlan);
+      } else {
+        setPlan(null);
       }
 
       setLogs(summary.logs);
       setCaloriesConsumed(summary.caloriesConsumed);
-      setWaterConsumed(summary.waterConsumed); // Liters
+      setWaterConsumed(summary.waterConsumed);
 
     } catch (err) {
       console.error("Failed to load diet data:", err);
-      // toast({ title: "Error", description: "Failed to load diet data", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
 
   useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
+    loadData();
+
+    // Auto-fetch data every 30 seconds to keep logs in sync
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   const handleLogFood = async () => {
     if (!mealForm.label || mealForm.calories <= 0) return;
@@ -82,6 +91,7 @@ export default function DietPage() {
 
       setIsLogMealOpen(false);
       setMealForm({ label: "", calories: 300 });
+      setMealSearch("");
       toast({ title: "Meal logged!", variant: "success" });
     } catch (e) {
       toast({ title: "Failed to log meal", variant: "destructive" });
@@ -152,37 +162,84 @@ export default function DietPage() {
                 <Plus className="w-4 h-4" /> Log Meal
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Log a Meal</DialogTitle>
                 <DialogDescription>
-                  Track what you eat to stay on target.
+                  Search from your plan or add manually.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="meal-name" className="text-right">
-                    Name
-                  </Label>
+
+              <div className="space-y-4 py-4">
+                {/* Search / Select Section */}
+                <div className="space-y-2">
+                  <Label>Search Plan Meals</Label>
                   <Input
-                    id="meal-name"
-                    value={mealForm.label}
-                    placeholder="e.g. Chicken Salad"
-                    className="col-span-3"
-                    onChange={(e) => setMealForm({ ...mealForm, label: e.target.value })}
+                    placeholder="e.g. Breakfast..."
+                    value={mealSearch}
+                    onChange={(e) => setMealSearch(e.target.value)}
+                    className="bg-slate-50"
                   />
+                  {mealSearch && (
+                    <div className="border rounded-md divide-y max-h-[150px] overflow-y-auto bg-white shadow-sm">
+                      {meals
+                        .filter(m => m.name.toLowerCase().includes(mealSearch.toLowerCase()))
+                        .map((m, i) => (
+                          <div
+                            key={i}
+                            className="p-2.5 text-sm hover:bg-slate-50 cursor-pointer flex justify-between items-center group"
+                            onClick={() => {
+                              setMealForm({ label: m.name, calories: m.calories || 0 });
+                              setMealSearch(""); // Clear search to show form clearly
+                            }}
+                          >
+                            <span className="font-medium group-hover:text-primary">{m.name}</span>
+                            <span className="text-muted-foreground text-xs">{m.calories} kcal</span>
+                          </div>
+                        ))}
+                      {meals.filter(m => m.name.toLowerCase().includes(mealSearch.toLowerCase())).length === 0 && (
+                        <div className="p-3 text-center text-xs text-muted-foreground">
+                          No matching meals found in plan.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="calories" className="text-right">
-                    Calories
-                  </Label>
-                  <Input
-                    id="calories"
-                    type="number"
-                    value={mealForm.calories}
-                    className="col-span-3"
-                    onChange={(e) => setMealForm({ ...mealForm, calories: parseInt(e.target.value) || 0 })}
-                  />
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or Manual Entry</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="meal-name" className="text-right">
+                      Name
+                    </Label>
+                    <Input
+                      id="meal-name"
+                      value={mealForm.label}
+                      placeholder="e.g. Chicken Salad"
+                      className="col-span-3"
+                      onChange={(e) => setMealForm({ ...mealForm, label: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="calories" className="text-right">
+                      Calories
+                    </Label>
+                    <Input
+                      id="calories"
+                      type="number"
+                      value={mealForm.calories}
+                      className="col-span-3"
+                      onChange={(e) => setMealForm({ ...mealForm, calories: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
                 </div>
               </div>
               <DialogFooter>

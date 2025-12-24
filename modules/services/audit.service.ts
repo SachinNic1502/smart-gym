@@ -26,6 +26,7 @@ export const auditService = {
     resourceId?: string | null;
     details?: Record<string, unknown>;
     ipAddress?: string;
+    branchId?: string;
   }): AuditLog {
     const {
       userId,
@@ -35,6 +36,7 @@ export const auditService = {
       resourceId,
       details,
       ipAddress,
+      branchId,
     } = params;
 
     const safeUserId = userId ?? "SYSTEM";
@@ -49,6 +51,7 @@ export const auditService = {
       safeResourceId,
       details,
       ipAddress,
+      branchId,
     );
   },
 };

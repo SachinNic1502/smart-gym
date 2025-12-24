@@ -381,12 +381,52 @@ const seedExpenses: Expense[] = [
 // Global Store Instance
 // ============================================
 
+import * as fs from "fs";
+import * as path from "path";
+
+const DB_FILE_PATH = path.join(process.cwd(), ".local-db.json");
+
 class Database {
   private static instance: Database;
   private store: DataStore;
 
   private constructor() {
-    this.store = {
+    this.store = this.loadFromDisk();
+  }
+
+  public static getInstance(): Database {
+    if (!Database.instance) {
+      Database.instance = new Database();
+    }
+    return Database.instance;
+  }
+
+  public getStore(): DataStore {
+    return this.store;
+  }
+
+  private loadFromDisk(): DataStore {
+    try {
+      if (fs.existsSync(DB_FILE_PATH)) {
+        const data = fs.readFileSync(DB_FILE_PATH, "utf-8");
+        const parsed = JSON.parse(data);
+
+        // Rehydrate Maps (OTPs and Passwords)
+        const otps = new Map<string, string>(parsed.otps || []);
+        const passwords = new Map<string, string>(parsed.passwords || []);
+
+        return {
+          ...parsed,
+          otps,
+          passwords,
+        };
+      }
+    } catch (error) {
+      console.error("Failed to load local DB", error);
+    }
+
+    // Fallback to seed data
+    return {
       users: [...seedUsers],
       members: [...seedMembers],
       branches: [...seedBranches],
@@ -413,15 +453,17 @@ class Database {
     };
   }
 
-  public static getInstance(): Database {
-    if (!Database.instance) {
-      Database.instance = new Database();
+  public persist(): void {
+    try {
+      const dataToSave = {
+        ...this.store,
+        otps: Array.from(this.store.otps.entries()),
+        passwords: Array.from(this.store.passwords.entries()),
+      };
+      fs.writeFileSync(DB_FILE_PATH, JSON.stringify(dataToSave, null, 2));
+    } catch (error) {
+      console.error("Failed to persist local DB", error);
     }
-    return Database.instance;
-  }
-
-  public getStore(): DataStore {
-    return this.store;
   }
 
   // Reset to seed data (useful for testing)
@@ -444,8 +486,10 @@ class Database {
     this.store.communications = [];
     this.store.notifications = [];
     this.store.otps.clear();
+    this.persist();
   }
 }
 
 export const db = Database.getInstance();
 export const getStore = () => db.getStore();
+export const persistStore = () => db.persist();

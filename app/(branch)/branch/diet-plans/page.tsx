@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Salad, User, Clock, Plus, Trash2 } from "lucide-react";
+import { Salad, User, Clock, Plus, Trash2, Utensils, Zap, ChefHat } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -203,281 +203,345 @@ export default function BranchDietPlansPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Diet Plans</h2>
-          <p className="text-muted-foreground mt-1">
-            Central nutrition templates for member assignments.
-          </p>
+    <div className="min-h-screen bg-slate-50/50 space-y-8 animate-in fade-in duration-700 pb-10">
+      {/* Header Section */}
+      <div className="relative bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 text-white p-8 rounded-3xl shadow-2xl overflow-hidden mx-1">
+        {/* Abstract Background pattern */}
+        <div className="absolute top-0 right-0 p-12 opacity-10 transform translate-x-10 -translate-y-10">
+          <Salad className="w-64 h-64" />
         </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={exportCsv}
-          >
-            Export
-          </Button>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">Create Diet Plan</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] h-[80vh] flex flex-col p-0">
-              <DialogHeader className="p-6 pb-2">
-                <DialogTitle>Create Diet Plan</DialogTitle>
-                <DialogDescription>
-                  Define a reusable diet template.
-                </DialogDescription>
-              </DialogHeader>
 
-              <ScrollArea className="flex-1 px-6">
-                <div className="space-y-6 pb-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="diet-name">
-                        Plan name <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="diet-name"
-                        placeholder="e.g. Summer Cut"
-                        value={dietForm.name}
-                        onChange={(e) => setDietForm({ ...dietForm, name: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="diet-goal">Goal / Description</Label>
-                      <Input
-                        id="diet-goal"
-                        placeholder="e.g. Fat loss"
-                        value={dietForm.goal}
-                        onChange={(e) => setDietForm({ ...dietForm, goal: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="diet-calories">Total Daily Calories (Target)</Label>
-                    <Input
-                      id="diet-calories"
-                      placeholder="e.g. 2000"
-                      value={dietForm.calories}
-                      onChange={(e) => setDietForm({ ...dietForm, calories: e.target.value })}
-                    />
-                  </div>
+        <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+              Diet Plans
+            </h2>
+            <p className="text-emerald-100 mt-2 text-lg font-light">
+              Central nutrition templates for member assignments.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={exportCsv}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20 backdrop-blur-sm shadow-xl"
+            >
+              Export CSV
+            </Button>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="bg-white text-emerald-900 hover:bg-emerald-50 shadow-xl border-0 font-semibold">
+                  <Plus className="mr-2 h-4 w-4" /> Create Diet Plan
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[700px] h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
+                <DialogHeader className="p-6 pb-4 border-b bg-emerald-50/30">
+                  <DialogTitle className="text-emerald-900">Create Diet Plan</DialogTitle>
+                  <DialogDescription>
+                    Define a reusable diet template.
+                  </DialogDescription>
+                </DialogHeader>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-base font-semibold">Meals</Label>
-                      <Button type="button" size="sm" variant="outline" onClick={handleAddMeal} className="gap-1">
-                        <Plus className="w-3 h-3" /> Add Meal
-                      </Button>
-                    </div>
-
-                    {dietForm.meals.length === 0 ? (
-                      <div className="text-center py-8 border-2 border-dashed rounded-lg text-muted-foreground bg-slate-50">
-                        <Salad className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No meals added yet.</p>
-                        <Button type="button" variant="link" onClick={handleAddMeal}>Add your first meal</Button>
+                <ScrollArea className="flex-1 px-6 py-6 bg-white">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="diet-name" className="text-xs font-bold uppercase text-gray-500">
+                          Plan name <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="diet-name"
+                          placeholder="e.g. Summer Cut"
+                          value={dietForm.name}
+                          onChange={(e) => setDietForm({ ...dietForm, name: e.target.value })}
+                          className="bg-gray-50 focus:bg-white border-gray-200"
+                        />
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {dietForm.meals.map((meal, idx) => (
-                          <div key={idx} className="p-4 border rounded-lg bg-white shadow-sm space-y-3 relative group">
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              className="absolute top-2 right-2 h-6 w-6 text-slate-400 hover:text-red-500"
-                              onClick={() => handleRemoveMeal(idx)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="diet-goal" className="text-xs font-bold uppercase text-gray-500">Goal / Description</Label>
+                        <Input
+                          id="diet-goal"
+                          placeholder="e.g. Fat loss"
+                          value={dietForm.goal}
+                          onChange={(e) => setDietForm({ ...dietForm, goal: e.target.value })}
+                          className="bg-gray-50 focus:bg-white border-gray-200"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="diet-calories" className="text-xs font-bold uppercase text-gray-500">Total Daily Calories (Target)</Label>
+                      <Input
+                        id="diet-calories"
+                        placeholder="e.g. 2000"
+                        value={dietForm.calories}
+                        onChange={(e) => setDietForm({ ...dietForm, calories: e.target.value })}
+                        className="bg-gray-50 focus:bg-white border-gray-200"
+                      />
+                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Meal Name</Label>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <Label className="text-base font-bold text-gray-800">Meals</Label>
+                        <Button type="button" size="sm" variant="ghost" onClick={handleAddMeal} className="gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
+                          <Plus className="w-4 h-4" /> Add Meal
+                        </Button>
+                      </div>
+
+                      {dietForm.meals.length === 0 ? (
+                        <div className="text-center py-10 border-2 border-dashed rounded-xl text-muted-foreground bg-slate-50">
+                          <Salad className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                          <p className="text-sm font-medium">No meals added yet.</p>
+                          <Button type="button" variant="link" onClick={handleAddMeal} className="text-emerald-600">Add your first meal</Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {dietForm.meals.map((meal, idx) => (
+                            <div key={idx} className="p-5 border rounded-xl bg-emerald-50/30 shadow-sm space-y-4 relative group hover:shadow-md transition-all hover:bg-white hover:border-emerald-200">
+                              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full"
+                                  onClick={() => handleRemoveMeal(idx)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-8">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-bold text-gray-500 uppercase">Meal Name</Label>
+                                  <Input
+                                    value={meal.name}
+                                    onChange={(e) => handleUpdateMeal(idx, "name", e.target.value)}
+                                    placeholder="e.g. Breakfast"
+                                    className="h-9 bg-white"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-gray-500 uppercase">Time</Label>
+                                    <Input
+                                      type="time"
+                                      value={meal.time}
+                                      onChange={(e) => handleUpdateMeal(idx, "time", e.target.value)}
+                                      className="h-9 bg-white"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-bold text-gray-500 uppercase">Calories</Label>
+                                    <Input
+                                      type="number"
+                                      value={meal.calories}
+                                      onChange={(e) => handleUpdateMeal(idx, "calories", parseInt(e.target.value) || 0)}
+                                      className="h-9 bg-white"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-bold text-gray-500 uppercase">Items (comma separated)</Label>
                                 <Input
-                                  value={meal.name}
-                                  onChange={(e) => handleUpdateMeal(idx, "name", e.target.value)}
-                                  placeholder="e.g. Breakfast"
-                                  className="h-8"
+                                  value={meal.items.join(", ")}
+                                  onChange={(e) => handleUpdateMeal(idx, "items", e.target.value.split(",").map(i => i.trim()))}
+                                  placeholder="e.g. Oatmeal, Banana, Coffee"
+                                  className="h-9 bg-white"
                                 />
                               </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">Time</Label>
-                                  <Input
-                                    type="time"
-                                    value={meal.time}
-                                    onChange={(e) => handleUpdateMeal(idx, "time", e.target.value)}
-                                    className="h-8"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs text-muted-foreground">Calories</Label>
-                                  <Input
-                                    type="number"
-                                    value={meal.calories}
-                                    onChange={(e) => handleUpdateMeal(idx, "calories", parseInt(e.target.value) || 0)}
-                                    className="h-8"
-                                  />
-                                </div>
-                              </div>
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Items (comma separated)</Label>
-                              <Input
-                                value={meal.items.join(", ")}
-                                onChange={(e) => handleUpdateMeal(idx, "items", e.target.value.split(",").map(i => i.trim()))}
-                                placeholder="e.g. Oatmeal, Banana, Coffee"
-                                className="h-8 opacity-80"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </ScrollArea>
-
-              <DialogFooter className="p-6 pt-2 border-t mt-auto">
-                <Button variant="outline" type="button" onClick={() => setIsCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleSaveDiet}
-                  disabled={!dietForm.name.trim() || dietForm.meals.length === 0}
-                >
-                  Save Plan
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      {saveMessage && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-          {saveMessage}
-        </div>
-      )}
-
-      {error ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 flex items-center justify-between gap-3">
-          <span>{error}</span>
-          <Button size="sm" variant="outline" type="button" onClick={loadData}>
-            Retry
-          </Button>
-        </div>
-      ) : null}
-
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-        <Card className="border-t-4 border-t-emerald-400 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active templates</CardTitle>
-            <Salad className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{loading ? "—" : plans.length}</p>
-            <p className="text-[11px] text-muted-foreground mt-1 underline decoration-emerald-200">Ready to assign</p>
-          </CardContent>
-        </Card>
-        <Card className="border-t-4 border-t-blue-400 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Members on plans</CardTitle>
-            <User className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{loading ? "—" : membersOnPlans}</p>
-            <p className="text-[11px] text-muted-foreground mt-1 underline decoration-blue-200">Active assignments</p>
-          </CardContent>
-        </Card>
-        <Card className="border-t-4 border-t-amber-400 shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Complexity</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{loading ? "—" : avgMeals === null ? "—" : `${avgMeals} meals`}</p>
-            <p className="text-[11px] text-muted-foreground mt-1 underline decoration-amber-200">Avg per plan</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="shadow-sm">
-        <CardHeader className="bg-zinc-50/50 border-b">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle>Diet Templates</CardTitle>
-              <CardDescription>Standardized plans that staff can personalize.</CardDescription>
-            </div>
-            <div className="relative w-full lg:max-w-sm">
-              <Input
-                placeholder="Search plans..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-10 shadow-sm"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-zinc-50/50">
-                  <TableHead className="pl-6 min-w-[200px] text-xs font-bold uppercase tracking-wider">Plan</TableHead>
-                  <TableHead className="min-w-[120px] text-xs font-bold uppercase tracking-wider">Calories</TableHead>
-                  <TableHead className="min-w-[100px] text-xs font-bold uppercase tracking-wider">Meals</TableHead>
-                  <TableHead className="pr-6 text-xs font-bold uppercase tracking-wider">Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-12 text-center text-xs text-muted-foreground">
-                      Loading diet plans...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredPlans.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="py-16 text-center text-xs text-muted-foreground"
-                    >
-                      No diet templates found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredPlans.map((plan) => (
-                    <TableRow key={plan.id} className="hover:bg-zinc-50/50 transition-colors">
-                      <TableCell className="pl-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-foreground">{plan.name}</span>
-                          <span className="text-[10px] font-mono text-muted-foreground">{plan.id}</span>
+                          ))}
                         </div>
+                      )}
+                    </div>
+                  </div>
+                </ScrollArea>
+
+                <DialogFooter className="p-4 border-t bg-slate-50/50">
+                  <Button variant="outline" type="button" onClick={() => setIsCreateOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveDiet}
+                    disabled={!dietForm.name.trim() || dietForm.meals.length === 0}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Save Plan
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-1 space-y-6">
+        {saveMessage && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm animate-in fade-in slide-in-from-top-2">
+            {saveMessage}
+          </div>
+        )}
+
+        {error ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 flex items-center justify-between gap-3 shadow-sm">
+            <span>{error}</span>
+            <Button size="sm" variant="outline" type="button" onClick={loadData} className="bg-white hover:bg-rose-50 text-rose-700 border-rose-200">
+              Retry
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-3 px-1">
+          {/* Active Templates */}
+          <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-emerald-500 to-teal-600 text-white overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150 -translate-y-2 translate-x-2">
+              <ChefHat className="w-24 h-24" />
+            </div>
+            <CardHeader className="pb-2 relative z-10">
+              <CardTitle className="text-sm font-medium uppercase tracking-wider text-emerald-100">
+                Active Templates
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold tracking-tight">
+                {loading ? "—" : plans.length}
+              </div>
+              <p className="text-xs mt-2 flex items-center gap-2 font-medium opacity-90">
+                <span className="w-2 h-2 rounded-full bg-white/80 inline-block" />
+                Ready to assign
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Members on Plans */}
+          <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-blue-500 to-indigo-600 text-white overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150 -translate-y-2 translate-x-2">
+              <User className="w-24 h-24" />
+            </div>
+            <CardHeader className="pb-2 relative z-10">
+              <CardTitle className="text-sm font-medium uppercase tracking-wider text-blue-100">
+                Members on Plans
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold tracking-tight">
+                {loading ? "—" : membersOnPlans}
+              </div>
+              <p className="text-xs mt-2 flex items-center gap-2 font-medium opacity-90">
+                <span className="w-2 h-2 rounded-full bg-white/80 inline-block" />
+                Active assignments
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Complexity */}
+          <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-amber-500 to-orange-600 text-white overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150 -translate-y-2 translate-x-2">
+              <Utensils className="w-24 h-24" />
+            </div>
+            <CardHeader className="pb-2 relative z-10">
+              <CardTitle className="text-sm font-medium uppercase tracking-wider text-amber-100">
+                Complexity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold tracking-tight">
+                {loading ? "—" : avgMeals ?? "—"}
+              </div>
+              <p className="text-xs mt-2 flex items-center gap-2 font-medium opacity-90">
+                <span className="w-2 h-2 rounded-full bg-white/80 inline-block" />
+                Avg meals per plan
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+
+        <Card className="border-0 shadow-lg bg-white overflow-hidden">
+          <CardHeader className="bg-emerald-50/20 border-b border-gray-100 pb-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <CardTitle className="text-lg text-emerald-950">Diet Templates</CardTitle>
+                <CardDescription>Standardized plans that staff can personalize.</CardDescription>
+              </div>
+              <div className="relative w-full lg:max-w-sm">
+                <Input
+                  placeholder="Search plans..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-10 border-slate-200 focus:bg-white transition-all shadow-sm"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow>
+                    <TableHead className="pl-6 font-semibold text-gray-600">Plan</TableHead>
+                    <TableHead className="font-semibold text-gray-600">Calories</TableHead>
+                    <TableHead className="font-semibold text-gray-600">Meals</TableHead>
+                    <TableHead className="pr-6 text-right font-semibold text-gray-600">Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
+                        Loading diet plans...
                       </TableCell>
-                      <TableCell className="py-4 font-medium text-emerald-600">{plan.caloriesPerDay.toLocaleString()} kcal</TableCell>
-                      <TableCell className="py-4">
-                        <Badge variant="secondary" className="font-bold text-[10px]">{plan.meals?.length ?? 0} meals</Badge>
-                      </TableCell>
-                      <TableCell className="pr-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-xs text-muted-foreground">{new Date(plan.createdAt).toLocaleDateString()}</span>
-                          <span className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">{plan.description}</span>
+                    </TableRow>
+                  ) : filteredPlans.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="py-16 text-center text-sm text-muted-foreground"
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="p-3 rounded-full bg-slate-100">
+                            <Salad className="h-6 w-6 text-slate-400" />
+                          </div>
+                          <p>No diet templates found.</p>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  ) : (
+                    filteredPlans.map((plan) => (
+                      <TableRow key={plan.id} className="hover:bg-emerald-50/30 transition-colors cursor-pointer group">
+                        <TableCell className="pl-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-base font-bold text-gray-900 group-hover:text-emerald-700 transition-colors">{plan.name}</span>
+                            <span className="text-xs text-gray-500 mt-0.5 font-mono">{plan.id.substring(0, 8)}...</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-2">
+                            <Zap className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="font-bold text-gray-700">{plan.caloriesPerDay.toLocaleString()} kcal</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <Badge variant="secondary" className="font-bold text-[10px] bg-slate-100 text-slate-600 border border-slate-200">{plan.meals?.length ?? 0} meals</Badge>
+                        </TableCell>
+                        <TableCell className="pr-6 py-4 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="text-xs text-gray-600 font-medium">{new Date(plan.createdAt).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-gray-400 italic truncate max-w-[150px]">{plan.description}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

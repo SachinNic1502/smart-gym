@@ -191,6 +191,10 @@ const SelectItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
         return (
             <div
                 ref={ref}
+                onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }}
                 onClick={(e) => {
                     e.stopPropagation();
                     context?.onValueChange(value);

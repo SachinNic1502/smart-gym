@@ -97,7 +97,33 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         resourceId: result.data.id,
         details: validation.data as unknown as Record<string, unknown>,
         ipAddress,
+        branchId: result.data.branchId,
       });
+
+      // Notify branch admins about device update
+      if (result.data.branchId) {
+        try {
+          const { userRepository, notificationRepository } = await import("@/modules/database");
+          const branchAdmins = await userRepository.findByBranchAsync(result.data.branchId);
+          const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+          for (const admin of adminUsers) {
+            await notificationRepository.createAsync({
+              userId: admin.id,
+              type: "system_announcement" as const,
+              title: "Device Updated",
+              message: `Device "${result.data.name}" was updated by ${actor.userName}`,
+              priority: "low" as const,
+              status: "unread" as const,
+              read: false,
+              data: { deviceId: deviceId, updatedBy: actor.userName },
+              branchId: result.data.branchId,
+            });
+          }
+        } catch (notifError) {
+          console.error("[Devices Update] Failed to create notifications:", notifError);
+        }
+      }
     }
 
     return successResponse(result.data, "Device updated successfully");
@@ -143,7 +169,33 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       resourceId: deviceId,
       details: result.data as unknown as Record<string, unknown>,
       ipAddress,
+      branchId: existing.data.branchId,
     });
+
+    // Notify branch admins about device deletion
+    if (existing.data.branchId) {
+      try {
+        const { userRepository, notificationRepository } = await import("@/modules/database");
+        const branchAdmins = await userRepository.findByBranchAsync(existing.data.branchId);
+        const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+        for (const admin of adminUsers) {
+          await notificationRepository.createAsync({
+            userId: admin.id,
+            type: "system_announcement" as const,
+            title: "Device Removed",
+            message: `Device "${existing.data.name}" was removed by ${actor.userName}`,
+            priority: "low" as const,
+            status: "unread" as const,
+            read: false,
+            data: { deviceId: deviceId, deletedBy: actor.userName, deviceName: existing.data.name },
+            branchId: existing.data.branchId,
+          });
+        }
+      } catch (notifError) {
+        console.error("[Devices Delete] Failed to create notifications:", notifError);
+      }
+    }
 
     return successResponse(result.data, "Device deleted successfully");
   } catch (error) {

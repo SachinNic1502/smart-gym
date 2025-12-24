@@ -2,7 +2,7 @@
  * Expense Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { ExpenseModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -54,6 +54,7 @@ export const expenseRepository = {
       createdAt: formatDate(new Date()),
     };
     store.expenses.unshift(expense);
+    persistStore();
     return expense;
   },
 
@@ -67,6 +68,7 @@ export const expenseRepository = {
       ...data,
       id, // Prevent ID change
     };
+    persistStore();
     return store.expenses[index];
   },
 
@@ -75,6 +77,7 @@ export const expenseRepository = {
     const index = store.expenses.findIndex(e => e.id === id);
     if (index === -1) return false;
     store.expenses.splice(index, 1);
+    persistStore();
     return true;
   },
 
@@ -89,7 +92,7 @@ export const expenseRepository = {
 
   getByCategory(branchId?: string): Record<ExpenseCategory, number> {
     const store = getStore();
-    const expenses = branchId 
+    const expenses = branchId
       ? store.expenses.filter(e => e.branchId === branchId)
       : store.expenses;
 
@@ -149,6 +152,42 @@ export const expenseRepository = {
       pageSize: docs.length,
       totalPages: 1,
     };
+  },
+
+  async findByIdAsync(id: string): Promise<Expense | undefined> {
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findById(id);
+    }
+    const doc = await ExpenseModel.findOne({ id }).lean<Expense | null>();
+    return doc ?? undefined;
+  },
+
+  async updateAsync(id: string, data: Partial<Expense>): Promise<Expense | null> {
+    const updated = this.update(id, data);
+    try {
+      await connectToDatabase();
+      const doc = await ExpenseModel.findOneAndUpdate(
+        { id },
+        { ...data, id },
+        { new: true },
+      ).lean<Expense | null>();
+      return doc ?? updated;
+    } catch {
+      return updated;
+    }
+  },
+
+  async deleteAsync(id: string): Promise<boolean> {
+    const deleted = this.delete(id);
+    try {
+      await connectToDatabase();
+      const res = await ExpenseModel.deleteOne({ id }).exec();
+      return res.deletedCount === 1;
+    } catch {
+      return deleted;
+    }
   },
 
   async createAsync(data: Omit<Expense, "id" | "createdAt">): Promise<Expense> {

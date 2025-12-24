@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { leadSchema } from "@/lib/validations/auth";
-import { leadService } from "@/modules/services";
+import { leadService, auditService } from "@/modules/services";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
+import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 
 // GET /api/leads - List leads
 export async function GET(request: NextRequest) {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
     if ("response" in scoped) return scoped.response;
-    
+
     const filters = {
       branchId: scoped.branchId,
       status: searchParams.get("status") || undefined,
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<Record<string, unknown>>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
@@ -68,6 +69,45 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       return errorResponse(result.error || "Failed to create lead", 409);
+    }
+
+    const actor = await getRequestUser();
+    const ipAddress = getRequestIp(request);
+
+    auditService.logAction({
+      userId: actor.userId,
+      userName: actor.userName,
+      action: "create_lead",
+      resource: "lead",
+      resourceId: result.data?.id || "unknown",
+      details: (result.data || {}) as unknown as Record<string, unknown>,
+      ipAddress,
+      branchId: scoped.branchId,
+    });
+
+    // Notify Branch Admins about new lead
+    if (result.success && result.data && scoped.branchId) {
+      try {
+        const { userRepository, notificationRepository } = await import("@/modules/database");
+        const branchAdmins = await userRepository.findByBranchAsync(scoped.branchId);
+        const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+        for (const admin of adminUsers) {
+          await notificationRepository.createAsync({
+            userId: admin.id,
+            type: "lead_assigned" as const,
+            title: "New Lead Generated",
+            message: `New lead: ${result.data.name}`,
+            priority: "medium" as const,
+            status: "unread" as const,
+            read: false,
+            data: { leadId: result.data.id },
+            branchId: scoped.branchId,
+          });
+        }
+      } catch (notifError) {
+        console.error("[Leads] Failed to create notifications:", notifError);
+      }
     }
 
     return successResponse(result.data, "Lead created successfully", 201);

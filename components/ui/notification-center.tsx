@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bell, Check, Filter, X, Settings, Trash2 } from "lucide-react";
+import { Bell, Check, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -27,7 +26,8 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/toast-provider";
 import { notificationsApi, ApiError } from "@/lib/api/client";
 import { NotificationItem } from "@/components/ui/notification-item";
-import type { Notification, NotificationType, NotificationPriority } from "@/lib/types";
+import type { Notification } from "@/lib/types";
+import { useAuth } from "@/hooks/use-auth";
 
 interface NotificationCenterProps {
   trigger?: React.ReactNode;
@@ -46,6 +46,7 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
   });
   const [showFilters, setShowFilters] = useState(false);
 
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const loadNotifications = useCallback(async () => {
@@ -59,6 +60,9 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
       if (filters.type) params.type = filters.type;
       if (filters.priority) params.priority = filters.priority;
       if (filters.status) params.status = filters.status;
+      // If user is branch_admin, maybe we want to force branchId? 
+      // API handles it, but explicit is okay too.
+      // if (user?.branchId) params.branchId = user.branchId;
 
       const response = await notificationsApi.list(params);
       setNotifications(response.data);
@@ -68,7 +72,7 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
     } finally {
       setLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, toast, user]);
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -139,15 +143,12 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
   const hasActiveFilters = filters.type || filters.priority || filters.status;
 
   const defaultTrigger = (
-    <Button variant="ghost" size="sm" className="relative">
-      <Bell className="h-4 w-4" />
+    <Button variant="ghost" size="sm" className="relative transition-all hover:bg-slate-100 dark:hover:bg-slate-800">
+      <Bell className="h-4 w-4 text-slate-600 dark:text-slate-300" />
       {unreadCount > 0 && (
-        <Badge
-          variant="destructive"
-          className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
-        >
+        <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-medium text-white shadow-sm animate-in zoom-in duration-300">
           {unreadCount > 99 ? "99+" : unreadCount}
-        </Badge>
+        </span>
       )}
     </Button>
   );
@@ -157,30 +158,38 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[420px] max-h-[85vh] p-0 gap-0 overflow-hidden border-0 shadow-2xl bg-white dark:bg-slate-950">
+        <DialogHeader className="p-4 py-3 bg-slate-50/80 dark:bg-slate-900/50 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20">
           <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle>Notifications</DialogTitle>
-              <DialogDescription>
-                Stay updated with your latest activities and alerts.
-              </DialogDescription>
-            </div>
             <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                <Bell className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900 dark:text-slate-100">Notifications</DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 font-medium">
+                  {unreadCount > 0 ? `You have ${unreadCount} unread messages` : "No new notifications"}
+                </DialogDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full"
                   onClick={handleMarkAllAsRead}
+                  title="Mark all as read"
                 >
-                  <Check className="h-4 w-4 mr-1" />
-                  Mark all read
+                  <Check className="h-4 w-4" />
                 </Button>
               )}
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
+                className={`h-8 w-8 rounded-full transition-colors ${showFilters ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
                 onClick={() => setShowFilters(!showFilters)}
+                title="Filter notifications"
               >
                 <Filter className="h-4 w-4" />
               </Button>
@@ -189,92 +198,80 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
         </DialogHeader>
 
         {showFilters && (
-          <Card className="border-dashed">
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select
-                    value={filters.type}
-                    onValueChange={(value) => setFilters({ ...filters, type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All types</SelectItem>
-                      <SelectItem value="member_check_in">Check In</SelectItem>
-                      <SelectItem value="payment_received">Payment</SelectItem>
-                      <SelectItem value="class_reminder">Class</SelectItem>
-                      <SelectItem value="workout_assigned">Workout</SelectItem>
-                      <SelectItem value="system_announcement">System</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <Select
-                    value={filters.priority}
-                    onValueChange={(value) => setFilters({ ...filters, priority: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All priorities" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All priorities</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={filters.status}
-                    onValueChange={(value) => setFilters({ ...filters, status: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All statuses</SelectItem>
-                      <SelectItem value="unread">Unread</SelectItem>
-                      <SelectItem value="read">Read</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <div className="bg-slate-50 dark:bg-slate-900/30 p-4 border-b border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-bold text-slate-400">Type</Label>
+                <Select
+                  value={filters.type}
+                  onValueChange={(value) => setFilters({ ...filters, type: value })}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All types</SelectItem>
+                    <SelectItem value="member_check_in">Check In</SelectItem>
+                    <SelectItem value="payment_received">Payment</SelectItem>
+                    <SelectItem value="class_reminder">Class</SelectItem>
+                    <SelectItem value="workout_assigned">Workout</SelectItem>
+                    <SelectItem value="system_announcement">System</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              {hasActiveFilters && (
-                <div className="flex justify-end mt-2">
-                  <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    <X className="h-4 w-4 mr-1" />
-                    Clear filters
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-bold text-slate-400">Status</Label>
+                <Select
+                  value={filters.status}
+                  onValueChange={(value) => setFilters({ ...filters, status: value })}
+                >
+                  <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="unread">Unread</SelectItem>
+                    <SelectItem value="read">Read</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="w-full mt-3 h-7 text-xs text-slate-500 hover:text-slate-900"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
         )}
 
-        <Separator />
-
-        <ScrollArea className="flex-1 max-h-[400px]">
+        <ScrollArea className="flex-1 min-h-[300px] max-h-[450px] bg-white dark:bg-slate-950">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-sm text-muted-foreground">Loading notifications...</div>
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <div className="h-6 w-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+              <div className="text-xs font-medium text-slate-400">Syncing...</div>
             </div>
           ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Bell className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-medium">No notifications</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {hasActiveFilters ? "Try adjusting your filters" : "You're all caught up!"}
+            <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+              <div className="h-16 w-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                <Bell className="h-8 w-8 text-slate-300" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">All caught up!</h3>
+              <p className="text-xs text-slate-400 mt-1 max-w-[200px]">
+                {hasActiveFilters ? "No notifications match your filters." : "You have no new notifications at the moment."}
               </p>
+              {hasActiveFilters && (
+                <Button variant="link" size="sm" onClick={clearFilters} className="mt-2 text-rose-500">
+                  Clear Filters
+                </Button>
+              )}
             </div>
           ) : (
-            <div className="space-y-2 p-1">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {notifications.map((notification) => (
                 <NotificationItem
                   key={notification.id}
@@ -284,6 +281,9 @@ export function NotificationCenter({ trigger, onNotificationClick }: Notificatio
                   onClick={onNotificationClick}
                 />
               ))}
+              <div className="p-4 text-center">
+                <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest">End of notifications</p>
+              </div>
             </div>
           )}
         </ScrollArea>

@@ -15,12 +15,15 @@ export async function GET(request: NextRequest) {
       const stats = await dashboardService.getSuperAdminStats(branchId);
       return successResponse(stats);
     } else {
+      const { searchParams } = new URL(request.url);
       const branchId = auth.session.branchId;
+      const period = searchParams.get("period") || undefined;
+
       if (!branchId) {
         return errorResponse("Branch not assigned", 403);
       }
 
-      const stats = await dashboardService.getBranchStats(branchId);
+      const stats = await dashboardService.getBranchStats(branchId, period);
       return successResponse(stats);
     }
 

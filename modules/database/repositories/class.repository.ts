@@ -2,7 +2,7 @@
  * Class Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { GymClassModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -55,6 +55,7 @@ export const classRepository = {
       createdAt: formatDate(new Date()),
     };
     store.classes.push(gymClass);
+    persistStore();
     return gymClass;
   },
 
@@ -68,6 +69,7 @@ export const classRepository = {
       ...data,
       id,
     };
+    persistStore();
     return store.classes[index];
   },
 
@@ -76,6 +78,7 @@ export const classRepository = {
     const index = store.classes.findIndex(c => c.id === id);
     if (index === -1) return false;
     store.classes.splice(index, 1);
+    persistStore();
     return true;
   },
 
@@ -84,6 +87,7 @@ export const classRepository = {
     const gymClass = store.classes.find(c => c.id === classId);
     if (!gymClass || gymClass.enrolled >= gymClass.capacity) return false;
     gymClass.enrolled++;
+    persistStore();
     return true;
   },
 
@@ -92,6 +96,7 @@ export const classRepository = {
     const gymClass = store.classes.find(c => c.id === classId);
     if (!gymClass || gymClass.enrolled <= 0) return false;
     gymClass.enrolled--;
+    persistStore();
     return true;
   },
 

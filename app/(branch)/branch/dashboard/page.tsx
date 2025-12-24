@@ -26,8 +26,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-    AreaChart,
-    Area,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -35,6 +35,13 @@ import {
     ResponsiveContainer,
     TooltipProps
 } from 'recharts';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast-provider";
 import { branchesApi, dashboardApi, ApiError } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -130,6 +137,7 @@ export default function BranchDashboard() {
     const [branchStats, setBranchStats] = useState<BranchStatsResponse | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [timeRange, setTimeRange] = useState("day");
 
     // Alerts
     const [expiringSoon, setExpiringSoon] = useState<ExpiringSoonItem[]>([]);
@@ -161,7 +169,7 @@ export default function BranchDashboard() {
             // Run independent requests in parallel
             const [branchRes, statsRes, alertsRes] = await Promise.allSettled([
                 branchesApi.get(branchId),
-                dashboardApi.getStats(),
+                dashboardApi.getStats(user?.role, branchId, timeRange),
                 branchesApi.getAlerts(branchId, { days: 7, limit: 8 })
             ]);
 
@@ -195,7 +203,7 @@ export default function BranchDashboard() {
         } finally {
             if (!isBackground) setLoading(false);
         }
-    }, [branchId, user]);
+    }, [branchId, user, timeRange]);
 
 
     useEffect(() => {
@@ -317,7 +325,7 @@ export default function BranchDashboard() {
                 {/* Left Column: Charts & Quick Actions */}
                 <div className="md:col-span-5 space-y-8">
                     {/* Occupancy Chart */}
-                    <Card className="border-0 shadow-lg bg-white overflow-hidden">
+                    <Card className="border-0 shadow-lg bg-white">
                         <CardHeader className="border-b border-gray-100 bg-gray-50/50">
                             <div className="flex items-center justify-between">
                                 <div>
@@ -326,10 +334,23 @@ export default function BranchDashboard() {
                                     </CardTitle>
                                     <p className="text-sm text-gray-500 mt-1">Real-time gym traffic view</p>
                                 </div>
-                                <Badge variant="outline" className="font-normal text-xs bg-blue-50 text-blue-700 border-blue-100 px-3 py-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5 animate-pulse"></span>
-                                    Live
-                                </Badge>
+                                <div className="flex items-center gap-2">
+                                    <Select value={timeRange} onValueChange={setTimeRange}>
+                                        <SelectTrigger className="w-[120px] h-8 text-xs bg-white border-gray-200">
+                                            <SelectValue placeholder="Select period" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="day">Today</SelectItem>
+                                            <SelectItem value="week">This Week</SelectItem>
+                                            <SelectItem value="month">This Month</SelectItem>
+                                            <SelectItem value="year">This Year</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Badge variant="outline" className="font-normal text-xs bg-blue-50 text-blue-700 border-blue-100 px-3 py-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5 animate-pulse"></span>
+                                        Live
+                                    </Badge>
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent className="p-6">
@@ -342,16 +363,10 @@ export default function BranchDashboard() {
                                     </div>
                                 ) : (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart
+                                        <LineChart
                                             data={attendanceData}
-                                            margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
+                                            margin={{ top: 20, right: 20, left: -20, bottom: 0 }}
                                         >
-                                            <defs>
-                                                <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.5} />
                                             <XAxis
                                                 dataKey="time"
@@ -360,25 +375,57 @@ export default function BranchDashboard() {
                                                 tickLine={false}
                                                 axisLine={false}
                                                 dy={10}
-                                                interval="preserveStartEnd"
+                                                minTickGap={30}
+                                                tickFormatter={(value) => {
+                                                    if (!value) return "";
+                                                    const date = new Date(value);
+                                                    // If not a parseable date, just return the value string
+                                                    if (isNaN(date.getTime())) return value;
+
+                                                    if (timeRange === "day") {
+                                                        // "10:30" or "10:30 AM"
+                                                        return date.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit' });
+                                                    }
+
+                                                    if (timeRange === "week") {
+                                                        // "Mon", "Tue"
+                                                        return date.toLocaleDateString("en-US", { weekday: "short" });
+                                                    }
+
+                                                    if (timeRange === "month") {
+                                                        // "Week 1", "Week 2"
+                                                        const day = date.getDate();
+                                                        const week = Math.ceil(day / 7);
+                                                        return `Week ${week}`;
+                                                    }
+
+                                                    if (timeRange === "year") {
+                                                        // "Jan", "Feb"
+                                                        return date.toLocaleDateString("en-US", { month: "short" });
+                                                    }
+
+                                                    return value;
+                                                }}
                                             />
                                             <YAxis
                                                 stroke="#6B7280"
                                                 fontSize={12}
                                                 tickLine={false}
                                                 axisLine={false}
-                                                tickCount={5}
+                                                allowDecimals={false}
+                                                domain={[0, 'auto']}
                                             />
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Area
+                                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#6366f1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                            <Line
                                                 type="monotone"
                                                 dataKey="users"
-                                                stroke="hsl(var(--primary))"
+                                                stroke="#3b82f6"
                                                 strokeWidth={3}
-                                                fillOpacity={1}
-                                                fill="url(#colorUsers)"
+                                                dot={false}
+                                                activeDot={{ r: 6, strokeWidth: 4, fill: "#3b82f6", stroke: "#eff6ff" }}
+                                                animationDuration={1500}
                                             />
-                                        </AreaChart>
+                                        </LineChart>
                                     </ResponsiveContainer>
                                 )}
                             </div>

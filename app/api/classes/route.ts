@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { classRepository } from "@/modules/database";
+import { auditService } from "@/modules/services";
 import type { GymClass, ClassType } from "@/lib/types";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
+import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 
 // GET /api/classes - List classes
 export async function GET(request: NextRequest) {
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
     if ("response" in scoped) return scoped.response;
-    
+
     const filters = {
       branchId: scoped.branchId,
       trainerId: searchParams.get("trainerId") || undefined,
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<Partial<GymClass>>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
@@ -62,6 +64,43 @@ export async function POST(request: NextRequest) {
       schedule: body.schedule || [],
       status: body.status || "active",
     });
+
+    const actor = await getRequestUser();
+    const ipAddress = getRequestIp(request);
+
+    auditService.logAction({
+      userId: actor.userId,
+      userName: actor.userName,
+      action: "create_class",
+      resource: "class",
+      resourceId: gymClass.id,
+      details: { ...gymClass },
+      ipAddress,
+      branchId: scoped.branchId,
+    });
+
+    // Notify Branch Admins
+    try {
+      const { userRepository, notificationRepository } = await import("@/modules/database");
+      const branchAdmins = await userRepository.findByBranchAsync(scoped.branchId);
+      const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+      for (const admin of adminUsers) {
+        await notificationRepository.createAsync({
+          userId: admin.id,
+          type: "branch_update" as const,
+          title: "New Class Scheduled",
+          message: `New class '${gymClass.name}' scheduled by ${gymClass.trainerName}`,
+          priority: "medium" as const,
+          status: "unread" as const,
+          read: false,
+          data: { classId: gymClass.id },
+          branchId: scoped.branchId,
+        });
+      }
+    } catch (notifError) {
+      console.error("[Classes] Failed to create notifications:", notifError);
+    }
 
     return successResponse(gymClass, "Class created successfully", 201);
 

@@ -278,6 +278,7 @@ export interface AuditLog {
   resourceId: string;
   details?: Record<string, unknown>;
   ipAddress?: string;
+  branchId?: string;
   timestamp: string;
 }
 
@@ -360,6 +361,7 @@ export interface Notification {
   createdAt: string;
   readAt?: string;
   expiresAt?: string;
+  branchId?: string;
 }
 
 export interface NotificationPreferences {

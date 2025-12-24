@@ -2,7 +2,7 @@
  * Staff Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { StaffModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -65,6 +65,7 @@ export const staffRepository = {
       updatedAt: now,
     };
     store.staff.push(staff);
+    persistStore();
     return staff;
   },
 
@@ -79,6 +80,7 @@ export const staffRepository = {
       id,
       updatedAt: formatDate(new Date()),
     };
+    persistStore();
     return store.staff[index];
   },
 
@@ -87,6 +89,7 @@ export const staffRepository = {
     const index = store.staff.findIndex(s => s.id === id);
     if (index === -1) return false;
     store.staff.splice(index, 1);
+    persistStore();
     return true;
   },
 
@@ -96,8 +99,8 @@ export const staffRepository = {
 
   getTrainers(branchId?: string): Staff[] {
     const store = getStore();
-    return store.staff.filter(s => 
-      s.role === "trainer" && 
+    return store.staff.filter(s =>
+      s.role === "trainer" &&
       s.status === "active" &&
       (!branchId || s.branchId === branchId)
     );

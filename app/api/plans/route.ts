@@ -3,6 +3,8 @@ import { successResponse, errorResponse } from "@/lib/api/utils";
 import { planRepository } from "@/modules/database";
 import { requireSession } from "@/lib/api/require-auth";
 import { connectToDatabase } from "@/modules/database/mongoose";
+import { auditService } from "@/modules/services";
+import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 import type { WorkoutPlan, DietPlan } from "@/lib/types";
 
 // GET /api/plans - List all plans (membership, workout, diet)
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     const plans = await planRepository.findAllMembershipPlansAsync(true);
-    
+
     return successResponse({
       data: plans,
       total: plans.length,
@@ -77,6 +79,20 @@ export async function POST(request: NextRequest) {
         exercises: exercises || [],
       };
       const created = await planRepository.createWorkoutPlanAsync(newPlan as WorkoutPlan);
+
+      const actor = await getRequestUser();
+      const ipAddress = getRequestIp(request);
+      auditService.logAction({
+        userId: actor.userId,
+        userName: actor.userName,
+        action: "create_workout_plan",
+        resource: "plan",
+        resourceId: created.id,
+        details: { name: created.name, type: "workout" },
+        ipAddress,
+        branchId: auth.session.branchId, // Capture branch context if available
+      });
+
       return successResponse(created, "Workout plan created successfully");
     }
 
@@ -92,6 +108,20 @@ export async function POST(request: NextRequest) {
         meals: meals || [],
       };
       const created = await planRepository.createDietPlanAsync(newPlan as DietPlan);
+
+      const actor = await getRequestUser();
+      const ipAddress = getRequestIp(request);
+      auditService.logAction({
+        userId: actor.userId,
+        userName: actor.userName,
+        action: "create_diet_plan",
+        resource: "plan",
+        resourceId: created.id,
+        details: { name: created.name, type: "diet" },
+        ipAddress,
+        branchId: auth.session.branchId,
+      });
+
       return successResponse(created, "Diet plan created successfully");
     }
 

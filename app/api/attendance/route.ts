@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
-import { attendanceService } from "@/modules/services";
+import { attendanceService, auditService } from "@/modules/services";
 import type { AttendanceMethod } from "@/lib/types";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
+import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 
 // GET /api/attendance - List attendance records
 export async function GET(request: NextRequest) {
@@ -66,6 +67,22 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       return errorResponse(result.error || "Check-in failed", 403);
+    }
+
+    const actor = await getRequestUser();
+    const ipAddress = getRequestIp(request);
+
+    if (result.data) {
+      auditService.logAction({
+        userId: actor.userId,
+        userName: actor.userName,
+        action: "check_in",
+        resource: "attendance",
+        resourceId: result.data.id,
+        details: { memberId, method, status: result.data.status } as Record<string, unknown>,
+        ipAddress,
+        branchId,
+      });
     }
 
     return successResponse(result.data, result.message, 201);

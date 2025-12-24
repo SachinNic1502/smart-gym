@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { expenseRepository } from "@/modules/database";
+import { auditService } from "@/modules/services";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
+import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 
 // GET /api/expenses - List expenses
 export async function GET(request: NextRequest) {
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
     if ("response" in scoped) return scoped.response;
-    
+
     const filters = {
       branchId: scoped.branchId,
       category: (searchParams.get("category") as ExpenseCategory) || undefined,
@@ -41,7 +43,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<Partial<Expense>>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
@@ -61,6 +63,20 @@ export async function POST(request: NextRequest) {
       description: body.description,
       date: body.date,
       createdBy: body.createdBy || "SYSTEM",
+    });
+
+    const actor = await getRequestUser();
+    const ipAddress = getRequestIp(request);
+
+    auditService.logAction({
+      userId: actor.userId,
+      userName: actor.userName,
+      action: "create_expense",
+      resource: "expense",
+      resourceId: expense.id,
+      details: { category: expense.category, amount: expense.amount },
+      ipAddress,
+      branchId: scoped.branchId,
     });
 
     return successResponse(expense, "Expense created successfully", 201);

@@ -2,7 +2,7 @@
  * Audit Log Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { generateId, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
 import type { AuditLog } from "@/lib/types";
 
@@ -12,6 +12,7 @@ export interface AuditFilters {
   action?: string;
   startDate?: string;
   endDate?: string;
+  branchId?: string;
 }
 
 export const auditRepository = {
@@ -29,6 +30,10 @@ export const auditRepository = {
 
     if (filters.action) {
       filtered = filtered.filter(a => a.action === filters.action);
+    }
+
+    if (filters.branchId) {
+      filtered = filtered.filter(a => a.branchId === filters.branchId);
     }
 
     if (filters.startDate) {
@@ -53,6 +58,7 @@ export const auditRepository = {
       timestamp: new Date().toISOString(),
     };
     store.auditLogs.unshift(log);
+    persistStore();
     return log;
   },
 
@@ -64,7 +70,8 @@ export const auditRepository = {
     resource: string,
     resourceId: string,
     details?: Record<string, unknown>,
-    ipAddress?: string
+    ipAddress?: string,
+    branchId?: string
   ): AuditLog {
     return this.create({
       userId,
@@ -74,6 +81,7 @@ export const auditRepository = {
       resourceId,
       details,
       ipAddress,
+      branchId,
     });
   },
 };

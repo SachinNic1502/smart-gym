@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { staffRepository } from "@/modules/database";
+import { auditService } from "@/modules/services";
 import type { Staff, StaffRole } from "@/lib/types";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
+import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 
 // GET /api/staff - List staff
 export async function GET(request: NextRequest) {
@@ -69,6 +71,43 @@ export async function POST(request: NextRequest) {
       status: body.status || "active",
       avatar: body.avatar,
     });
+
+    const actor = await getRequestUser();
+    const ipAddress = getRequestIp(request);
+
+    auditService.logAction({
+      userId: actor.userId,
+      userName: actor.userName,
+      action: "create_staff",
+      resource: "staff",
+      resourceId: staff.id,
+      details: { name: staff.name, role: staff.role },
+      ipAddress,
+      branchId: scoped.branchId,
+    });
+
+    // Notify Branch Admins
+    try {
+      const { userRepository, notificationRepository } = await import("@/modules/database");
+      const branchAdmins = await userRepository.findByBranchAsync(scoped.branchId);
+      const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+      for (const admin of adminUsers) {
+        await notificationRepository.createAsync({
+          userId: admin.id,
+          type: "branch_update" as const,
+          title: "New Staff Member",
+          message: `${staff.name} has joined as ${staff.role}`,
+          priority: "medium" as const,
+          status: "unread" as const,
+          read: false,
+          data: { staffId: staff.id },
+          branchId: scoped.branchId,
+        });
+      }
+    } catch (notifError) {
+      console.error("[Staff] Failed to create notifications:", notifError);
+    }
 
     return successResponse(staff, "Staff member created successfully", 201);
 

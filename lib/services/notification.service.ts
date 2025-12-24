@@ -14,6 +14,7 @@ export class NotificationService {
     priority?: NotificationPriority;
     actionUrl?: string;
     data?: Record<string, any>;
+    branchId?: string;
   }): Promise<Notification> {
     const notification = await notificationsApi.create({
       userId: data.userId,
@@ -24,6 +25,7 @@ export class NotificationService {
       read: false,
       actionUrl: data.actionUrl,
       data: data.data,
+      branchId: data.branchId,
     });
 
     return notification;
@@ -150,10 +152,11 @@ export class NotificationService {
       actionUrl?: string;
       data?: Record<string, any>;
       priority?: NotificationPriority;
+      branchId?: string;
     }
   ): Promise<Notification> {
     const template = (this.templates[templateKey] as any)(...templateArgs);
-    
+
     return this.createNotification({
       userId,
       type: template.type,
@@ -162,6 +165,7 @@ export class NotificationService {
       priority: options?.priority || template.priority,
       actionUrl: options?.actionUrl,
       data: options?.data,
+      branchId: options?.branchId,
     });
   }
 
@@ -190,10 +194,29 @@ export class NotificationService {
     notificationData: Omit<Notification, "id" | "createdAt" | "userId">,
     userRole?: string
   ): Promise<Notification[]> {
-    // In a real implementation, you would fetch users from the branch
-    // For now, this is a placeholder that would need to be implemented
-    // based on your user management system
-    console.log("Sending branch notification:", { branchId, notificationData, userRole });
-    return [];
+    try {
+      // Need to import userRepository dynamically or move this to a higher level to avoid circular deps if any
+      // But standard import should work if layers are clean.
+      // Importing here to be safe and clear.
+      const { userRepository } = await import("@/modules/database/repositories/user.repository");
+
+      let users = await userRepository.findByBranchAsync(branchId);
+
+      if (userRole) {
+        users = users.filter(u => u.role === userRole);
+      }
+
+      if (users.length === 0) return [];
+
+      const userIds = users.map(u => u.id);
+
+      return this.sendBulkNotification(userIds, {
+        ...notificationData,
+        branchId, // Ensure branchId is attached
+      });
+    } catch (error) {
+      console.error("Failed to send branch notification:", error);
+      return [];
+    }
   }
 }

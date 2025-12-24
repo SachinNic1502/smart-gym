@@ -2,7 +2,7 @@
  * Attendance Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { AttendanceModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -66,6 +66,7 @@ export const attendanceRepository = {
       id: generateId("ATT"),
     };
     getStore().attendance.unshift(record);
+    persistStore();
     return record;
   },
 
@@ -74,6 +75,7 @@ export const attendanceRepository = {
     const record = store.attendance.find(a => a.id === id);
     if (record) {
       record.checkOutTime = formatDate();
+      persistStore();
     }
     return record;
   },

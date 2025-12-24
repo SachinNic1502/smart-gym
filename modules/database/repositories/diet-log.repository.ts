@@ -1,9 +1,8 @@
-
 /**
  * Diet Log Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { DietLogModel } from "../models";
 import { generateId, formatDate } from "./base.repository";
@@ -48,6 +47,7 @@ export const dietLogRepository = {
             createdAt: now,
         };
         getStore().dietLogs.push(log);
+        persistStore();
         return log;
     },
 
@@ -56,6 +56,7 @@ export const dietLogRepository = {
         const index = store.dietLogs.findIndex(l => l.id === id);
         if (index === -1) return false;
         store.dietLogs.splice(index, 1);
+        persistStore();
         return true;
     },
 
@@ -64,7 +65,11 @@ export const dietLogRepository = {
     // ============================================
 
     async findAllAsync(filters: DietLogFilters): Promise<DietLog[]> {
-        await connectToDatabase();
+        try {
+            await connectToDatabase();
+        } catch {
+            return this.findAll(filters);
+        }
 
         const query: Record<string, unknown> = { memberId: filters.memberId };
 
@@ -73,9 +78,10 @@ export const dietLogRepository = {
         }
 
         if (filters.startDate || filters.endDate) {
-            query.date = {};
-            if (filters.startDate) (query.date as any).$gte = filters.startDate;
-            if (filters.endDate) (query.date as any).$lte = filters.endDate;
+            const dateQuery: Record<string, string> = {};
+            if (filters.startDate) dateQuery.$gte = filters.startDate;
+            if (filters.endDate) dateQuery.$lte = filters.endDate;
+            query.date = dateQuery;
         }
 
         if (filters.type) {
@@ -90,20 +96,24 @@ export const dietLogRepository = {
     },
 
     async createAsync(data: Omit<DietLog, "id" | "createdAt" | "updatedAt">): Promise<DietLog> {
-        await connectToDatabase();
-        const now = formatDate();
-        const log: DietLog = {
-            ...data,
-            id: generateId("DLG"),
-            createdAt: now,
-        };
-        await DietLogModel.create(log);
+        const log = this.create(data);
+        try {
+            await connectToDatabase();
+            await DietLogModel.create(log);
+        } catch {
+            // ignore
+        }
         return log;
     },
 
     async deleteAsync(id: string): Promise<boolean> {
-        await connectToDatabase();
-        const res = await DietLogModel.deleteOne({ id }).exec();
-        return res.deletedCount === 1;
+        const deleted = this.delete(id);
+        try {
+            await connectToDatabase();
+            const res = await DietLogModel.deleteOne({ id }).exec();
+            return res.deletedCount === 1;
+        } catch {
+            return deleted;
+        }
     }
 };

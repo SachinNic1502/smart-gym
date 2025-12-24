@@ -76,7 +76,33 @@ export async function POST(request: NextRequest) {
         resourceId: result.data.id,
         details: result.data as unknown as Record<string, unknown>,
         ipAddress,
+        branchId: scoped.branchId,
       });
+
+      // Notify Branch Admins
+      if (scoped.branchId) {
+        try {
+          const { userRepository, notificationRepository } = await import("@/modules/database");
+          const branchAdmins = await userRepository.findByBranchAsync(scoped.branchId);
+          const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+          for (const admin of adminUsers) {
+            await notificationRepository.createAsync({
+              userId: admin.id,
+              type: "system_announcement" as const,
+              title: "New Device Registered",
+              message: `New ${result.data.type} device '${result.data.name}' has been registered.`,
+              priority: "low" as const,
+              status: "unread" as const,
+              read: false,
+              data: { deviceId: result.data.id },
+              branchId: scoped.branchId,
+            });
+          }
+        } catch (notifError) {
+          console.error("[Devices] Failed to create notifications:", notifError);
+        }
+      }
     }
 
     return successResponse(result.data, "Device created successfully", 201);

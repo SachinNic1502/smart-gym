@@ -1,8 +1,4 @@
-/**
- * Branch Repository
- */
-
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { BranchModel, MemberModel, DeviceModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -65,6 +61,7 @@ export const branchRepository = {
       updatedAt: now,
     };
     getStore().branches.push(branch);
+    persistStore();
     return branch;
   },
 
@@ -79,6 +76,7 @@ export const branchRepository = {
       id,
       updatedAt: formatDate(),
     };
+    persistStore();
     return store.branches[index];
   },
 
@@ -87,6 +85,7 @@ export const branchRepository = {
     const index = store.branches.findIndex(b => b.id === id);
     if (index === -1) return false;
     store.branches.splice(index, 1);
+    persistStore();
     return true;
   },
 
@@ -103,7 +102,11 @@ export const branchRepository = {
   // ============================================
 
   async findAllAsync(filters?: BranchFilters, pagination?: PaginationOptions): Promise<PaginatedResult<Branch>> {
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findAll(filters, pagination);
+    }
 
     const query: Record<string, unknown> = {};
     if (filters?.status) {
@@ -143,7 +146,11 @@ export const branchRepository = {
   },
 
   async findByIdAsync(id: string): Promise<Branch | undefined> {
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findById(id);
+    }
     const doc = await BranchModel.findOne({ id }).lean<Branch | null>();
     if (!doc) return undefined;
 
@@ -156,45 +163,62 @@ export const branchRepository = {
   },
 
   async findByNameAsync(name: string): Promise<Branch | undefined> {
-    await connectToDatabase();
+    try {
+      await connectToDatabase();
+    } catch {
+      return this.findByName(name);
+    }
     const doc = await BranchModel.findOne({ name }).lean<Branch | null>();
     return doc ?? undefined;
   },
 
   async createAsync(data: Omit<Branch, "id" | "createdAt" | "updatedAt" | "memberCount" | "deviceCount">): Promise<Branch> {
-    await connectToDatabase();
-    const now = formatDate();
-    const branch: Branch = {
-      ...data,
-      id: generateId("BRN"),
-      memberCount: 0,
-      deviceCount: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await BranchModel.create(branch);
+    const branch = this.create(data);
+
+    try {
+      await connectToDatabase();
+      await BranchModel.create(branch);
+    } catch {
+      // ignore and keep in-memory/disk
+    }
     return branch;
   },
 
   async updateAsync(id: string, data: Partial<Branch>): Promise<Branch | undefined> {
-    await connectToDatabase();
-    const updated = await BranchModel.findOneAndUpdate(
-      { id },
-      { ...data, id, updatedAt: formatDate() },
-      { new: true },
-    ).lean<Branch | null>();
-    return updated ?? undefined;
+    const updated = this.update(id, data);
+
+    try {
+      await connectToDatabase();
+      const doc = await BranchModel.findOneAndUpdate(
+        { id },
+        { ...data, id, updatedAt: formatDate() },
+        { new: true },
+      ).lean<Branch | null>();
+      return doc ?? updated;
+    } catch {
+      return updated;
+    }
   },
 
   async deleteAsync(id: string): Promise<boolean> {
-    await connectToDatabase();
-    const res = await BranchModel.deleteOne({ id }).exec();
-    return res.deletedCount === 1;
+    const deleted = this.delete(id);
+
+    try {
+      await connectToDatabase();
+      const res = await BranchModel.deleteOne({ id }).exec();
+      return res.deletedCount === 1;
+    } catch {
+      return deleted;
+    }
   },
 
   async getMemberCountAsync(id: string): Promise<number> {
-    await connectToDatabase();
-    const count = await MemberModel.countDocuments({ branchId: id }).exec();
-    return count;
+    try {
+      await connectToDatabase();
+      const count = await MemberModel.countDocuments({ branchId: id }).exec();
+      return count;
+    } catch {
+      return this.getMemberCount(id);
+    }
   },
 };

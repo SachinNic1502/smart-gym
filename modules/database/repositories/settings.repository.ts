@@ -1,8 +1,4 @@
-/**
- * Settings Repository
- */
-
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import type { SystemSettings } from "@/lib/types";
 
 export const settingsRepository = {
@@ -13,6 +9,7 @@ export const settingsRepository = {
   update(data: Partial<SystemSettings>): SystemSettings {
     const store = getStore();
     store.settings = { ...store.settings, ...data };
+    persistStore();
     return store.settings;
   },
 };

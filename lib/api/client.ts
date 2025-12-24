@@ -169,6 +169,16 @@ export const membersApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  block: (id: string) =>
+    request<Member>(`/members/${id}/block`, {
+      method: "POST",
+    }),
+
+  unblock: (id: string) =>
+    request<Member>(`/members/${id}/unblock`, {
+      method: "POST",
+    }),
 };
 
 // ============================================
@@ -415,6 +425,13 @@ export const staffApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  update: (id: string, data: Partial<Staff>) =>
+    request<Staff>(`/staff/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: string) =>
+    request<{ id: string }>(`/staff/${id}`, { method: "DELETE" }),
 };
 
 // ============================================
@@ -456,10 +473,11 @@ export const auditLogsApi = {
 // ============================================
 
 export const dashboardApi = {
-  getStats: (role?: string, branchId?: string) => {
+  getStats: (role?: string, branchId?: string, period?: string) => {
     const params: Record<string, string> = {};
     if (role) params.role = role;
     if (branchId) params.branchId = branchId;
+    if (period) params.period = period;
     const query = Object.keys(params).length ? `?${new URLSearchParams(params)}` : "";
     return request<unknown>(`/dashboard/stats${query}`);
   },

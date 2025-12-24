@@ -2,7 +2,7 @@
  * Lead Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { LeadModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -83,6 +83,7 @@ export const leadRepository: {
       updatedAt: now,
     };
     getStore().leads.unshift(lead);
+    persistStore();
     return lead;
   },
 
@@ -97,6 +98,7 @@ export const leadRepository: {
       id,
       updatedAt: formatDate(),
     };
+    persistStore();
     return store.leads[index];
   },
 
@@ -105,14 +107,15 @@ export const leadRepository: {
     const index = store.leads.findIndex(l => l.id === id);
     if (index === -1) return false;
     store.leads.splice(index, 1);
+    persistStore();
     return true;
   },
 
   getStats(branchId?: string) {
-    const leads = branchId 
+    const leads = branchId
       ? getStore().leads.filter(l => l.branchId === branchId)
       : getStore().leads;
-    
+
     return {
       total: leads.length,
       new: leads.filter(l => l.status === "new").length,

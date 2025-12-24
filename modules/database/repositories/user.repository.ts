@@ -2,7 +2,7 @@
  * User Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { UserModel } from "../models";
 import { formatDate } from "./base.repository";
@@ -37,6 +37,7 @@ export const userRepository = {
   setOtp(phone: string, otp: string): void {
     const normalized = phone.replace(/\D/g, "");
     getStore().otps.set(normalized, otp);
+    persistStore();
   },
 
   getOtp(phone: string): string | undefined {
@@ -47,6 +48,7 @@ export const userRepository = {
   clearOtp(phone: string): void {
     const normalized = phone.replace(/\D/g, "");
     getStore().otps.delete(normalized);
+    persistStore();
   },
 
   generateOtp(): string {
@@ -89,5 +91,15 @@ export const userRepository = {
 
     // @ts-ignore
     return doc ?? undefined;
+  },
+
+  findByBranch(branchId: string): User[] {
+    return getStore().users.filter(u => u.branchId === branchId);
+  },
+
+  async findByBranchAsync(branchId: string): Promise<User[]> {
+    await connectToDatabase();
+    // @ts-ignore
+    return UserModel.find({ branchId }).lean();
   },
 };

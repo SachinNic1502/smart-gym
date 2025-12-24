@@ -2,7 +2,7 @@
  * Notification Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { generateId, type PaginationOptions, type PaginatedResult } from "./base.repository";
 import type { Notification, NotificationPreferences, NotificationType, NotificationStatus } from "@/lib/types";
@@ -97,6 +97,7 @@ export const notificationRepository: {
     };
 
     getStore().notifications.unshift(notification);
+    persistStore();
     return notification;
   },
 
@@ -106,6 +107,7 @@ export const notificationRepository: {
     if (index === -1) return undefined;
 
     store.notifications[index] = { ...store.notifications[index], ...data };
+    persistStore();
     return store.notifications[index];
   },
 
@@ -115,6 +117,7 @@ export const notificationRepository: {
     if (index === -1) return false;
 
     store.notifications.splice(index, 1);
+    persistStore();
     return true;
   },
 
@@ -132,6 +135,7 @@ export const notificationRepository: {
       notification.readAt = now;
     });
 
+    persistStore();
     return userNotifications;
   },
 

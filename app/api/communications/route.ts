@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { communicationRepository } from "@/modules/database";
+import { auditService } from "@/modules/services";
 import type { BroadcastMessage, MessageChannel } from "@/lib/types";
-import { requireSession } from "@/lib/api/require-auth";
+import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
+import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 
 // GET /api/communications - List communications
 export async function GET(request: NextRequest) {
@@ -12,8 +14,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const pagination = getPaginationParams(searchParams);
-    
+
+    const scoped = resolveBranchScope(auth.session, searchParams.get("branchId"));
+    if ("response" in scoped) return scoped.response;
+
     const filters = {
+      branchId: scoped.branchId, // Ensure repository supports this (if not, it's a limitation but safe to pass)
       channel: (searchParams.get("channel") as MessageChannel) || undefined,
       status: (searchParams.get("status") as "sent" | "scheduled" | "draft") || undefined,
     };
@@ -34,7 +40,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<Partial<BroadcastMessage>>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
@@ -50,6 +56,23 @@ export async function POST(request: NextRequest) {
       recipientCount: body.recipientCount || 0,
       sentAt: body.status === "sent" ? new Date().toISOString() : "",
       status: body.status || "draft",
+    });
+
+    const actor = await getRequestUser();
+    const ipAddress = getRequestIp(request);
+
+    // Check if we can determine branch from actor
+    const branchId = auth.session.branchId;
+
+    auditService.logAction({
+      userId: actor.userId,
+      userName: actor.userName,
+      action: "create_communication",
+      resource: "communication",
+      resourceId: message.id,
+      details: { title: message.title, channel: message.channel, status: message.status },
+      ipAddress,
+      branchId,
     });
 
     return successResponse(message, "Message created successfully", 201);

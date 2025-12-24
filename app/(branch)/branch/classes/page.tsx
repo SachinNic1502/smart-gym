@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Clock, Plus, User, MoreHorizontal, TrendingUp } from "lucide-react";
+import { Calendar, Clock, Plus, User, MoreHorizontal, TrendingUp, Sparkles, Users, Award, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -45,7 +45,7 @@ export default function ClassesPage() {
         trainerId: "",
         type: "yoga" as ClassType,
         scheduleTime: "",
-        duration: "60 min",
+        duration: "60",
         capacity: "20",
         description: "",
     });
@@ -56,6 +56,8 @@ export default function ClassesPage() {
         email: "",
         phone: "",
     });
+
+
 
     const [typeSearch, setTypeSearch] = useState("");
     const [customType, setCustomType] = useState("");
@@ -149,7 +151,7 @@ export default function ClassesPage() {
                 trainerId: "",
                 type: "yoga",
                 scheduleTime: "",
-                duration: "60 min",
+                duration: "60",
                 capacity: "20",
                 description: "",
             });
@@ -185,18 +187,301 @@ export default function ClassesPage() {
             toast({ title: "Error", description: message, variant: "destructive" });
         }
     };
-
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Classes & Trainers</h2>
-                    <p className="text-muted-foreground">Manage your gym schedules and staff.</p>
+        <div className="min-h-screen bg-slate-50/50 space-y-8 animate-in fade-in duration-700 pb-10">
+            {/* Header Section */}
+            <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-8 rounded-3xl shadow-2xl overflow-hidden mx-1">
+                {/* Abstract Background pattern */}
+                <div className="absolute top-0 right-0 p-12 opacity-10 transform translate-x-10 -translate-y-10">
+                    <Award className="w-64 h-64" />
                 </div>
-                <Button onClick={handlePrimaryAction} className="w-full sm:w-auto">
-                    <Plus className="mr-2 h-4 w-4" />
-                    {activeTab === "classes" ? "Schedule Class" : "Add Trainer"}
-                </Button>
+
+                <div className="relative z-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                            Classes & Trainers
+                        </h2>
+                        <p className="text-slate-300 mt-2 text-lg font-light">
+                            Manage your gym schedules, sessions, and staff.
+                        </p>
+                    </div>
+                    <Button onClick={handlePrimaryAction} className="bg-white text-slate-900 hover:bg-slate-100 shadow-xl border-0">
+                        <Plus className="mr-2 h-4 w-4" />
+                        {activeTab === "classes" ? "Schedule Class" : "Add Trainer"}
+                    </Button>
+                </div>
+            </div>
+
+            <div className="px-1 space-y-6">
+                {/* Stats */}
+                <div className="grid gap-6 grid-cols-2 md:grid-cols-4 px-1">
+                    {/* Total Classes */}
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-blue-500 to-indigo-600 text-white overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150 -translate-y-2 translate-x-2">
+                            <Calendar className="w-24 h-24" />
+                        </div>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                            <CardTitle className="text-sm font-medium opacity-90 text-blue-100">
+                                Total Classes
+                            </CardTitle>
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <Calendar className="h-4 w-4 text-white" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="relative z-10">
+                            <div className="text-3xl font-bold tracking-tight">
+                                {loading ? "—" : classes.length}
+                            </div>
+                            <p className="text-xs mt-2 font-medium opacity-90">
+                                Scheduled active
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Trainers */}
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-emerald-500 to-teal-600 text-white overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150 -translate-y-2 translate-x-2">
+                            <Users className="w-24 h-24" />
+                        </div>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                            <CardTitle className="text-sm font-medium opacity-90 text-emerald-100">
+                                Trainers
+                            </CardTitle>
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <Users className="h-4 w-4 text-white" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="relative z-10">
+                            <div className="text-3xl font-bold tracking-tight">
+                                {loading ? "—" : trainers.length}
+                            </div>
+                            <p className="text-xs mt-2 font-medium opacity-90">
+                                Active staff
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Capacity */}
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-violet-600 to-purple-600 text-white overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150 -translate-y-2 translate-x-2">
+                            <Users className="w-24 h-24" />
+                        </div>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                            <CardTitle className="text-sm font-medium opacity-90 text-violet-100">
+                                Capacity
+                            </CardTitle>
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <Users className="h-4 w-4 text-white" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="relative z-10">
+                            <div className="text-3xl font-bold tracking-tight">
+                                {loading ? "—" : totalCapacity}
+                            </div>
+                            <p className="text-xs mt-2 font-medium opacity-90">
+                                Total spots
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Utilization */}
+                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-rose-500 to-pink-600 text-white overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150 -translate-y-2 translate-x-2">
+                            <TrendingUp className="w-24 h-24" />
+                        </div>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                            <CardTitle className="text-sm font-medium opacity-90 text-rose-100">
+                                Utilization
+                            </CardTitle>
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <TrendingUp className="h-4 w-4 text-white" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="relative z-10">
+                            <div className="text-3xl font-bold tracking-tight">
+                                {loading ? "—" : `${utilizationRate}%`}
+                            </div>
+                            <p className="text-xs mt-2 font-medium opacity-90">
+                                Overall fill
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+
+                {/* Tabs */}
+                <Tabs defaultValue="classes" onValueChange={setActiveTab} className="w-full space-y-6">
+                    <div className="bg-white p-1 rounded-xl border border-gray-100 shadow-sm inline-flex">
+                        <TabsList className="justify-start h-10 bg-transparent p-0 space-x-2">
+                            <TabsTrigger
+                                value="classes"
+                                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium text-gray-500 transition-all"
+                            >
+                                Classes
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="trainers"
+                                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-sm font-medium text-gray-500 transition-all"
+                            >
+                                Trainers
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
+
+                    <TabsContent value="classes" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {loading ? (
+                            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="h-48 rounded-xl bg-gray-100 animate-pulse" />
+                                ))}
+                            </div>
+                        ) : classes.length === 0 ? (
+                            <Card className="border-2 border-dashed border-gray-200 bg-gray-50">
+                                <CardContent className="py-16 flex flex-col items-center justify-center text-center space-y-4">
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
+                                        <Calendar className="h-8 w-8 text-blue-300" />
+                                    </div>
+                                    <div className="max-w-xs">
+                                        <h3 className="font-bold text-lg text-gray-900">No classes scheduled yet</h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Start building your schedule by adding your first class session.
+                                        </p>
+                                    </div>
+                                    <Button onClick={handlePrimaryAction} className="bg-blue-600 hover:bg-blue-700 text-white">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Schedule Class
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {classes.map((cls) => {
+                                    const currentSchedule = cls.schedule?.[0]; // Taking first schedule for display
+                                    const utilizationRaw = ((cls.enrolled || 0) / cls.capacity) * 100;
+                                    const utilization = Math.min(100, Math.round(utilizationRaw));
+                                    let statusLabel = "Available";
+                                    let statusColor = "bg-emerald-500";
+                                    let statusTextColor = "text-emerald-600";
+
+                                    if (utilization >= 100) {
+                                        statusLabel = "Full";
+                                        statusColor = "bg-rose-500";
+                                        statusTextColor = "text-rose-600";
+                                    } else if (utilization >= 80) {
+                                        statusLabel = "Filling Fast";
+                                        statusColor = "bg-amber-500";
+                                        statusTextColor = "text-amber-600";
+                                    }
+
+                                    return (
+                                        <Card key={cls.id} className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group bg-white">
+                                            <div className={`h-2 w-full ${statusColor}`} />
+                                            <CardContent className="p-5">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <Badge variant="secondary" className="uppercase text-[10px] font-bold tracking-wider bg-slate-100 text-slate-600 px-2 py-1">
+                                                        {cls.type}
+                                                    </Badge>
+                                                    <Badge variant="outline" className={`text-[10px] font-bold uppercase border-0 ${statusTextColor} bg-opacity-10 px-2 py-0.5`}>
+                                                        {statusLabel}
+                                                    </Badge>
+                                                </div>
+
+                                                <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-primary transition-colors">{cls.name}</h3>
+
+                                                <div className="space-y-3 mt-4">
+                                                    <div className="flex items-center text-sm text-gray-500">
+                                                        <User className="mr-2 h-4 w-4 text-gray-400" />
+                                                        <span className="font-medium text-gray-700">{cls.trainerName}</span>
+                                                    </div>
+                                                    <div className="flex items-center text-sm text-gray-500">
+                                                        <Clock className="mr-2 h-4 w-4 text-gray-400" />
+                                                        <span className="font-mono text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                                                            {currentSchedule ? `${currentSchedule.startTime} - ${currentSchedule.endTime}` : "No schedule"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-6 space-y-2">
+                                                    <div className="flex justify-between text-xs font-medium text-gray-500">
+                                                        <span>{cls.enrolled || 0} / {cls.capacity} Enrolled</span>
+                                                        <span>{utilization}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-500 ${statusColor}`}
+                                                            style={{ width: `${utilization}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="trainers" className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {loading ? (
+                            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="h-48 rounded-xl bg-gray-100 animate-pulse" />
+                                ))}
+                            </div>
+                        ) : trainers.length === 0 ? (
+                            <Card className="border-2 border-dashed border-gray-200 bg-gray-50">
+                                <CardContent className="py-16 flex flex-col items-center justify-center text-center space-y-4">
+                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+                                        <Users className="h-8 w-8 text-emerald-300" />
+                                    </div>
+                                    <div className="max-w-xs">
+                                        <h3 className="font-bold text-lg text-gray-900">No trainers added yet</h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Add your first trainer to assign classes and track performance.
+                                        </p>
+                                    </div>
+                                    <Button onClick={handlePrimaryAction} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add Trainer
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                {trainers.map((trainer) => (
+                                    <Card key={trainer.id} className="border-0 shadow-lg bg-white overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+                                        <div className="h-20 bg-gradient-to-r from-slate-200 to-slate-300 relative">
+                                            <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
+                                                <Avatar className="h-20 w-20 border-4 border-white shadow-sm">
+                                                    <AvatarFallback className="text-xl font-bold bg-slate-900 text-white">
+                                                        {trainer.name.substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                        </div>
+                                        <CardContent className="pt-12 pb-6 text-center space-y-3">
+                                            <div>
+                                                <h3 className="font-bold text-lg text-gray-900">{trainer.name}</h3>
+                                                <Badge variant="secondary" className="mt-1 capitalize bg-slate-100 text-slate-600 hover:bg-slate-200">
+                                                    {trainer.role}
+                                                </Badge>
+                                            </div>
+
+                                            <div className="flex flex-col gap-1 text-sm text-gray-500 pt-2">
+                                                <span className="truncate">{trainer.email || "No email"}</span>
+                                                <span className="font-mono text-xs">{trainer.phone || "No phone"}</span>
+                                            </div>
+
+                                            <div className="flex gap-2 justify-center pt-4">
+                                                <Button variant="outline" size="sm" className="w-full text-xs h-8">View Profile</Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
+                    </TabsContent>
+                </Tabs>
             </div>
 
             {/* Dialogs */}
@@ -350,191 +635,6 @@ export default function ClassesPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            {/* Stats */}
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
-                        <CardTitle className="text-xs font-medium">Total Classes</CardTitle>
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent className="px-4 pb-3">
-                        <div className="text-2xl font-bold">{loading ? "—" : classes.length}</div>
-                        <p className="text-[10px] text-muted-foreground">Scheduled active</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
-                        <CardTitle className="text-xs font-medium">Trainers</CardTitle>
-                        <User className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent className="px-4 pb-3">
-                        <div className="text-2xl font-bold">{loading ? "—" : trainers.length}</div>
-                        <p className="text-[10px] text-muted-foreground">Active staff</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
-                        <CardTitle className="text-xs font-medium">Capacity</CardTitle>
-                        <User className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent className="px-4 pb-3">
-                        <div className="text-2xl font-bold">{loading ? "—" : totalCapacity}</div>
-                        <p className="text-[10px] text-muted-foreground">Total spots</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 py-3">
-                        <CardTitle className="text-xs font-medium">Utilization</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent className="px-4 pb-3">
-                        <div className="text-2xl font-bold">{loading ? "—" : `${utilizationRate}%`}</div>
-                        <p className="text-[10px] text-muted-foreground">Overall fill</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Tabs */}
-            <Tabs defaultValue="classes" onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-                    <TabsTrigger value="classes">Classes</TabsTrigger>
-                    <TabsTrigger value="trainers">Trainers</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="classes" className="mt-6 space-y-4">
-                    {loading ? (
-                        <div className="py-10 text-center text-muted-foreground">Loading classes...</div>
-                    ) : classes.length === 0 ? (
-                        <Card className="border-dashed border-muted-foreground/30">
-                            <CardContent className="py-10 flex flex-col items-center justify-center text-center space-y-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-1">
-                                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold">No classes scheduled yet</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        Use the Schedule Class button to add your first session.
-                                    </p>
-                                </div>
-                                <Button size="sm" onClick={handlePrimaryAction}>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Schedule your first class
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                            {classes.map((cls) => {
-                                const currentSchedule = cls.schedule?.[0]; // Taking first schedule for display
-                                const utilizationRaw = ((cls.enrolled || 0) / cls.capacity) * 100;
-                                const utilization = Math.min(100, Math.round(utilizationRaw));
-                                let statusLabel = "Plenty of spots";
-                                let statusClass = "text-emerald-600";
-
-                                if (utilization === 0) {
-                                    statusLabel = "No bookings yet";
-                                    statusClass = "text-muted-foreground";
-                                } else if (utilization >= 90) {
-                                    statusLabel = "Almost full";
-                                    statusClass = "text-amber-600";
-                                } else if (utilization >= 60) {
-                                    statusLabel = "Filling up";
-                                    statusClass = "text-amber-600";
-                                }
-
-                                return (
-                                    <Card key={cls.id} className="overflow-hidden border-l-4 border-l-primary">
-                                        <CardHeader className="pb-3 bg-muted/20">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <Badge variant="secondary" className="mb-2 uppercase text-[10px]">
-                                                        {cls.type}
-                                                    </Badge>
-                                                    <CardTitle className="text-base">{cls.name}</CardTitle>
-                                                </div>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="pt-4">
-                                            <div className="space-y-3 text-sm">
-                                                <div className="flex items-center text-muted-foreground">
-                                                    <User className="mr-2 h-4 w-4 text-primary" /> {cls.trainerName}
-                                                </div>
-                                                <div className="flex items-center text-muted-foreground">
-                                                    <Clock className="mr-2 h-4 w-4 text-primary" />
-                                                    {currentSchedule ? `${currentSchedule.startTime} - ${currentSchedule.endTime}` : "No schedule"}
-                                                </div>
-                                                <div className="w-full bg-secondary/10 rounded-full h-2 mt-2">
-                                                    <div
-                                                        className="bg-primary h-2 rounded-full transition-all"
-                                                        style={{ width: `${utilization}%` }}
-                                                    ></div>
-                                                </div>
-                                                <div className="flex justify-between text-xs text-muted-foreground">
-                                                    <span>{cls.enrolled || 0} booked</span>
-                                                    <span>{cls.capacity} capacity</span>
-                                                </div>
-                                                <div className="flex justify-between items-center text-xs">
-                                                    <span className={statusClass}>{statusLabel}</span>
-                                                    <span className="text-muted-foreground">{utilization}% filled</span>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    )}
-                </TabsContent>
-
-                <TabsContent value="trainers" className="mt-6">
-                    {loading ? (
-                        <div className="py-10 text-center text-muted-foreground">Loading trainers...</div>
-                    ) : trainers.length === 0 ? (
-                        <Card className="border-dashed border-muted-foreground/30">
-                            <CardContent className="py-10 flex flex-col items-center justify-center text-center space-y-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-1">
-                                    <User className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold">No trainers added yet</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        Add your first trainer to assign classes and track performance.
-                                    </p>
-                                </div>
-                                <Button size="sm" onClick={handlePrimaryAction}>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add your first trainer
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                            {trainers.map((trainer) => (
-                                <Card key={trainer.id}>
-                                    <CardContent className="pt-6 text-center">
-                                        <Avatar className="h-24 w-24 mx-auto mb-4">
-                                            <AvatarFallback className="text-xl">
-                                                {trainer.name.substring(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <h3 className="font-bold text-lg">{trainer.name}</h3>
-                                        <p className="text-sm text-muted-foreground mb-4 capitalize">{trainer.role}</p>
-
-                                        <div className="flex gap-2 justify-center">
-                                            <Button variant="outline" size="sm">Profile</Button>
-                                            <Button size="sm" variant="ghost">Message</Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </TabsContent>
-            </Tabs>
         </div>
     );
 }

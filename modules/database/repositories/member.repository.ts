@@ -2,7 +2,7 @@
  * Member Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { MemberModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -81,6 +81,7 @@ export const memberRepository = {
       updatedAt: now,
     };
     getStore().members.push(member);
+    persistStore();
     return member;
   },
 
@@ -95,6 +96,7 @@ export const memberRepository = {
       id, // Prevent ID change
       updatedAt: formatDate(),
     };
+    persistStore();
     return store.members[index];
   },
 
@@ -103,6 +105,7 @@ export const memberRepository = {
     const index = store.members.findIndex(m => m.id === id);
     if (index === -1) return false;
     store.members.splice(index, 1);
+    persistStore();
     return true;
   },
 

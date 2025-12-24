@@ -2,7 +2,7 @@
  * Payment Repository
  */
 
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { PaymentModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
@@ -62,6 +62,7 @@ export const paymentRepository = {
     const index = store.payments.findIndex(p => p.id === id);
     if (index === -1) return false;
     store.payments.splice(index, 1);
+    persistStore();
     return true;
   },
 
@@ -72,6 +73,7 @@ export const paymentRepository = {
       createdAt: formatDate(),
     };
     getStore().payments.unshift(payment);
+    persistStore();
     return payment;
   },
 

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const scope = resolveBranchScope(auth.session, searchParams.get("branchId"));
     if ("response" in scope) return scope.response;
-    
+
     const filters = {
       branchId: scope.branchId,
       status: searchParams.get("status") || undefined,
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = await parseBody<Record<string, unknown>>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
@@ -86,7 +86,33 @@ export async function POST(request: NextRequest) {
         resourceId: result.data.id,
         details: result.data as unknown as Record<string, unknown>,
         ipAddress,
+        branchId,
       });
+
+      // Notify Branch Admins
+      if (branchId) {
+        try {
+          const { userRepository, notificationRepository } = await import("@/modules/database");
+          const branchAdmins = await userRepository.findByBranchAsync(branchId);
+          const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+          for (const admin of adminUsers) {
+            await notificationRepository.createAsync({
+              userId: admin.id,
+              type: "system_announcement" as const,
+              title: "New Member Joined",
+              message: `${result.data.name} has joined the gym.`,
+              priority: "medium" as const,
+              status: "unread" as const,
+              read: false,
+              data: { memberId: result.data.id },
+              branchId,
+            });
+          }
+        } catch (notifError) {
+          console.error("[Members] Failed to create notifications:", notifError);
+        }
+      }
     }
 
     return successResponse(result.data, "Member created successfully", 201);

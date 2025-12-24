@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { paymentService, auditService } from "@/modules/services";
-import { NotificationService } from "@/lib/services/notification.service";
 import { memberRepository, planRepository } from "@/modules/database";
 import type { PaymentMethod } from "@/lib/types";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
@@ -102,15 +101,18 @@ export async function POST(request: NextRequest) {
         const member = memberRepository.findById(payment.memberId);
 
         if (member) {
-          await NotificationService.sendTemplateNotification(
-            payment.memberId,
-            "paymentReceived",
-            [member.name, `₹${payment.amount}`, payment.description || "Membership"],
-            {
-              actionUrl: `/portal/payments`,
-              data: { paymentId: payment.id }
-            }
-          );
+          const { notificationRepository } = await import("@/modules/database");
+          await notificationRepository.createAsync({
+            userId: payment.memberId,
+            type: "payment_received" as const,
+            title: "Payment Received",
+            message: `Payment of ₹${payment.amount} received for ${payment.description || "Membership"}`,
+            priority: "medium" as const,
+            status: "unread" as const,
+            read: false,
+            data: { paymentId: payment.id },
+            branchId: member.branchId,
+          });
         }
       } catch (notificationError) {
         console.error("Failed to send payment notification:", notificationError);
@@ -128,6 +130,7 @@ export async function POST(request: NextRequest) {
           member: result.data.member,
         } as Record<string, unknown>,
         ipAddress,
+        branchId: scoped.branchId,
       });
     }
 

@@ -1,8 +1,4 @@
-/**
- * Plan Repository (Membership, Workout, Diet)
- */
-
-import { getStore } from "../store";
+import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { DietPlanModel, MembershipPlanModel, WorkoutPlanModel } from "../models";
 import { generateId } from "./base.repository";
@@ -56,6 +52,7 @@ export const planRepository = {
       return plan;
     } catch {
       getStore().plans.unshift(plan);
+      persistStore();
     }
 
     return plan;
@@ -75,6 +72,7 @@ export const planRepository = {
       const idx = store.plans.findIndex(p => p.id === id);
       if (idx === -1) return undefined;
       store.plans[idx] = { ...store.plans[idx], ...data, id };
+      persistStore();
       return store.plans[idx];
     }
   },
@@ -89,6 +87,7 @@ export const planRepository = {
       const idx = store.plans.findIndex(p => p.id === id);
       if (idx !== -1) {
         store.plans.splice(idx, 1);
+        persistStore();
         return true;
       }
       return false;
@@ -139,6 +138,7 @@ export const planRepository = {
       return plan;
     } catch {
       getStore().workoutPlans.unshift(plan);
+      persistStore();
     }
 
     return plan;
@@ -188,6 +188,7 @@ export const planRepository = {
       return plan;
     } catch {
       getStore().dietPlans.unshift(plan);
+      persistStore();
     }
 
     return plan;
