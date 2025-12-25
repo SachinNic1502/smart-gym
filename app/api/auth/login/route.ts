@@ -12,11 +12,11 @@ interface LoginRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const limited = rateLimit(request, "auth:login");
+    const limited = await rateLimit(request, "auth:login");
     if (limited) return limited;
 
     const body = await parseBody<LoginRequest>(request);
-    
+
     if (!body) {
       return errorResponse("Invalid request body");
     }
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Authenticate user
     const result = await authService.login(normalizedEmail, password);
-    
+
     if (!result.success) {
       return errorResponse(result.error || "Login failed", 401);
     }

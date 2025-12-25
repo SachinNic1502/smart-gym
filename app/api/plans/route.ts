@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/utils";
-import { planRepository } from "@/modules/database";
+import { planRepository, notificationRepository, userRepository } from "@/modules/database";
 import { requireSession } from "@/lib/api/require-auth";
 import { connectToDatabase } from "@/modules/database/mongoose";
 import { auditService } from "@/modules/services";
@@ -40,11 +40,11 @@ export async function GET(request: NextRequest) {
       return errorResponse(message, 500);
     }
 
-    const plans = await planRepository.findAllMembershipPlansAsync(true);
+    const result = await planRepository.findAllAsync({ isActive: true });
 
     return successResponse({
-      data: plans,
-      total: plans.length,
+      data: result.data,
+      total: result.total,
     });
 
   } catch (error) {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
       const actor = await getRequestUser();
       const ipAddress = getRequestIp(request);
-      auditService.logAction({
+      await auditService.logAction({
         userId: actor.userId,
         userName: actor.userName,
         action: "create_workout_plan",
@@ -92,6 +92,25 @@ export async function POST(request: NextRequest) {
         ipAddress,
         branchId: auth.session.branchId, // Capture branch context if available
       });
+
+      // Notify Super Admins
+      try {
+        const superAdmins = await userRepository.findSuperAdminsAsync();
+        for (const admin of superAdmins) {
+          await notificationRepository.createAsync({
+            userId: admin.id,
+            type: "system_announcement",
+            title: "New Workout Plan",
+            message: `A new workout plan "${created.name}" has been created.`,
+            priority: "low",
+            status: "unread",
+            read: false,
+            data: { planId: created.id, type: "workout" }
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to send notification for new workout plan", e);
+      }
 
       return successResponse(created, "Workout plan created successfully");
     }
@@ -111,7 +130,7 @@ export async function POST(request: NextRequest) {
 
       const actor = await getRequestUser();
       const ipAddress = getRequestIp(request);
-      auditService.logAction({
+      await auditService.logAction({
         userId: actor.userId,
         userName: actor.userName,
         action: "create_diet_plan",
@@ -121,6 +140,25 @@ export async function POST(request: NextRequest) {
         ipAddress,
         branchId: auth.session.branchId,
       });
+
+      // Notify Super Admins
+      try {
+        const superAdmins = await userRepository.findSuperAdminsAsync();
+        for (const admin of superAdmins) {
+          await notificationRepository.createAsync({
+            userId: admin.id,
+            type: "system_announcement",
+            title: "New Diet Plan",
+            message: `A new diet plan "${created.name}" has been created.`,
+            priority: "low",
+            status: "unread",
+            read: false,
+            data: { planId: created.id, type: "diet" }
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to send notification for new diet plan", e);
+      }
 
       return successResponse(created, "Diet plan created successfully");
     }

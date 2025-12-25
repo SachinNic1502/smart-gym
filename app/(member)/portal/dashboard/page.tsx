@@ -2,14 +2,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { QrCode, Calendar, Clock, Trophy, MapPin, ChevronRight, User, Users, Dumbbell } from "lucide-react";
+import { QrCode, Calendar, Clock, Trophy, MapPin, ChevronRight, User, Users, Dumbbell, Activity } from "lucide-react";
 import { ApiError, meApi, attendanceApi, classesApi, staffApi } from "@/lib/api/client";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 import type { Member, AttendanceRecord, GymClass, Staff, ClassSchedule } from "@/lib/types";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
+import { useSettings } from "@/lib/hooks/use-settings";
 
 // Helper to format schedule
 const formatSchedule = (schedules: ClassSchedule[]) => {
@@ -19,6 +21,7 @@ const formatSchedule = (schedules: ClassSchedule[]) => {
 
 export default function MemberDashboard() {
     const { user } = useAuth();
+    const { formatDate } = useSettings();
     const branchId = user?.branchId;
 
     const [profile, setProfile] = useState<Member | null>(null);
@@ -41,16 +44,10 @@ export default function MemberDashboard() {
 
             if (profileResult.status === "fulfilled") {
                 setProfile(profileResult.value);
-            } else {
-                console.error("Failed to load profile", profileResult.reason);
-                setProfile(null);
             }
 
             if (attendanceResult.status === "fulfilled") {
                 setAttendance(attendanceResult.value.data ?? []);
-            } else {
-                console.error("Failed to load attendance", attendanceResult.reason);
-                setAttendance([]);
             }
 
             if (classesResult.status === "fulfilled") {
@@ -75,276 +72,312 @@ export default function MemberDashboard() {
     const displayName = profile?.name || user?.name || "Member";
     const firstName = displayName.split(" ")[0];
     const planName = profile?.plan || "No Plan";
-    const expiryDate = profile?.expiryDate
-        ? new Date(profile.expiryDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-        : "—";
+    const expiryDate = profile?.expiryDate ? formatDate(profile.expiryDate) : "—";
     const isActive = profile?.status === "Active";
 
-    // Calculate visits this month
     const now = new Date();
     const thisMonthVisits = attendance.filter(a => {
         const checkIn = new Date(a.checkInTime);
+        if (isNaN(checkIn.getTime())) return false;
         return checkIn.getMonth() === now.getMonth() && checkIn.getFullYear() === now.getFullYear();
     }).length;
 
-    // Recent visits (last 3)
     const recentVisits = attendance.slice(0, 3);
 
     if (loading) {
         return (
-            <div className="space-y-6 pb-24 md:pb-0">
-                <div className="flex items-center gap-4">
-                    <div className="space-y-2">
-                        <Skeleton className="h-8 w-40" />
-                        <Skeleton className="h-4 w-60" />
+            <div className="space-y-10 animate-pulse">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-3">
+                        <Skeleton className="h-10 w-48 rounded-lg" />
+                        <Skeleton className="h-5 w-64 rounded-md" />
                     </div>
-                    <Skeleton className="h-12 w-12 rounded-full ml-auto" />
                 </div>
-                <Skeleton className="h-56 w-full rounded-2xl" />
-                <div className="grid grid-cols-2 gap-4">
-                    <Skeleton className="h-32 w-full" />
-                    <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-64 w-full rounded-3xl" />
+                <div className="grid grid-cols-2 gap-6">
+                    <Skeleton className="h-40 w-full rounded-2xl" />
+                    <Skeleton className="h-40 w-full rounded-2xl" />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-8 pb-24 md:pb-0 animate-in fade-in duration-500">
+        <div className="space-y-10 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-            {/* Welcome Header */}
-            <div className="flex justify-between items-center bg-white/50 backdrop-blur-sm p-4 rounded-xl border border-white/50 shadow-sm sticky top-0 z-10 lg:static lg:bg-transparent lg:shadow-none lg:p-0 lg:border-none">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Hello, {firstName} 👋</h1>
-                    <p className="text-muted-foreground text-sm font-medium">Let's crush your goals today!</p>
-                </div>
-                <Link href="/portal/profile">
-                    <div className="h-11 w-11 rounded-full bg-gray-100 overflow-hidden border-2 border-white shadow-md hover:scale-105 transition-transform cursor-pointer">
-                        {profile?.image ? (
-                            <img
-                                src={profile.image}
-                                alt="Profile"
-                                className="h-full w-full object-cover"
-                            />
-                        ) : (
-                            <div className="h-full w-full flex items-center justify-center bg-slate-200">
-                                <User className="h-6 w-6 text-slate-400" />
-                            </div>
-                        )}
+            {/* Premium Header */}
+            <div className="relative overflow-hidden rounded-3xl bg-slate-900 px-8 py-10 shadow-2xl md:px-12">
+                <div className="absolute top-0 right-0 -mr-20 -mt-20 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 -ml-20 -mb-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl"></div>
+
+                <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-2">
+                        <div className="inline-flex items-center rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400 ring-1 ring-inset ring-blue-500/20">
+                            Welcome back
+                        </div>
+                        <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl">
+                            Hello, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">{firstName}</span>
+                        </h1>
+                        <p className="max-w-md text-slate-400 font-medium">
+                            Ready to take your fitness to the next level today?
+                        </p>
                     </div>
-                </Link>
-            </div>
-
-            {/* Membership Card */}
-            <div className="relative group perspective">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition-opacity duration-500"></div>
-                <Card className="relative bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#334155] text-white border-white/10 shadow-2xl overflow-hidden rounded-3xl">
-                    {/* Decorative elements */}
-                    <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
-                    <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-indigo-500/20 blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
-                    <div className="absolute inset-0 bg-noise opacity-5 mix-blend-overlay"></div>
-
-                    <CardContent className="p-8 relative z-10 flex flex-col h-full justify-between min-h-[220px]">
-                        <div className="flex justify-between items-start">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="border-blue-400/30 text-blue-200 bg-blue-400/10 text-[10px] uppercase tracking-wider px-2 py-0.5">
-                                        Premium Member
-                                    </Badge>
-                                </div>
-                                <h2 className="text-3xl font-bold tracking-tight text-white">{planName}</h2>
-                                <p className="text-blue-200/80 text-sm font-medium pt-1">{displayName}</p>
-                            </div>
-                            <div className="bg-white p-2.5 rounded-2xl h-[100px] w-[100px] flex flex-col items-center justify-center shadow-lg shadow-black/20">
-                                {user?.id ? (
-                                    <QRCodeSVG value={user.id} size={80} level="H" />
+                    <Link href="/portal/profile">
+                        <div className="group relative h-20 w-20 cursor-pointer">
+                            <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 blur opacity-40 group-hover:opacity-70 transition duration-500"></div>
+                            <div className="relative h-20 w-20 rounded-3xl bg-slate-800 p-1">
+                                {profile?.image ? (
+                                    <img
+                                        src={profile.image}
+                                        alt="Profile"
+                                        className="h-full w-full rounded-[20px] object-cover"
+                                    />
                                 ) : (
-                                    <QrCode className="h-full w-full text-slate-900" />
+                                    <div className="h-full w-full flex items-center justify-center bg-slate-700 rounded-[20px]">
+                                        <User className="h-10 w-10 text-slate-400" />
+                                    </div>
                                 )}
                             </div>
                         </div>
-
-                        <div className="flex justify-between items-end mt-4">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">Status</span>
-                                <Badge className={`${isActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'} border backdrop-blur-md px-3 py-1`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive ? 'bg-emerald-400' : 'bg-rose-400'} animate-pulse`}></span>
-                                    {isActive ? "Active" : profile?.status || "Inactive"}
-                                </Badge>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block mb-0.5">Expires</span>
-                                <span className="text-sm font-mono text-zinc-200 font-medium bg-white/5 px-2 py-1 rounded-md border border-white/5">
-                                    {expiryDate}
-                                </span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                    </Link>
+                </div>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground bg-muted/30 py-2 rounded-lg border border-border/50">
-                <QrCode className="w-3 h-3" />
-                <span>Show this QR code at the reception for seamless entry</span>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 gap-4">
-                <Card className="bg-white hover:bg-slate-50 transition-colors border-slate-100 shadow-sm group cursor-default">
-                    <CardContent className="p-5 flex flex-col items-center justify-center text-center space-y-3">
-                        <div className="p-3 bg-amber-50 group-hover:bg-amber-100 transition-colors rounded-2xl border border-amber-100">
-                            <Trophy className="h-6 w-6 text-amber-500" />
+            {/* Membership Card - Premium Version */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-8 flex">
+                    <Card className="w-full relative overflow-hidden rounded-3xl border-0 shadow-2xl bg-gradient-to-br from-[#1e293b] via-[#0f172a] to-[#020617] text-white">
+                        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                            <Trophy className="w-64 h-64 text-white" />
                         </div>
-                        <div>
-                            <div className="font-bold text-3xl text-slate-800">{thisMonthVisits}</div>
-                            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">Visits this month</div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="bg-white hover:bg-slate-50 transition-colors border-slate-100 shadow-sm group cursor-pointer" onClick={() => window.location.href = '/portal/workouts'}>
-                    <CardContent className="p-5 flex flex-col items-center justify-center text-center space-y-3">
-                        <div className="p-3 bg-violet-50 group-hover:bg-violet-100 transition-colors rounded-2xl border border-violet-100">
-                            <Calendar className="h-6 w-6 text-violet-500" />
-                        </div>
-                        <div>
-                            <div className="font-bold text-3xl text-slate-800">Plan</div>
-                            <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-1">My Workouts</div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Upcoming Classes */}
-                <div className="space-y-4">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        Available Classes
-                    </h3>
-                    {classes.length === 0 ? (
-                        <Card className="border-dashed border-2 shadow-none bg-slate-50">
-                            <CardContent className="p-6 text-center text-muted-foreground text-sm">
-                                No classes scheduled at this branch currently.
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid gap-3">
-                            {classes.map(cls => (
-                                <Card key={cls.id} className="overflow-hidden border-l-4 border-l-primary hover:shadow-md transition-all">
-                                    <div className="p-4 flex justify-between items-start">
-                                        <div>
-                                            <h4 className="font-bold text-slate-900">{cls.name}</h4>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Badge variant="secondary" className="text-[10px] h-5">{cls.type}</Badge>
-                                                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                                    <Clock className="w-3 h-3" /> {formatSchedule(cls.schedule)}
-                                                </span>
-                                            </div>
+                        <CardContent className="p-10 flex flex-col md:flex-row justify-between h-full gap-8">
+                            <div className="flex flex-col justify-between h-full space-y-8">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                            <Trophy className="h-6 w-6 text-blue-400" />
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-xs font-medium text-slate-500">Trainer</div>
-                                            <div className="text-sm font-semibold">{cls.trainerName}</div>
+                                        <span className="text-sm font-bold uppercase tracking-widest text-blue-400/80">Premium Access</span>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-4xl font-black tracking-tight">{planName}</h2>
+                                        <p className="text-slate-400 font-medium mt-2">{displayName}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-8">
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Status</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className={cn("h-2.5 w-2.5 rounded-full", isActive ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" : "bg-rose-400")}></div>
+                                            <span className={cn("text-sm font-bold", isActive ? "text-emerald-400" : "text-rose-400")}>
+                                                {isActive ? "ACTIVE" : profile?.status?.toUpperCase() || "INACTIVE"}
+                                            </span>
                                         </div>
                                     </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Valid Until</span>
+                                        <div className="text-sm font-bold text-slate-200">{expiryDate}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col items-center justify-center gap-4">
+                                <div className="bg-white p-4 rounded-3xl shadow-2xl shadow-black/40 scale-110 transition-transform hover:scale-125 duration-500">
+                                    {user?.id ? (
+                                        <QRCodeSVG value={user.id} size={110} level="H" />
+                                    ) : (
+                                        <div className="h-[110px] w-[110px] flex items-center justify-center bg-slate-100 rounded-xl">
+                                            <QrCode className="h-12 w-12 text-slate-400" />
+                                        </div>
+                                    )}
+                                </div>
+                                <span className="text-[10px] font-bold tracking-widest text-slate-500">SCAN AT RECEPTION</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Quick Action Side Stats */}
+                <div className="lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-6">
+                    <Card className="group cursor-default border-0 shadow-xl bg-amber-500 text-white overflow-hidden rounded-3xl">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                            <MapPin className="h-16 w-16" />
+                        </div>
+                        <CardContent className="p-8 flex flex-col justify-between h-full">
+                            <span className="text-amber-100 font-bold text-xs uppercase tracking-widest mb-4 block">Visit Count</span>
+                            <div>
+                                <div className="text-5xl font-black">{thisMonthVisits}</div>
+                                <p className="text-amber-100/80 text-sm font-medium mt-1">Visits this month</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Link href="/portal/workouts" className="group">
+                        <Card className="h-full border-0 shadow-xl bg-indigo-600 text-white overflow-hidden rounded-3xl hover:-translate-y-1 transition-all duration-300">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                                <Dumbbell className="h-16 w-16" />
+                            </div>
+                            <CardContent className="p-8 flex flex-col justify-between h-full">
+                                <span className="text-indigo-100 font-bold text-xs uppercase tracking-widest mb-4 block">Current Plan</span>
+                                <div>
+                                    <div className="text-3xl font-black">My Training</div>
+                                    <p className="text-indigo-100/80 text-sm font-medium mt-1">View workout routine</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* Classes Section */}
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                <Users className="h-5 w-5 text-blue-600" />
+                            </div>
+                            Live Classes
+                        </h3>
+                        <Link href="/portal/schedule" className="text-sm font-bold text-blue-600 hover:underline">Full Schedule</Link>
+                    </div>
+
+                    {classes.length === 0 ? (
+                        <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+                            <Users className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                            <p className="text-slate-500 font-medium">No classes scheduled today.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {classes.map(cls => (
+                                <Card key={cls.id} className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden bg-white">
+                                    <CardContent className="p-0">
+                                        <div className="flex">
+                                            <div className="w-2 bg-blue-500 transition-all duration-300 group-hover:w-4"></div>
+                                            <div className="flex-1 p-5 flex justify-between items-center">
+                                                <div className="space-y-1">
+                                                    <h4 className="font-bold text-slate-900 text-lg group-hover:text-blue-600 transition-colors">{cls.name}</h4>
+                                                    <div className="flex items-center gap-3 text-slate-500">
+                                                        <Badge variant="secondary" className="bg-slate-100 text-[10px] px-2 py-0">{cls.type}</Badge>
+                                                        <span className="flex items-center gap-1.5 text-xs font-medium">
+                                                            <Clock className="w-3.5 h-3.5" /> {formatSchedule(cls.schedule)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Trainer</p>
+                                                    <p className="font-bold text-slate-700">{cls.trainerName}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
                                 </Card>
                             ))}
                         </div>
                     )}
                 </div>
 
-                {/* Trainers */}
-                <div className="space-y-4">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <Dumbbell className="w-5 h-5 text-primary" />
-                        Meet Our Trainers
-                    </h3>
-                    {trainers.length === 0 ? (
-                        <Card className="border-dashed border-2 shadow-none bg-slate-50">
-                            <CardContent className="p-6 text-center text-muted-foreground text-sm">
-                                No trainers info available.
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid gap-3">
-                            {trainers
-                                .sort((a, b) => (profile?.trainerId === a.id ? -1 : profile?.trainerId === b.id ? 1 : 0))
-                                .map(trainer => {
-                                    const isMyTrainer = profile?.trainerId === trainer.id;
-                                    return (
-                                        <Card key={trainer.id} className={`overflow-hidden hover:bg-slate-50 transition-colors ${isMyTrainer ? 'border-primary/50 bg-primary/5' : ''}`}>
-                                            <div className="p-3 flex items-center gap-4">
-                                                <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-lg border-2 border-white shadow-sm">
-                                                    {trainer.avatar ? <img src={trainer.avatar} className="w-full h-full object-cover rounded-full" /> : trainer.name.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <h4 className="font-bold text-slate-900">{trainer.name}</h4>
-                                                        {isMyTrainer && <Badge className="text-[10px] h-5 bg-primary/80">My Trainer</Badge>}
-                                                    </div>
-                                                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold text-primary/80">Expert Trainer</p>
-                                                </div>
-                                                <Button variant="ghost" size="sm" className="ml-auto text-xs">View Profile</Button>
-                                            </div>
-                                        </Card>
-                                    );
-                                })}
-                        </div>
-                    )}
-                </div>
-            </div>
+                {/* Recent Activity */}
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                <Activity className="h-5 w-5 text-indigo-600" />
+                            </div>
+                            Recent Activity
+                        </h3>
+                        <Link href="/portal/attendance" className="text-sm font-bold text-indigo-600 hover:underline">View All</Link>
+                    </div>
 
-            {/* Recent Activity */}
-            <section>
-                <div className="flex items-center justify-between px-1 mb-3">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        Recent Activity
-                    </h3>
-                    <Link href="/portal/attendance" className="text-xs font-semibold text-primary hover:text-primary/80 flex items-center gap-0.5">
-                        View History <ChevronRight className="w-3 h-3" />
-                    </Link>
-                </div>
-                <Card className="shadow-sm border-slate-100 bg-white overflow-hidden">
-                    <CardContent className="p-0">
+                    <Card className="border-0 shadow-lg rounded-3xl overflow-hidden bg-white">
                         {recentVisits.length === 0 ? (
-                            <div className="p-10 text-center text-muted-foreground">
-                                <Clock className="h-10 w-10 mx-auto mb-3 text-slate-200" />
-                                <p className="text-sm font-medium text-slate-600">No recent visits</p>
-                                <p className="text-xs text-slate-400 mt-1">Your check-ins will appear here</p>
+                            <div className="p-16 text-center">
+                                <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-4">
+                                    <Clock className="h-8 w-8 text-slate-200" />
+                                </div>
+                                <p className="text-slate-400 font-medium">Your fitness journey starts here.</p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-slate-100">
+                            <div className="divide-y divide-slate-50">
                                 {recentVisits.map((visit) => (
-                                    <div key={visit.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                                                <Clock className="h-5 w-5 text-blue-600" />
+                                    <div key={visit.id} className="group p-6 flex justify-between items-center hover:bg-slate-50/80 transition-all duration-300">
+                                        <div className="flex items-center gap-5">
+                                            <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500">
+                                                <Clock className="h-6 w-6" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-bold text-slate-700">Gym Visit</p>
-                                                <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-1">
-                                                    {new Date(visit.checkInTime).toLocaleDateString("en-US", {
-                                                        weekday: "short",
-                                                        month: "short",
-                                                        day: "numeric"
-                                                    })}
-                                                    <span className="text-slate-300">•</span>
-                                                    {new Date(visit.checkInTime).toLocaleTimeString("en-US", {
-                                                        hour: "numeric",
-                                                        minute: "2-digit"
-                                                    })}
+                                                <p className="text-base font-bold text-slate-800">Gym Session</p>
+                                                <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                                                    {formatDate(visit.checkInTime)}
+                                                    <span className="mx-2 text-slate-200">|</span>
+                                                    {(() => {
+                                                        const d = new Date(visit.checkInTime);
+                                                        const isValid = !isNaN(d.getTime());
+                                                        const displayDate = isValid ? d : new Date(`2000-01-01T${visit.checkInTime}`);
+                                                        return !isNaN(displayDate.getTime())
+                                                            ? displayDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                            : visit.checkInTime;
+                                                    })()}
                                                 </p>
                                             </div>
                                         </div>
-                                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-mono text-[10px] tracking-wide uppercase border-slate-200">
-                                            {visit.method}
-                                        </Badge>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-200 border-0 font-bold px-3 py-1 scale-90">
+                                                {visit.method?.toUpperCase()}
+                                            </Badge>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </Card>
+                </div>
+            </div>
+
+            {/* Trainers Section */}
+            <section className="space-y-6">
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <Dumbbell className="h-5 w-5 text-amber-600" />
+                    </div>
+                    Expert Training Team
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {trainers.map((trainer) => {
+                        const isMyTrainer = profile?.trainerId === trainer.id;
+                        return (
+                            <Card key={trainer.id} className={cn(
+                                "group border-0 shadow-lg rounded-3xl overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl bg-white",
+                                isMyTrainer && "ring-2 ring-blue-500 ring-offset-4"
+                            )}>
+                                <CardContent className="p-0">
+                                    <div className="relative h-48 overflow-hidden">
+                                        <img
+                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${trainer.id}`}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                            alt={trainer.name}
+                                        />
+                                        {isMyTrainer && (
+                                            <div className="absolute top-4 right-4 animate-bounce">
+                                                <Badge className="bg-blue-600 text-white font-bold border-0 shadow-lg">MY TRAINER</Badge>
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                        <div className="absolute bottom-4 left-4">
+                                            <p className="text-white font-black text-xl">{trainer.name}</p>
+                                            <p className="text-blue-300 text-xs font-bold tracking-widest uppercase">Expert Trainer</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-4">
+                                        <Button className="w-full bg-slate-100 text-slate-700 hover:bg-blue-600 hover:text-white font-bold rounded-2xl border-0 h-11 transition-all">
+                                            Book Session
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+                </div>
             </section>
         </div>
     );

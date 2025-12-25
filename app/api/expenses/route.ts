@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
-import { expenseRepository } from "@/modules/database";
+import { expenseRepository, notificationRepository, userRepository } from "@/modules/database";
 import { auditService } from "@/modules/services";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     };
 
     const result = await expenseRepository.findAllAsync(filters, pagination);
-    const categoryTotals = await expenseRepository.getByCategoryAsync(filters.branchId);
+    const categoryTotals = await expenseRepository.getStatsAsync(filters.branchId);
 
     return successResponse({ ...result, categoryTotals });
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "create_expense",
@@ -78,6 +78,29 @@ export async function POST(request: NextRequest) {
       ipAddress,
       branchId: scoped.branchId,
     });
+
+    // Notify Branch Admins and Super Admins
+    try {
+      const branchAdmins = await userRepository.findByBranchAsync(scoped.branchId!);
+      const superAdmins = await userRepository.findSuperAdminsAsync();
+      const recipients = [...branchAdmins, ...superAdmins].filter(u => u.id !== actor.userId);
+
+      for (const admin of recipients) {
+        await notificationRepository.createAsync({
+          userId: admin.id,
+          type: "branch_update",
+          title: "New Expense Recorded",
+          message: `${expense.category}: ₹${expense.amount} - ${expense.description}`,
+          priority: expense.amount > 10000 ? "high" : "medium",
+          status: "unread",
+          read: false,
+          data: { expenseId: expense.id },
+          branchId: scoped.branchId
+        });
+      }
+    } catch (e) {
+      console.warn("Expense notification failed", e);
+    }
 
     return successResponse(expense, "Expense created successfully", 201);
 

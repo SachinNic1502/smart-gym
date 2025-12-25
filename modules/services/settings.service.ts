@@ -10,7 +10,15 @@ export const settingsService = {
     return settingsRepository.get();
   },
 
+  async getSettingsAsync(): Promise<SystemSettings> {
+    return settingsRepository.getAsync();
+  },
+
   updateSettings(data: Partial<SystemSettings>): SystemSettings {
     return settingsRepository.update(data);
+  },
+
+  async updateSettingsAsync(data: Partial<SystemSettings>): Promise<SystemSettings> {
+    return settingsRepository.updateAsync(data);
   },
 };

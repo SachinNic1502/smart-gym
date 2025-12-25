@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
       // Send notification to member about payment received
       try {
-        const member = memberRepository.findById(payment.memberId);
+        const member = await memberRepository.findByIdAsync(payment.memberId);
 
         if (member) {
           const { notificationRepository } = await import("@/modules/database");
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         // Don't fail the payment if notification fails
       }
 
-      auditService.logAction({
+      await auditService.logAction({
         userId: actor.userId,
         userName: actor.userName,
         action: "create_payment",

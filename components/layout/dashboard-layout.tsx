@@ -10,21 +10,24 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
   role: "super_admin" | "branch_admin" | "member";
   className?: string;
+  hideMobileSidebar?: boolean;
 }
 
-export function DashboardLayout({ children, role, className }: DashboardLayoutProps) {
+export function DashboardLayout({ children, role, className, hideMobileSidebar = false }: DashboardLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Dialog open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <DialogContent className="p-0 w-[18rem] max-w-[18rem] h-screen left-0 top-0 translate-x-0 translate-y-0 rounded-none border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Navigation menu</DialogTitle>
-          </DialogHeader>
-          <Sidebar role={role} className="w-[18rem]" onNavigate={() => setMobileSidebarOpen(false)} />
-        </DialogContent>
-      </Dialog>
+      {!hideMobileSidebar && (
+        <Dialog open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+          <DialogContent className="p-0 w-[18rem] max-w-[18rem] h-screen left-0 top-0 translate-x-0 translate-y-0 rounded-none border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Navigation menu</DialogTitle>
+            </DialogHeader>
+            <Sidebar role={role} className="w-[18rem]" onNavigate={() => setMobileSidebarOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Sidebar - Fixed */}
       <div className="flex-shrink-0 hidden md:block">
@@ -34,7 +37,7 @@ export function DashboardLayout({ children, role, className }: DashboardLayoutPr
       {/* Main Content */}
       <div className="flex flex-col flex-1 min-w-0">
         {/* Header - Fixed */}
-        <Header onMenuClick={() => setMobileSidebarOpen(true)} />
+        <Header onMenuClick={hideMobileSidebar ? undefined : () => setMobileSidebarOpen(true)} />
 
         {/* Scrollable Content */}
         <main className="flex-1 overflow-hidden">
@@ -57,3 +60,4 @@ export function DashboardLayout({ children, role, className }: DashboardLayoutPr
     </div>
   );
 }
+

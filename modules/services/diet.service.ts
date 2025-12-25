@@ -42,10 +42,11 @@ export const dietService = {
     async getDaySummary(memberId: string, date?: string): Promise<DaySummary> {
         const targetDate = date || new Date().toISOString().split("T")[0];
 
-        const logs = await dietLogRepository.findAllAsync({
+        const result = await dietLogRepository.findAllAsync({
             memberId,
             date: targetDate,
         });
+        const logs = result.data;
 
         const caloriesConsumed = logs
             .filter(l => l.type === "food")

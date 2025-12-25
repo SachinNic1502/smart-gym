@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { dietService } from "@/modules/services";
+import { memberRepository, notificationRepository } from "@/modules/database";
 import { requireSession } from "@/lib/api/require-auth";
 
 // GET /api/me/diet-logs - Get today's logs and summary
@@ -51,6 +52,26 @@ export async function POST(request: NextRequest) {
             label,
             date,
         });
+
+        // Notify Trainer if assigned
+        try {
+            const member = await memberRepository.findByIdAsync(auth.session.sub);
+            if (member?.trainerId) {
+                await notificationRepository.createAsync({
+                    userId: member.trainerId,
+                    type: "system_announcement",
+                    title: "Diet Log Updated",
+                    message: `${member.name} logged ${type === 'food' ? (label || 'a meal') : 'water intake'}.`,
+                    priority: "low",
+                    status: "unread",
+                    read: false,
+                    data: { memberId: member.id, logId: log.id },
+                    branchId: member.branchId
+                });
+            }
+        } catch (e) {
+            console.warn("Failed to notify trainer about diet log", e);
+        }
 
         // Return updated summary immediately so frontend can update state easily
         const summary = await dietService.getDaySummary(auth.session.sub, date);

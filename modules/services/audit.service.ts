@@ -11,14 +11,14 @@ export const auditService = {
   /**
    * Get audit logs with optional filters and pagination
    */
-  getAuditLogs(filters?: AuditFilters, pagination?: PaginationOptions): AuditListResult {
-    return auditRepository.findAll(filters || {}, pagination);
+  async getAuditLogs(filters?: AuditFilters, pagination?: PaginationOptions): Promise<AuditListResult> {
+    return auditRepository.findAllAsync(filters || {}, pagination);
   },
 
   /**
    * Log an audit action from API routes and services
    */
-  logAction(params: {
+  async logAction(params: {
     userId?: string | null;
     userName?: string | null;
     action: string;
@@ -27,7 +27,7 @@ export const auditService = {
     details?: Record<string, unknown>;
     ipAddress?: string;
     branchId?: string;
-  }): AuditLog {
+  }): Promise<AuditLog> {
     const {
       userId,
       userName,
@@ -43,7 +43,7 @@ export const auditService = {
     const safeUserName = userName ?? "System";
     const safeResourceId = resourceId ?? "-";
 
-    return auditRepository.log(
+    return auditRepository.logAsync(
       safeUserId,
       safeUserName,
       action,

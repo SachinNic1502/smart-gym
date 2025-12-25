@@ -17,6 +17,7 @@ import type {
   Lead,
   Staff,
   GymClass,
+  DashboardData,
   WorkoutPlan,
   DietPlan,
   Expense,
@@ -160,6 +161,15 @@ export const membersApi = {
 
   delete: (id: string) =>
     request<{ id: string }>(`/members/${id}`, { method: "DELETE" }),
+
+  freeze: (id: string, reason?: string) =>
+    request<Member>(`/members/${id}/freeze`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  unfreeze: (id: string) =>
+    request<Member>(`/members/${id}/unfreeze`, { method: "POST" }),
 
   getPrograms: (id: string) =>
     request<{ memberId: string; memberName: string; workoutPlan: unknown; dietPlan: unknown }>(`/members/${id}/programs`),
@@ -479,7 +489,7 @@ export const dashboardApi = {
     if (branchId) params.branchId = branchId;
     if (period) params.period = period;
     const query = Object.keys(params).length ? `?${new URLSearchParams(params)}` : "";
-    return request<unknown>(`/dashboard/stats${query}`);
+    return request<DashboardData>(`/dashboard/stats${query}`);
   },
 };
 

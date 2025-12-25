@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get("activeOnly") === "true";
 
-    const plans = await planRepository.findAllMembershipPlansAsync(activeOnly);
-    return successResponse({ data: plans, total: plans.length });
+    const result = await planRepository.findAllAsync(activeOnly ? { isActive: true } : undefined);
+    return successResponse({ data: result.data, total: result.total });
   } catch (error) {
     console.error("Get admin plans error:", error);
     return errorResponse("Failed to fetch plans", 500);
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("price must be >= 0", 422);
     }
 
-    const plan = await planRepository.createMembershipPlanAsync({
+    const plan = await planRepository.createAsync({
       name: body.name.trim(),
       description: body.description.trim(),
       durationDays: body.durationDays,

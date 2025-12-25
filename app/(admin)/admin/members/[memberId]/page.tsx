@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast-provider";
 import { attendanceApi, branchesApi, membersApi, paymentsApi, plansApi, ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
+import { useSettings } from "@/lib/hooks/use-settings";
 import type { Branch, Member, Payment, MembershipPlan } from "@/lib/types";
 
 export default function GlobalMemberDetailPage() {
@@ -26,6 +28,7 @@ export default function GlobalMemberDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { toast } = useToast();
+  const { formatCurrency, formatDate } = useSettings();
   const [visitedToday, setVisitsToday] = useState<number>(0);
   const [pendingBalance, setPendingBalance] = useState<number>(0);
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
@@ -33,6 +36,10 @@ export default function GlobalMemberDetailPage() {
   // Action States
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<{ name: string; email: string; phone: string }>({ name: "", email: "", phone: "" });
+
+  const [isFreezeOpen, setIsFreezeOpen] = useState(false);
+  const [freezeReason, setFreezeReason] = useState("");
+  const [isProcessingFreeze, setIsProcessingFreeze] = useState(false);
 
   const [isChangePlanOpen, setIsChangePlanOpen] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<MembershipPlan[]>([]);
@@ -69,28 +76,36 @@ export default function GlobalMemberDetailPage() {
   };
 
   const handleFreezeClick = () => {
-    toast({
-      title: "Freeze Membership?",
-      description: "This will pause the member's plan immediately.",
-      variant: "warning",
-      duration: Infinity,
-      action: ({ dismiss }) => (
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={dismiss}>Cancel</Button>
-          <Button variant="destructive" size="sm" onClick={async () => {
-            dismiss();
-            if (!member) return;
-            try {
-              await membersApi.update(member.id, { status: "Frozen" });
-              toast({ title: "Membership Frozen", variant: "success" });
-              refreshMember();
-            } catch (e) {
-              toast({ title: "Failed to freeze", variant: "destructive" });
-            }
-          }}>Confirm Freeze</Button>
-        </div>
-      )
-    });
+    setIsFreezeOpen(true);
+  };
+
+  const handleConfirmFreeze = async () => {
+    if (!member) return;
+    setIsProcessingFreeze(true);
+    try {
+      await membersApi.freeze(member.id, freezeReason);
+      toast({ title: "Membership Frozen", variant: "success" });
+      setIsFreezeOpen(false);
+      setFreezeReason("");
+      refreshMember();
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to freeze";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setIsProcessingFreeze(false);
+    }
+  };
+
+  const handleUnfreezeClick = async () => {
+    if (!member) return;
+    try {
+      await membersApi.unfreeze(member.id);
+      toast({ title: "Membership Restored", variant: "success" });
+      refreshMember();
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : "Failed to unfreeze";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    }
   };
 
   const loadPlans = async () => {
@@ -173,12 +188,8 @@ export default function GlobalMemberDetailPage() {
   const branchName = useMemo(() => branch?.name || member?.branchId || "—", [branch?.name, member?.branchId]);
   const joinDate = useMemo(() => {
     if (!member?.createdAt) return "—";
-    try {
-      return new Date(member.createdAt).toLocaleDateString();
-    } catch {
-      return member.createdAt;
-    }
-  }, [member?.createdAt]);
+    return formatDate(member.createdAt);
+  }, [member?.createdAt, formatDate]);
 
   if (loading) {
     return (
@@ -243,7 +254,12 @@ export default function GlobalMemberDetailPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <h2 className="text-4xl font-black tracking-tight">{member.name}</h2>
-                    <Badge className={`rounded-lg px-3 py-1 font-black uppercase tracking-widest text-[9px] border-0 shadow-lg ${member.status === 'Active' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+                    <Badge className={cn(
+                      "rounded-lg px-3 py-1 font-black uppercase tracking-widest text-[9px] border-0 shadow-lg",
+                      member.status === 'Active' ? 'bg-emerald-500 text-white' :
+                        member.status === 'Frozen' ? 'bg-blue-500 text-white' :
+                          'bg-rose-500 text-white'
+                    )}>
                       {member.status}
                     </Badge>
                   </div>
@@ -269,7 +285,7 @@ export default function GlobalMemberDetailPage() {
       <div className="grid gap-6 md:grid-cols-4 px-1">
         {[
           { title: 'Visits Today', value: visitedToday, icon: TrendingUp, color: 'rose', sub: 'Total check-ins' },
-          { title: 'Balance Dues', value: `₹${pendingBalance.toLocaleString()}`, icon: Wallet, color: 'amber', sub: 'Pending Invoices' },
+          { title: 'Balance Dues', value: formatCurrency(pendingBalance), icon: Wallet, color: 'amber', sub: 'Pending Invoices' },
           { title: 'Engagement', value: 'High', icon: Activity, color: 'fuchsia', sub: 'Active last 24h' },
           { title: 'Health Score', value: '94%', icon: ShieldCheck, color: 'emerald', sub: 'Based on consistency' }
         ].map((item, i) => (
@@ -359,12 +375,12 @@ export default function GlobalMemberDetailPage() {
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-white rounded-xl shadow-sm text-slate-400 group-hover:text-amber-500 shadow-amber-900/5"><Wallet className="h-4 w-4" /></div>
                       <div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">{p.method} • {new Date(p.createdAt).toLocaleDateString()}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">{p.method} • {formatDate(p.createdAt)}</p>
                         <p className="font-black text-gray-800 tracking-tight">{p.description || 'Membership Payment'}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-black text-gray-900 tracking-tighter">₹{p.amount.toLocaleString()}</p>
+                      <p className="font-black text-gray-900 tracking-tighter">{formatCurrency(p.amount)}</p>
                       <Badge variant="outline" className={`mt-1 text-[8px] font-black uppercase tracking-widest border-0 ${p.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`}>
                         {p.status}
                       </Badge>
@@ -390,9 +406,15 @@ export default function GlobalMemberDetailPage() {
                 <Button onClick={handleEditClick} className="h-14 px-8 rounded-2xl bg-white text-slate-950 hover:bg-slate-50 font-black uppercase tracking-widest text-[10px] gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl">
                   <Pencil className="h-4 w-4" /> Edit Profile
                 </Button>
-                <Button onClick={handleFreezeClick} variant="outline" className="h-14 px-8 rounded-2xl border-white/20 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] gap-2 transition-all hover:scale-105 active:scale-95 backdrop-blur-md">
-                  <Snowflake className="h-4 w-4" /> Freeze Plan
-                </Button>
+                {member.status === 'Frozen' ? (
+                  <Button onClick={handleUnfreezeClick} variant="outline" className="h-14 px-8 rounded-2xl border-rose-500/50 hover:bg-rose-500/10 text-rose-500 font-black uppercase tracking-widest text-[10px] gap-2 transition-all hover:scale-105 active:scale-95 backdrop-blur-md bg-rose-500/5">
+                    <PlayCircle className="h-4 w-4" /> Unfreeze Plan
+                  </Button>
+                ) : (
+                  <Button onClick={handleFreezeClick} variant="outline" className="h-14 px-8 rounded-2xl border-white/20 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] gap-2 transition-all hover:scale-105 active:scale-95 backdrop-blur-md">
+                    <Snowflake className="h-4 w-4" /> Freeze Plan
+                  </Button>
+                )}
                 <Button onClick={handleChangePlanClick} variant="outline" className="h-14 px-8 rounded-2xl border-white/20 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] gap-2 transition-all hover:scale-105 active:scale-95 backdrop-blur-md">
                   <PlayCircle className="h-4 w-4" /> Change Plan
                 </Button>
@@ -461,6 +483,52 @@ export default function GlobalMemberDetailPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsChangePlanOpen(false)} className="rounded-xl">Cancel</Button>
             <Button onClick={handleSaveNewPlan} className="rounded-xl bg-slate-900 text-white hover:bg-black">Update Plan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isFreezeOpen} onOpenChange={setIsFreezeOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-[2rem] border-0 shadow-2xl p-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-8 text-white">
+            <div className="p-3 bg-white/10 w-fit rounded-2xl mb-4 border border-white/10">
+              <Snowflake className="h-6 w-6 text-blue-400" />
+            </div>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black tracking-tight">Freeze Membership</DialogTitle>
+              <DialogDescription className="text-slate-400 font-medium">
+                Pausing membership for <span className="text-white font-bold">{member.name}</span> will temporarily restrict access.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="p-8 space-y-6 bg-white">
+            <div className="space-y-3">
+              <Label htmlFor="freeze-reason" className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reason for Freezing (Optional)</Label>
+              <Input
+                id="freeze-reason"
+                placeholder="e.g., Medical leave, Vacation, Personal reasons"
+                value={freezeReason}
+                onChange={(e) => setFreezeReason(e.target.value)}
+                className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white transition-all px-5 font-medium"
+              />
+            </div>
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-3 items-start">
+              <div className="mt-0.5"><Zap className="h-4 w-4 text-amber-600" /></div>
+              <p className="text-[11px] leading-relaxed text-amber-900 font-medium">
+                This action is effective immediately. The member will not be able to check in until the membership is reactivated.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="p-8 bg-slate-50 border-t border-slate-100 mt-0 sm:justify-between sm:space-x-4">
+            <Button variant="ghost" onClick={() => setIsFreezeOpen(false)} className="h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] text-slate-500 hover:text-slate-950">
+              Go Back
+            </Button>
+            <Button
+              onClick={handleConfirmFreeze}
+              disabled={isProcessingFreeze}
+              className="h-12 px-8 rounded-xl bg-slate-950 text-white hover:bg-black font-black uppercase tracking-widest text-[10px] gap-2 shadow-lg shadow-slate-900/20 active:scale-95 transition-all"
+            >
+              {isProcessingFreeze ? "Processing..." : "Freeze Now"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

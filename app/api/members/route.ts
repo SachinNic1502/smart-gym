@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     const ipAddress = getRequestIp(request);
 
     if (result.data) {
-      auditService.logAction({
+      await auditService.logAction({
         userId: actor.userId,
         userName: actor.userName,
         action: "create_member",

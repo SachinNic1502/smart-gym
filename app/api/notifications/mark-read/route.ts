@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
         return errorResponse("Notification not found", 404);
       }
 
-      if (notification.userId !== session.sub) {
+      if (session.role !== "super_admin" && notification.userId !== session.sub) {
         return errorResponse("Unauthorized", 403);
       }
 

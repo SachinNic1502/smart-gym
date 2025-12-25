@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const ipAddress = getRequestIp(request);
 
         // Log the reboot action
-        auditService.logAction({
+        await auditService.logAction({
             userId: actor.userId,
             userName: actor.userName,
             action: "reboot_device",

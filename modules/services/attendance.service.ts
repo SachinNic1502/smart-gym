@@ -2,7 +2,7 @@
  * Attendance Service
  */
 
-import { attendanceRepository, memberRepository } from "@/modules/database";
+import { attendanceRepository, memberRepository, notificationRepository, userRepository } from "@/modules/database";
 import { formatDate } from "@/modules/database/repositories/base.repository";
 import type { AttendanceRecord, AttendanceMethod } from "@/lib/types";
 import type { AttendanceFilters, PaginationOptions, PaginatedResult } from "@/modules/database";
@@ -36,13 +36,7 @@ export const attendanceService = {
     const { memberId, branchId, method, deviceId } = data;
 
     // Validate member
-    const member = await (async () => {
-      try {
-        return await memberRepository.findByIdAsync(memberId);
-      } catch {
-        return memberRepository.findById(memberId);
-      }
-    })();
+    const member = await memberRepository.findByIdAsync(memberId);
     if (!member) {
       return { success: false, error: "Member not found" };
     }
@@ -68,6 +62,29 @@ export const attendanceService = {
         status: "failed",
         deviceId,
       });
+
+      // Notify Branch Admins about failed entry attempt
+      try {
+        const branchAdmins = await userRepository.findByBranchAsync(branchId);
+        const adminUsers = branchAdmins.filter(u => u.role === "branch_admin");
+
+        for (const admin of adminUsers) {
+          await notificationRepository.createAsync({
+            userId: admin.id,
+            type: "system_announcement",
+            title: "Access Denied Alert",
+            message: `${member.name} attempted entry but status is ${member.status}${isExpiredByDate ? ' (Expired Plan)' : ''}`,
+            priority: "high",
+            status: "unread",
+            read: false,
+            data: { memberId, status: member.status, isExpired: isExpiredByDate },
+            branchId
+          });
+        }
+      } catch (e) {
+        console.warn("Failed to notify admins about denied entry", e);
+      }
+
       return { success: false, error: "Member subscription has expired", data: record };
     }
 
@@ -92,10 +109,23 @@ export const attendanceService = {
     });
 
     // Update member's last visit
+    await memberRepository.updateAsync(memberId, { lastVisit: record.checkInTime });
+
+    // Notify member about successful check-in
     try {
-      await memberRepository.updateAsync(memberId, { lastVisit: record.checkInTime });
-    } catch {
-      memberRepository.update(memberId, { lastVisit: record.checkInTime });
+      await notificationRepository.createAsync({
+        userId: memberId,
+        type: "system_announcement",
+        title: "Welcome to Smart Fit!",
+        message: `You checked in at ${new Date(record.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Have a great workout!`,
+        priority: "low",
+        status: "unread",
+        read: false,
+        data: { attendanceId: record.id },
+        branchId
+      });
+    } catch (e) {
+      console.warn("Failed to notify member about check-in", e);
     }
 
     return { success: true, data: record, message: "Checked in successfully" };

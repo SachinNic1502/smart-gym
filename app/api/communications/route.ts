@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
-import { communicationRepository } from "@/modules/database";
+import { communicationRepository, notificationRepository, userRepository } from "@/modules/database";
 import { auditService } from "@/modules/services";
 import type { BroadcastMessage, MessageChannel } from "@/lib/types";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       status: (searchParams.get("status") as "sent" | "scheduled" | "draft") || undefined,
     };
 
-    const result = communicationRepository.findAll(filters, pagination);
+    const result = await communicationRepository.findAllAsync(filters, pagination);
     return successResponse(result);
 
   } catch (error) {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("title, content, and channel are required");
     }
 
-    const message = communicationRepository.create({
+    const message = await communicationRepository.createAsync({
       title: body.title,
       content: body.content,
       channel: body.channel,
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Check if we can determine branch from actor
     const branchId = auth.session.branchId;
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "create_communication",
@@ -74,6 +74,26 @@ export async function POST(request: NextRequest) {
       ipAddress,
       branchId,
     });
+
+    // Notify Super Admins
+    try {
+      const superAdmins = await userRepository.findSuperAdminsAsync();
+      for (const admin of superAdmins) {
+        if (admin.id === actor.userId) continue;
+        await notificationRepository.createAsync({
+          userId: admin.id,
+          type: "system_announcement",
+          title: "New Broadcast Message",
+          message: `${actor.userName} created a ${message.channel} message: ${message.title}`,
+          priority: "medium",
+          status: "unread",
+          read: false,
+          data: { messageId: message.id, channel: message.channel }
+        });
+      }
+    } catch (e) {
+      console.warn("Communication notification failed", e);
+    }
 
     return successResponse(message, "Message created successfully", 201);
 

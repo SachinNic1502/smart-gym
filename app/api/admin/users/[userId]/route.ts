@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
-import { authService } from "@/modules/services";
+import { authService, auditService } from "@/modules/services";
+import { userRepository, notificationRepository } from "@/modules/database";
 import { connectToDatabase } from "@/modules/database/mongoose";
 import { UserModel } from "@/modules/database/models";
 import { hashPassword } from "@/modules/database/password";
+import { getRequestIp } from "@/lib/api/auth-helpers";
 import { requireSession } from "@/lib/api/require-auth";
 import type { User } from "@/lib/types";
 
@@ -66,6 +68,44 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     user.updatedAt = new Date().toISOString();
     await user.save();
+
+    const actorUserId = auth.session.sub;
+    const actor = await userRepository.findByIdAsync(actorUserId);
+    const ipAddress = getRequestIp(request);
+
+    await auditService.logAction({
+      userId: actorUserId,
+      userName: actor?.name ?? null,
+      action: "update_admin_user",
+      resource: "admin_user",
+      resourceId: user.id,
+      details: {
+        updatedFields: Object.keys(body),
+        id: user.id,
+        role: user.role
+      },
+      ipAddress,
+    });
+
+    // Notify other Super Admins
+    try {
+      const superAdmins = await userRepository.findSuperAdminsAsync();
+      for (const admin of superAdmins) {
+        if (admin.id === actorUserId) continue;
+        await notificationRepository.createAsync({
+          userId: admin.id,
+          type: "system_announcement",
+          title: "Admin Credentials Updated",
+          message: `${actor?.name || "A Super Admin"} has updated administrative details for: ${user.name}`,
+          priority: "high",
+          status: "unread",
+          read: false,
+          data: { updatedUserId: user.id, actorId: actorUserId }
+        });
+      }
+    } catch (e) {
+      console.warn("Admin update notification failed", e);
+    }
 
     return successResponse({
       id: user.id,

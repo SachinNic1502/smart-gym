@@ -22,7 +22,7 @@ export interface ServiceResult<T> {
 }
 
 export interface LeadListResult extends PaginatedResult<Lead> {
-  stats: ReturnType<typeof leadRepository.getStats>;
+  stats: Awaited<ReturnType<typeof leadRepository.getStatsAsync>>;
 }
 
 export const leadService = {

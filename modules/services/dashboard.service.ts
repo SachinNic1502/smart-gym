@@ -9,55 +9,13 @@ import {
   paymentRepository,
   attendanceRepository,
 } from "@/modules/database";
-
-export interface SuperAdminStats {
-  stats: Array<{
-    title: string;
-    value: string | number;
-    change: string;
-    trend: "up" | "down";
-  }>;
-  charts: {
-    revenueByMonth: Array<{ name: string; revenue: number }>;
-    newVsChurnedByMonth: Array<{ month: string; newMembers: number; churned: number }>;
-    memberComposition: Array<{ name: string; value: number }>;
-    topBranches: Array<{ name: string; revenue: number; members: number }>;
-  };
-  recentActivity: Array<{
-    name: string;
-    action: string;
-    amount: string;
-    time: string;
-  }>;
-}
-
-export interface BranchStats {
-  stats: Array<{
-    title: string;
-    value: string | number;
-    sub: string;
-    color: string;
-  }>;
-  charts: {
-    attendanceTrend: Array<{ time: string; users: number }>;
-  };
-  recentCheckIns: Array<{
-    name: string;
-    time: string;
-    method: string;
-    status: string;
-  }>;
-  expiringMembers: Array<{
-    name: string;
-    days: number;
-  }>;
-}
+import type { DashboardData, Member, Payment, AttendanceRecord } from "@/lib/types";
 
 export const dashboardService = {
   /**
    * Get super admin dashboard stats
    */
-  async getSuperAdminStats(branchId?: string): Promise<SuperAdminStats> {
+  async getSuperAdminStats(branchId?: string): Promise<DashboardData> {
     const branches = await branchRepository.findAllAsync();
     const activeBranches = branches.data.filter(b => b.status === "active").length;
 
@@ -66,7 +24,7 @@ export const dashboardService = {
       ? { data: (await memberRepository.findByBranchAsync(branchId)), total: (await memberRepository.findByBranchAsync(branchId)).length }
       : await memberRepository.findAllAsync();
 
-    const activeMembers = members.data.filter((m: any) => m.status === "Active").length;
+    const activeMembers = members.data.filter((m: Member) => m.status === "Active").length;
 
     const deviceStats = await deviceRepository.getStatsAsync(branchId);
 
@@ -77,15 +35,15 @@ export const dashboardService = {
     const now = new Date();
     const thirtyDaysAgoIso = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const last30Completed = allPayments.filter(
-      (p: any) => p.status === "completed" && p.createdAt >= thirtyDaysAgoIso
+      (p: Payment) => p.status === "completed" && p.createdAt >= thirtyDaysAgoIso
     );
-    const monthlyRevenue = last30Completed.reduce((sum: number, p: any) => sum + p.amount, 0);
+    const monthlyRevenue = last30Completed.reduce((sum: number, p: Payment) => sum + p.amount, 0);
 
     // Member composition (Active / Churned / Expired)
-    const activeCount = members.data.filter((m: any) => m.status === "Active").length;
-    const expiredCount = members.data.filter((m: any) => m.status === "Expired").length;
+    const activeCount = members.data.filter((m: Member) => m.status === "Active").length;
+    const expiredCount = members.data.filter((m: Member) => m.status === "Expired").length;
     const churnedCount = members.data.filter(
-      (m: any) => m.status === "Cancelled" || m.status === "Frozen"
+      (m: Member) => m.status === "Cancelled" || m.status === "Frozen"
     ).length;
 
     const churnRatePercent =
@@ -99,8 +57,8 @@ export const dashboardService = {
     const daysWindow = 30;
     const dailyUnique = new Map<string, Set<string>>();
     attendanceRecords
-      .filter((r: any) => r.status === "success" && r.checkInTime >= thirtyDaysAgoIso)
-      .forEach((r: any) => {
+      .filter((r: AttendanceRecord) => r.status === "success" && r.checkInTime >= thirtyDaysAgoIso)
+      .forEach((r: AttendanceRecord) => {
         const dayKey = r.checkInTime.slice(0, 10);
         const set = dailyUnique.get(dayKey) ?? new Set<string>();
         set.add(r.memberId);
@@ -134,7 +92,7 @@ export const dashboardService = {
     const newPerMonth = new Map<string, number>();
     const churnPerMonth = new Map<string, number>();
 
-    members.data.forEach((m: any) => {
+    members.data.forEach((m: Member) => {
       if (m.createdAt) {
         const createdKey = m.createdAt.slice(0, 7); // YYYY-MM
         newPerMonth.set(createdKey, (newPerMonth.get(createdKey) || 0) + 1);
@@ -153,14 +111,14 @@ export const dashboardService = {
 
     // Top branches by revenue and member count
     const revenueByBranch = new Map<string, number>();
-    const completedPayments = allPayments.filter((p: any) => p.status === "completed");
-    completedPayments.forEach((p: any) => {
+    const completedPayments = allPayments.filter((p: Payment) => p.status === "completed");
+    completedPayments.forEach((p: Payment) => {
       const current = revenueByBranch.get(p.branchId) || 0;
       revenueByBranch.set(p.branchId, current + p.amount);
     });
 
     const membersByBranch = new Map<string, number>();
-    members.data.forEach((m: any) => {
+    members.data.forEach((m: Member) => {
       const current = membersByBranch.get(m.branchId) || 0;
       membersByBranch.set(m.branchId, current + 1);
     });
@@ -229,7 +187,7 @@ export const dashboardService = {
   /**
    * Get branch dashboard stats
    */
-  async getBranchStats(branchId: string, period?: string): Promise<BranchStats> {
+  async getBranchStats(branchId: string, period?: string): Promise<DashboardData> {
     const members = await memberRepository.findByBranchAsync(branchId);
     const activeMembers = members.filter(m => m.status === "Active").length;
 
@@ -305,28 +263,17 @@ export const dashboardService = {
   // Helper methods
   async getRevenueByMonth(branchId?: string) {
     const all = await paymentRepository.findAllAsync(branchId ? { branchId } : undefined);
-    const payments = all.data.filter((p: any) => p.status === "completed");
+    const payments = all.data.filter((p: Payment) => p.status === "completed");
     const monthMap = new Map<string, number>();
 
-    payments.forEach((p: any) => {
+    payments.forEach((p: Payment) => {
       const date = new Date(p.createdAt);
       const monthName = date.toLocaleString("en-US", { month: "short" });
       monthMap.set(monthName, (monthMap.get(monthName) || 0) + p.amount);
     });
 
     const monthsOrder = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
 
     return monthsOrder.map(name => ({
@@ -357,7 +304,7 @@ export const dashboardService = {
 
     const result = await attendanceRepository.findAllAsync({ branchId });
     // Filter by date range
-    const records = result.data.filter((r: any) => {
+    const records = result.data.filter((r: AttendanceRecord) => {
       const rDate = new Date(r.checkInTime);
       if (period === "day") {
         return rDate.toDateString() === now.toDateString();
@@ -370,7 +317,7 @@ export const dashboardService = {
     // Initialize buckets based on type to ensure continuous axis
     if (aggregationType === "hour") {
       const dString = now.toISOString().split('T')[0];
-      for (let i = 6; i <= 22; i++) { // Initialize from 6 AM to 10 PM (typical gym hours)
+      for (let i = 6; i <= 22; i++) { // Initialize from 6 AM to 10 PM
         const label = `${dString}T${i.toString().padStart(2, "0")}:00:00`;
         buckets.set(label, 0);
       }
@@ -384,9 +331,8 @@ export const dashboardService = {
       const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       monthNames.forEach(m => buckets.set(m, 0));
     }
-    // "week" (inside month) buckets can be dynamic "Week 1"..."Week 5"
 
-    records.forEach((r: any) => {
+    records.forEach((r: AttendanceRecord) => {
       const date = new Date(r.checkInTime);
       let label = "";
 
@@ -405,11 +351,6 @@ export const dashboardService = {
 
       buckets.set(label, (buckets.get(label) || 0) + 1);
     });
-
-    // For "day" (hour), fill empty hours if needed or just sort
-    // For "week" (day), sort by date
-    // For "month" (week), sort Week 1..5
-    // For "year" (month), sort Jan..Dec
 
     const labels = Array.from(buckets.keys());
 
@@ -432,10 +373,10 @@ export const dashboardService = {
   async getRecentActivity(branchId?: string) {
     const all = await paymentRepository.findAllAsync(branchId ? { branchId } : undefined);
     const payments = all.data
-      .filter((p: any) => p.status === "completed")
+      .filter((p: Payment) => p.status === "completed")
       .slice(0, 5);
 
-    return payments.map((p: any) => ({
+    return payments.map((p: Payment) => ({
       name: p.memberName,
       action: p.description || "Membership Payment",
       amount: `+₹${p.amount.toLocaleString()}`,
@@ -448,6 +389,7 @@ export const dashboardService = {
 
     return records.map(r => ({
       name: r.memberName,
+      action: "Check In",
       time: new Date(r.checkInTime).toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
@@ -459,13 +401,7 @@ export const dashboardService = {
   },
 
   async getExpiringMembers(branchId: string) {
-    const members = await (async () => {
-      try {
-        return await memberRepository.getExpiringSoonAsync(branchId, 7);
-      } catch {
-        return memberRepository.getExpiringSoon(branchId, 7);
-      }
-    })();
+    const members = await memberRepository.getExpiringSoonAsync(branchId, 7);
     const today = new Date();
 
     return members.slice(0, 5).map(m => {

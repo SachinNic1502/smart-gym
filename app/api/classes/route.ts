@@ -63,12 +63,13 @@ export async function POST(request: NextRequest) {
       capacity: body.capacity,
       schedule: body.schedule || [],
       status: body.status || "active",
+      enrolled: 0,
     });
 
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "create_class",

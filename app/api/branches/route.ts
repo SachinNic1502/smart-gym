@@ -5,6 +5,7 @@ import { branchService, auditService } from "@/modules/services";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 import { requireSession } from "@/lib/api/require-auth";
 import { UserModel } from "@/modules/database/models";
+import { userRepository, notificationRepository } from "@/modules/database";
 import { hashPassword } from "@/modules/database/password";
 import { generateId } from "@/modules/database/repositories/base.repository";
 
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
           adminCreated = true;
 
           // Audit the user creation too
-          auditService.logAction({
+          await auditService.logAction({
             userId: actor.userId,
             userName: actor.userName,
             action: "create_admin_user",
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (result.data) {
-      auditService.logAction({
+      await auditService.logAction({
         userId: actor.userId,
         userName: actor.userName,
         action: "create_branch",
@@ -143,6 +144,26 @@ export async function POST(request: NextRequest) {
         ipAddress,
         branchId: result.data.id,
       });
+
+      // Notify other Super Admins
+      try {
+        const superAdmins = await userRepository.findSuperAdminsAsync();
+        for (const admin of superAdmins) {
+          if (admin.id === actor.userId) continue;
+          await notificationRepository.createAsync({
+            userId: admin.id,
+            type: "system_announcement" as const,
+            title: "New Branch Established",
+            message: `${result.data.name} branch has been added to the system.`,
+            priority: "high" as const,
+            status: "unread" as const,
+            read: false,
+            data: { branchId: result.data.id, name: result.data.name }
+          });
+        }
+      } catch (e) {
+        console.warn("Branch creation notification failed", e);
+      }
     }
 
     const message = adminCreated

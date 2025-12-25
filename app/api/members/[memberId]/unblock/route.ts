@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const actor = await getRequestUser();
         const ipAddress = getRequestIp(request);
 
-        auditService.logAction({
+        await auditService.logAction({
             userId: actor.userId,
             userName: actor.userName,
             action: "unblock_member",

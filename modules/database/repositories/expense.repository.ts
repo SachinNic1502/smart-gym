@@ -2,126 +2,29 @@
  * Expense Repository
  */
 
-import { getStore, persistStore } from "../store";
 import { connectToDatabase } from "../mongoose";
 import { ExpenseModel } from "../models";
 import { generateId, formatDate, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
-import type { Expense, ExpenseCategory } from "@/lib/types";
+import type { Expense } from "@/lib/types";
 
 export interface ExpenseFilters {
   branchId?: string;
-  category?: ExpenseCategory;
+  category?: string;
   startDate?: string;
   endDate?: string;
 }
 
 export const expenseRepository = {
-  findAll(filters: ExpenseFilters = {}, pagination?: PaginationOptions): PaginatedResult<Expense> {
-    const store = getStore();
-    let filtered = [...store.expenses];
-
-    if (filters.branchId) {
-      filtered = filtered.filter(e => e.branchId === filters.branchId);
-    }
-
-    if (filters.category) {
-      filtered = filtered.filter(e => e.category === filters.category);
-    }
-
-    if (filters.startDate) {
-      filtered = filtered.filter(e => e.date >= filters.startDate!);
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(e => e.date <= filters.endDate!);
-    }
-
-    // Sort by most recent
-    filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    return paginate(filtered, pagination);
-  },
-
-  findById(id: string): Expense | undefined {
-    return getStore().expenses.find(e => e.id === id);
-  },
-
-  create(data: Omit<Expense, "id" | "createdAt">): Expense {
-    const store = getStore();
-    const expense: Expense = {
-      ...data,
-      id: generateId("EXP"),
-      createdAt: formatDate(new Date()),
-    };
-    store.expenses.unshift(expense);
-    persistStore();
-    return expense;
-  },
-
-  update(id: string, data: Partial<Expense>): Expense | null {
-    const store = getStore();
-    const index = store.expenses.findIndex(e => e.id === id);
-    if (index === -1) return null;
-
-    store.expenses[index] = {
-      ...store.expenses[index],
-      ...data,
-      id, // Prevent ID change
-    };
-    persistStore();
-    return store.expenses[index];
-  },
-
-  delete(id: string): boolean {
-    const store = getStore();
-    const index = store.expenses.findIndex(e => e.id === id);
-    if (index === -1) return false;
-    store.expenses.splice(index, 1);
-    persistStore();
-    return true;
-  },
-
-  getTotalByBranch(branchId: string, startDate?: string, endDate?: string): number {
-    const store = getStore();
-    return store.expenses
-      .filter(e => e.branchId === branchId)
-      .filter(e => !startDate || e.date >= startDate)
-      .filter(e => !endDate || e.date <= endDate)
-      .reduce((sum, e) => sum + e.amount, 0);
-  },
-
-  getByCategory(branchId?: string): Record<ExpenseCategory, number> {
-    const store = getStore();
-    const expenses = branchId
-      ? store.expenses.filter(e => e.branchId === branchId)
-      : store.expenses;
-
-    const result: Record<string, number> = {};
-    expenses.forEach(e => {
-      result[e.category] = (result[e.category] || 0) + e.amount;
-    });
-    return result as Record<ExpenseCategory, number>;
-  },
-
-  // ============================================
-  // Mongo-backed async methods (real database)
-  // ============================================
-
-  async findAllAsync(filters: ExpenseFilters = {}, pagination?: PaginationOptions): Promise<PaginatedResult<Expense>> {
-    try {
-      await connectToDatabase();
-    } catch {
-      return this.findAll(filters, pagination);
-    }
+  async findAllAsync(filters?: ExpenseFilters, pagination?: PaginationOptions): Promise<PaginatedResult<Expense>> {
+    await connectToDatabase();
 
     const query: Record<string, unknown> = {};
-    if (filters.branchId) query.branchId = filters.branchId;
-    if (filters.category) query.category = filters.category;
-
-    const dateQuery: Record<string, string> = {};
-    if (filters.startDate) dateQuery.$gte = filters.startDate;
-    if (filters.endDate) dateQuery.$lte = filters.endDate;
-    if (Object.keys(dateQuery).length) {
+    if (filters?.branchId) query.branchId = filters.branchId;
+    if (filters?.category) query.category = filters.category;
+    if (filters?.startDate || filters?.endDate) {
+      const dateQuery: Record<string, unknown> = {};
+      if (filters.startDate) dateQuery.$gte = filters.startDate;
+      if (filters.endDate) dateQuery.$lte = filters.endDate;
       query.date = dateQuery;
     }
 
@@ -155,89 +58,51 @@ export const expenseRepository = {
   },
 
   async findByIdAsync(id: string): Promise<Expense | undefined> {
-    try {
-      await connectToDatabase();
-    } catch {
-      return this.findById(id);
-    }
+    await connectToDatabase();
     const doc = await ExpenseModel.findOne({ id }).lean<Expense | null>();
     return doc ?? undefined;
   },
 
-  async updateAsync(id: string, data: Partial<Expense>): Promise<Expense | null> {
-    const updated = this.update(id, data);
-    try {
-      await connectToDatabase();
-      const doc = await ExpenseModel.findOneAndUpdate(
-        { id },
-        { ...data, id },
-        { new: true },
-      ).lean<Expense | null>();
-      return doc ?? updated;
-    } catch {
-      return updated;
-    }
-  },
-
-  async deleteAsync(id: string): Promise<boolean> {
-    const deleted = this.delete(id);
-    try {
-      await connectToDatabase();
-      const res = await ExpenseModel.deleteOne({ id }).exec();
-      return res.deletedCount === 1;
-    } catch {
-      return deleted;
-    }
-  },
-
   async createAsync(data: Omit<Expense, "id" | "createdAt">): Promise<Expense> {
-    const expense = this.create(data);
-
-    try {
-      await connectToDatabase();
-      await ExpenseModel.create(expense);
-    } catch {
-      // ignore
-    }
-
+    await connectToDatabase();
+    const expense: Expense = {
+      ...data,
+      id: generateId("EXP"),
+      createdAt: formatDate(),
+    };
+    await ExpenseModel.create(expense);
     return expense;
   },
 
-  async getTotalByBranchAsync(branchId: string, startDate?: string, endDate?: string): Promise<number> {
-    try {
-      await connectToDatabase();
-    } catch {
-      return this.getTotalByBranch(branchId, startDate, endDate);
-    }
-
-    const query: Record<string, unknown> = { branchId };
-
-    const dateQuery: Record<string, string> = {};
-    if (startDate) dateQuery.$gte = startDate;
-    if (endDate) dateQuery.$lte = endDate;
-    if (Object.keys(dateQuery).length) {
-      query.date = dateQuery;
-    }
-
-    const docs = await ExpenseModel.find(query).lean<Expense[]>();
-    return docs.reduce((sum, e) => sum + e.amount, 0);
+  async updateAsync(id: string, data: Partial<Expense>): Promise<Expense | undefined> {
+    await connectToDatabase();
+    const doc = await ExpenseModel.findOneAndUpdate(
+      { id },
+      { ...data },
+      { new: true }
+    ).lean<Expense | null>();
+    return doc ?? undefined;
   },
 
-  async getByCategoryAsync(branchId?: string): Promise<Record<ExpenseCategory, number>> {
-    try {
-      await connectToDatabase();
-    } catch {
-      return this.getByCategory(branchId);
-    }
+  async deleteAsync(id: string): Promise<boolean> {
+    await connectToDatabase();
+    const res = await ExpenseModel.deleteOne({ id }).exec();
+    return res.deletedCount === 1;
+  },
 
+  async getStatsAsync(branchId?: string) {
+    await connectToDatabase();
     const query: Record<string, unknown> = {};
     if (branchId) query.branchId = branchId;
 
     const docs = await ExpenseModel.find(query).lean<Expense[]>();
-    const result: Record<string, number> = {};
-    docs.forEach(e => {
-      result[e.category] = (result[e.category] || 0) + e.amount;
-    });
-    return result as Record<ExpenseCategory, number>;
+
+    const total = docs.reduce((sum, e) => sum + e.amount, 0);
+    const byCategory = docs.reduce((acc, e) => {
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return { total, byCategory };
   },
 };

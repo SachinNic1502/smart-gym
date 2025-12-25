@@ -10,7 +10,7 @@ export { branchService, type CreateBranchData, type BranchWithStats } from "./br
 export { attendanceService, type CheckInData } from "./attendance.service";
 export { paymentService, type CreatePaymentData, type PaymentResult, type PaymentListResult } from "./payment.service";
 export { leadService, type CreateLeadData, type LeadListResult } from "./lead.service";
-export { dashboardService, type SuperAdminStats, type BranchStats } from "./dashboard.service";
+export { dashboardService } from "./dashboard.service";
 export { deviceService, type CreateDeviceData, type UpdateDeviceData, type DeviceListResult } from "./device.service";
 export { auditService, type AuditListResult } from "./audit.service";
 export { settingsService } from "./settings.service";

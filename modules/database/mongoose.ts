@@ -37,5 +37,23 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   }
 
   cached.conn = await cached.promise;
+
+  // Seed database if empty
+  try {
+    const { BranchModel, SettingModel, UserModel } = await import("./models");
+    const { seedBranches, seedSettings, seedUsers } = await import("./seed-data");
+
+    const branchCount = await BranchModel.countDocuments();
+    if (branchCount === 0) {
+      console.log("Seeding database...");
+      await BranchModel.create(seedBranches);
+      await SettingModel.create(seedSettings);
+      await UserModel.create(seedUsers);
+      console.log("Seeding complete.");
+    }
+  } catch (err) {
+    console.error("Auto-seeding failed", err);
+  }
+
   return cached.conn;
 }

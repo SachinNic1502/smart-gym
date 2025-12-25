@@ -19,7 +19,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await parseBody<Partial<Omit<MembershipPlan, "id">>>(request);
     if (!body) return errorResponse("Invalid request body");
 
-    const updated = await planRepository.updateMembershipPlanAsync(planId, {
+    const updated = await planRepository.updateAsync(planId, {
       ...body,
       name: typeof body.name === "string" ? body.name.trim() : body.name,
       description: typeof body.description === "string" ? body.description.trim() : body.description,
@@ -41,7 +41,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if ("response" in auth) return auth.response;
 
     const { planId } = await params;
-    const ok = await planRepository.deleteMembershipPlanAsync(planId);
+    const ok = await planRepository.deleteAsync(planId);
     if (!ok) return errorResponse("Plan not found", 404);
 
     return successResponse({ id: planId }, "Plan deleted");

@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const ipAddress = getRequestIp(request);
 
     if (result.data) {
-      auditService.logAction({
+      await auditService.logAction({
         userId: actor.userId,
         userName: actor.userName,
         action: "update_branch",
@@ -121,7 +121,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "delete_branch",

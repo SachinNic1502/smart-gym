@@ -69,7 +69,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "update_lead",
@@ -97,6 +97,21 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             status: "unread" as const,
             read: false,
             data: { leadId: leadId, updatedBy: actor.userName },
+            branchId: result.data.branchId,
+          });
+        }
+
+        // Notify specific assignee if newly assigned
+        if (body.assignedTo && body.assignedTo !== existing.data.assignedTo) {
+          await notificationRepository.createAsync({
+            userId: body.assignedTo,
+            type: "lead_assigned" as const,
+            title: "New Lead Assigned",
+            message: `You have been assigned a new lead: ${result.data.name}`,
+            priority: "medium" as const,
+            status: "unread" as const,
+            read: false,
+            data: { leadId: leadId },
             branchId: result.data.branchId,
           });
         }
@@ -138,7 +153,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "delete_lead",

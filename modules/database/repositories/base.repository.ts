@@ -4,7 +4,6 @@
  * Provides common CRUD operations for all entities.
  */
 
-import { getStore } from "../store";
 
 export interface PaginationOptions {
   page: number;

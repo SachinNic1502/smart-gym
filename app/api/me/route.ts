@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get member to verify current password
-    const member = memberRepository.findById(memberId);
+    const member = await memberRepository.findByIdAsync(memberId);
     if (!member) {
       return errorResponse("Member not found", 404);
     }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     const newPasswordHash = await bcrypt.hash(newPassword, 10);
 
     // Update member password
-    const updated = memberRepository.update(memberId, { passwordHash: newPasswordHash });
+    const updated = await memberRepository.updateAsync(memberId, { passwordHash: newPasswordHash });
     if (!updated) {
       return errorResponse("Failed to update password", 500);
     }

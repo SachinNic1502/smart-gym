@@ -26,15 +26,7 @@ export type UpdateDeviceData = Partial<DeviceFormData>;
 
 async function findBranchById(branchId?: string) {
   if (!branchId) return undefined;
-  // Prefer in-memory branch first (seed data), then fall back to Mongo-backed branch
-  const inMemory = branchRepository.findById(branchId);
-  if (inMemory) return inMemory;
-
-  if (typeof branchRepository.findByIdAsync === "function") {
-    return branchRepository.findByIdAsync(branchId);
-  }
-
-  return undefined;
+  return branchRepository.findByIdAsync(branchId);
 }
 
 export const deviceService = {

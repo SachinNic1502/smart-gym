@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, Users, DollarSign, Activity, Download, Calendar, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, ArrowUpRight, ArrowDownRight, Sparkles, Building2, Layers, MapPin } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Activity, Download, Calendar, BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, ArrowUpRight, ArrowDownRight, Sparkles, Building2, Layers, MapPin, RefreshCw, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
     BarChart,
@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { useToast } from "@/components/ui/toast-provider";
 import { dashboardApi, branchesApi, ApiError } from "@/lib/api/client";
+import { useDashboard } from "@/lib/hooks/use-dashboard";
 import { Badge } from "@/components/ui/badge";
 
 interface DashboardStatItem {
@@ -38,57 +39,16 @@ export default function ReportsPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [mounted, setMounted] = useState(false);
-    const [superStats, setSuperStats] = useState<DashboardStatItem[] | null>(null);
-    const [statsError, setStatsError] = useState<string | null>(null);
-    const [revenueData, setRevenueData] = useState<{ name: string; revenue: number }[]>([]);
-    const [newVsChurned, setNewVsChurned] = useState<{ month: string; newMembers: number; churned: number }[]>([]);
-    const [memberComposition, setMemberComposition] = useState<{ name: string; value: number }[]>([]);
-    const [topBranches, setTopBranches] = useState<{ name: string; revenue: number; members: number }[]>([]);
     const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
-    const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
 
-    const fetchStats = useCallback(async (branchId?: string) => {
-        try {
-            setStatsError(null);
-            const actualBranchId = branchId === "all" ? undefined : branchId;
-            const data = await dashboardApi.getStats("super_admin", actualBranchId);
-            const cast = data as {
-                stats?: DashboardStatItem[];
-                charts?: {
-                    revenueByMonth?: { name: string; revenue: number }[];
-                    newVsChurnedByMonth?: { month: string; newMembers: number; churned: number }[];
-                    memberComposition?: { name: string; value: number }[];
-                    topBranches?: { name: string; revenue: number; members: number }[];
-                };
-            };
-            if (cast.stats && Array.isArray(cast.stats)) {
-                setSuperStats(cast.stats);
-            }
-            if (cast.charts?.revenueByMonth && Array.isArray(cast.charts.revenueByMonth)) {
-                setRevenueData(cast.charts.revenueByMonth);
-            } else {
-                setRevenueData([]);
-            }
-            if (cast.charts?.newVsChurnedByMonth && Array.isArray(cast.charts.newVsChurnedByMonth)) {
-                setNewVsChurned(cast.charts.newVsChurnedByMonth);
-            } else {
-                setNewVsChurned([]);
-            }
-            if (cast.charts?.memberComposition && Array.isArray(cast.charts.memberComposition)) {
-                setMemberComposition(cast.charts.memberComposition);
-            } else {
-                setMemberComposition([]);
-            }
-            if (cast.charts?.topBranches && Array.isArray(cast.charts.topBranches)) {
-                setTopBranches(cast.charts.topBranches);
-            } else {
-                setTopBranches([]);
-            }
-        } catch (error) {
-            const message = error instanceof ApiError ? error.message : "Failed to load reports";
-            setStatsError(message);
-        }
-    }, []);
+    const {
+        data: dashboardData,
+        loading: statsLoading,
+        error: statsError,
+        selectedBranchId,
+        setSelectedBranchId,
+        refresh
+    } = useDashboard();
 
     useEffect(() => {
         setMounted(true);
@@ -103,13 +63,16 @@ export default function ReportsPage() {
         loadBranches();
     }, []);
 
-    useEffect(() => {
-        fetchStats(selectedBranchId);
-    }, [selectedBranchId, fetchStats]);
-
     const selectedBranchName = selectedBranchId === "all"
         ? "Gym Network"
         : branches.find(b => b.id === selectedBranchId)?.name || "Branch";
+
+    // Extract data from the centralized store
+    const superStats = dashboardData?.stats || null;
+    const revenueData = dashboardData?.charts?.revenueByMonth || [];
+    const newVsChurned = dashboardData?.charts?.newVsChurnedByMonth || [];
+    const memberComposition = dashboardData?.charts?.memberComposition || [];
+    const topBranches = dashboardData?.charts?.topBranches || [];
 
     const totalRevenueStat = superStats?.find((s) => s.title.toLowerCase().includes("revenue"));
     const totalMembersStat = superStats?.find((s) => s.title.toLowerCase().includes("members"));
@@ -168,6 +131,22 @@ export default function ReportsPage() {
                             <Button variant="ghost" className="text-white hover:bg-white/10 rounded-xl h-12 px-6 font-black uppercase tracking-widest text-[10px] flex items-center gap-2">
                                 <Calendar className="h-4 w-4 opacity-70" />
                                 FY 2024-25
+                            </Button>
+                        </div>
+
+                        <div className="bg-white/10 backdrop-blur-md p-1 rounded-2xl border border-white/10 flex items-center h-14">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-white hover:bg-white/10 rounded-xl h-12 w-12 flex items-center justify-center"
+                                onClick={() => refresh()}
+                                disabled={statsLoading}
+                            >
+                                {statsLoading ? (
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                    <RefreshCw className="h-5 w-5 opacity-70" />
+                                )}
                             </Button>
                         </div>
                         <Button

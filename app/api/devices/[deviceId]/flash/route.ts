@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const ipAddress = getRequestIp(request);
 
         // Log the flash action
-        const auditLog = auditService.logAction({
+        const auditLog = await auditService.logAction({
             userId: actor.userId,
             userName: actor.userName,
             action: "flash_device",

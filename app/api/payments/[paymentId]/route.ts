@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api/utils";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
-import { paymentRepository } from "@/modules/database";
+import { paymentRepository, notificationRepository, userRepository } from "@/modules/database";
 import { auditService } from "@/modules/services";
 import { getRequestUser, getRequestIp } from "@/lib/api/auth-helpers";
 
@@ -54,7 +54,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "delete_payment",
@@ -63,6 +63,26 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       details: { payment } as unknown as Record<string, unknown>,
       ipAddress,
     });
+
+    // Notify Super Admins
+    try {
+      const superAdmins = await userRepository.findSuperAdminsAsync();
+      for (const admin of superAdmins) {
+        if (admin.id === actor.userId) continue;
+        await notificationRepository.createAsync({
+          userId: admin.id,
+          type: "system_announcement",
+          title: "Payment Record Deleted",
+          message: `${actor.userName} deleted a payment record for ${payment.memberName}: ₹${payment.amount}`,
+          priority: "high",
+          status: "unread",
+          read: false,
+          data: { paymentId, amount: payment.amount, memberName: payment.memberName }
+        });
+      }
+    } catch (e) {
+      console.warn("Payment deletion notification failed", e);
+    }
 
     return successResponse({ id: paymentId }, "Payment deleted successfully");
   } catch (error) {

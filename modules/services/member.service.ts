@@ -62,7 +62,7 @@ export const memberService = {
     }
 
     // Resolve membership plan (optional)
-    const selectedPlan = data.planId ? await planRepository.findMembershipPlanByIdAsync(data.planId) : undefined;
+    const selectedPlan = data.planId ? await planRepository.findByIdAsync(data.planId) : undefined;
     if (data.planId && !selectedPlan) {
       return { success: false, error: "Membership plan not found" };
     }
@@ -123,7 +123,7 @@ export const memberService = {
     const workoutPlan = member.workoutPlanId
       ? await planRepository.findWorkoutPlanByIdAsync(member.workoutPlanId)
       : null;
-    
+
     const dietPlan = member.dietPlanId
       ? await planRepository.findDietPlanByIdAsync(member.dietPlanId)
       : null;
@@ -173,4 +173,39 @@ export const memberService = {
   async getExpiringSoon(branchId: string, days: number = 7): Promise<Member[]> {
     return memberRepository.getExpiringSoonAsync(branchId, days);
   },
+
+  /**
+   * Freeze a member's membership
+   */
+  async freezeMember(id: string, reason?: string): Promise<ServiceResult<Member>> {
+    const member = await memberRepository.findByIdAsync(id);
+    if (!member) return { success: false, error: "Member not found" };
+    if (member.status === "Frozen") return { success: false, error: "Member is already frozen" };
+
+    const updated = await memberRepository.updateAsync(id, {
+      status: "Frozen",
+      notes: reason ? `${member.notes || ""}\n[Freezed] ${new Date().toLocaleDateString()}: ${reason}` : member.notes
+    });
+
+    if (!updated) return { success: false, error: "Failed to freeze member" };
+    return { success: true, data: updated };
+  },
+
+  /**
+   * Unfreeze a member's membership
+   */
+  async unfreezeMember(id: string): Promise<ServiceResult<Member>> {
+    const member = await memberRepository.findByIdAsync(id);
+    if (!member) return { success: false, error: "Member not found" };
+    if (member.status !== "Frozen") return { success: false, error: "Member is not frozen" };
+
+    const updated = await memberRepository.updateAsync(id, {
+      status: "Active",
+      notes: `${member.notes || ""}\n[Unfreezed] ${new Date().toLocaleDateString()}`
+    });
+
+    if (!updated) return { success: false, error: "Failed to unfreeze member" };
+    return { success: true, data: updated };
+  },
 };
+

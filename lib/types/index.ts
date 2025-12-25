@@ -291,8 +291,34 @@ export interface DashboardStat {
   value: string | number;
   change?: string;
   trend?: "up" | "down" | "neutral";
+  sub?: string; // For branch stats
+  color?: string; // Tailwind class or hex
   icon?: React.ElementType;
-  color?: string;
+}
+
+export interface DashboardChartData {
+  revenueByMonth?: Array<{ name: string; revenue: number }>;
+  newVsChurnedByMonth?: Array<{ month: string; newMembers: number; churned: number }>;
+  memberComposition?: Array<{ name: string; value: number }>;
+  topBranches?: Array<{ name: string; revenue: number; members: number }>;
+  attendanceTrend?: Array<{ time: string; users: number }>;
+}
+
+export interface DashboardActivity {
+  name: string;
+  action: string;
+  amount?: string;
+  time: string;
+  method?: string; // For check-ins
+  status?: string; // For check-ins
+}
+
+export interface DashboardData {
+  stats: DashboardStat[];
+  charts: DashboardChartData;
+  recentActivity?: DashboardActivity[];
+  recentCheckIns?: DashboardActivity[];
+  expiringMembers?: Array<{ name: string; days: number }>;
 }
 
 export interface ChartDataPoint {
@@ -502,6 +528,29 @@ export interface SystemSettings {
   publicApiBaseUrl?: string;
   webhookUrl?: string;
 
+  // Payment Gateway
+  paymentGatewayProvider?: "razorpay" | "stripe" | "none";
+  paymentGatewayKey?: string;
+  paymentGatewaySecret?: string;
+
+  // WhatsApp API
+  whatsappProvider?: "twilio" | "meta" | "none";
+  whatsappApiKey?: string;
+  whatsappPhoneNumber?: string;
+
+  // Messaging API (SMS)
+  messagingProvider?: "twilio" | "msg91" | "none";
+  messagingApiKey?: string;
+  messagingSenderId?: string;
+
+  // Nodemailer (SMTP)
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpSecure?: boolean;
+
+  // Security & Rate Limiting (Moved here)
   apiRateLimitEnabled?: boolean;
   apiRateLimitWindowSeconds?: number;
   apiRateLimitMaxRequests?: number;

@@ -69,19 +69,13 @@ export const paymentService = {
     const { memberId, branchId, planId, amount, method, description, skipMemberUpdate } = data;
 
     // Validate member
-    const member = await (async () => {
-      try {
-        return await memberRepository.findByIdAsync(memberId);
-      } catch {
-        return memberRepository.findById(memberId);
-      }
-    })();
+    const member = await memberRepository.findByIdAsync(memberId);
     if (!member) {
       return { success: false, error: "Member not found" };
     }
 
     // Validate plan
-    const plan = await planRepository.findMembershipPlanByIdAsync(planId);
+    const plan = await planRepository.findByIdAsync(planId);
     if (!plan) {
       return { success: false, error: "Plan not found" };
     }
@@ -116,11 +110,7 @@ export const paymentService = {
         expiryDate: formatDate(newExpiry),
       };
 
-      try {
-        return await memberRepository.updateAsync(memberId, memberUpdate);
-      } catch {
-        return memberRepository.update(memberId, memberUpdate);
-      }
+      return await memberRepository.updateAsync(memberId, memberUpdate);
     })();
 
     return {

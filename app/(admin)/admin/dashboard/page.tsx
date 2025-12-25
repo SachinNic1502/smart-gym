@@ -15,6 +15,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { dashboardApi, ApiError } from "@/lib/api/client";
+import { useDashboard } from "@/lib/hooks/use-dashboard";
 
 type TrendDirection = "up" | "down";
 
@@ -48,60 +49,61 @@ const ICON_MAP: Record<string, typeof Building2> = {
 };
 
 export default function SuperAdminDashboard() {
+    const {
+        data: dashboardData,
+        loading,
+        error: statsError,
+    } = useDashboard();
+
     const [stats, setStats] = useState<DashboardStatItem[]>([]);
     const [revenueData, setRevenueData] = useState<RevenuePoint[]>([]);
     const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
-    const [statsError, setStatsError] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
-        const fetchStats = async () => {
-            setLoading(true);
-            try {
-                const data = await dashboardApi.getStats("super_admin");
-                const cast = data as {
-                    stats?: { title: string; value: string | number; change: string; trend: TrendDirection }[];
-                    charts?: { revenueByMonth?: RevenuePoint[] };
-                    recentActivity?: RecentActivityItem[];
-                };
-
-                if (cast.stats && Array.isArray(cast.stats)) {
-                    // Assign colors dynamically for visual variety
-                    const colors = [
-                        { color: "text-blue-100", gradient: "from-blue-600 to-indigo-600" },
-                        { color: "text-emerald-100", gradient: "from-emerald-500 to-teal-600" },
-                        { color: "text-violet-100", gradient: "from-violet-600 to-purple-600" },
-                        { color: "text-rose-100", gradient: "from-rose-500 to-pink-600" },
-                    ];
-
-                    const mapped = cast.stats.map((s, i) => ({
-                        ...s,
-                        icon: ICON_MAP[s.title] || Building2,
-                        color: colors[i % colors.length].color,
-                        gradient: colors[i % colors.length].gradient,
-                    } satisfies DashboardStatItem));
-                    setStats(mapped);
-                }
-
-                if (cast.charts?.revenueByMonth && Array.isArray(cast.charts.revenueByMonth)) {
-                    setRevenueData(cast.charts.revenueByMonth);
-                }
-
-                if (cast.recentActivity && Array.isArray(cast.recentActivity)) {
-                    setRecentActivity(cast.recentActivity);
-                }
-            } catch (error) {
-                const message = error instanceof ApiError ? error.message : "Failed to load dashboard stats";
-                setStatsError(message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
     }, []);
+
+    useEffect(() => {
+        if (dashboardData) {
+            const data = dashboardData;
+            if (data.stats && Array.isArray(data.stats)) {
+                const colors = [
+                    { color: "text-blue-100", gradient: "from-blue-600 to-indigo-600" },
+                    { color: "text-emerald-100", gradient: "from-emerald-500 to-teal-600" },
+                    { color: "text-violet-100", gradient: "from-violet-600 to-purple-600" },
+                    { color: "text-rose-100", gradient: "from-rose-500 to-pink-600" },
+                    { color: "text-sky-100", gradient: "from-sky-500 to-blue-600" },
+                    { color: "text-amber-100", gradient: "from-amber-500 to-orange-600" },
+                ];
+
+                const mapped = data.stats.map((s, i) => ({
+                    title: s.title,
+                    value: s.value,
+                    change: s.change || "0%",
+                    trend: (s.trend === "up" || s.trend === "down") ? s.trend : "up",
+                    icon: ICON_MAP[s.title] || Building2,
+                    color: colors[i % colors.length].color,
+                    gradient: colors[i % colors.length].gradient,
+                } satisfies DashboardStatItem));
+                setStats(mapped);
+            }
+
+            if (data.charts?.revenueByMonth) {
+                setRevenueData(data.charts.revenueByMonth);
+            }
+
+            if (data.recentActivity) {
+                const mappedActivity = data.recentActivity.map(a => ({
+                    name: a.name,
+                    action: a.action,
+                    amount: a.amount || "",
+                    time: a.time
+                }));
+                setRecentActivity(mappedActivity);
+            }
+        }
+    }, [dashboardData]);
 
     return (
         <div className="min-h-screen bg-slate-50/50 space-y-8 animate-in fade-in duration-700 pb-10">
@@ -121,12 +123,12 @@ export default function SuperAdminDashboard() {
                             View real-time performance metrics and insights for all gym branches.
                         </p>
                     </div>
-                    <div>
+                    {/* <div>
                         <Button className="bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm shadow-xl transition-all hover:scale-105 active:scale-95">
                             <Download className="mr-2 h-4 w-4" />
                             Export Data
                         </Button>
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
@@ -320,7 +322,9 @@ export default function SuperAdminDashboard() {
                                 )}
                             </div>
                             <div className="p-4 border-t border-gray-100">
-                                <Button variant="outline" size="sm" className="w-full text-xs uppercase tracking-wide">View All History</Button>
+                                <Link href="/admin/billing">
+                                    <Button variant="outline" size="sm" className="w-full text-xs uppercase tracking-wide">View All History</Button>
+                                </Link>
                             </div>
                         </CardContent>
                     </Card>

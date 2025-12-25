@@ -1,8 +1,9 @@
 /**
- * Audit Log Repository
+ * Audit Repository
  */
 
-import { getStore, persistStore } from "../store";
+import { connectToDatabase } from "../mongoose";
+import { AuditLogModel } from "../models";
 import { generateId, paginate, type PaginationOptions, type PaginatedResult } from "./base.repository";
 import type { AuditLog } from "@/lib/types";
 
@@ -10,78 +11,83 @@ export interface AuditFilters {
   userId?: string;
   resource?: string;
   action?: string;
-  startDate?: string;
-  endDate?: string;
   branchId?: string;
 }
 
 export const auditRepository = {
-  findAll(filters: AuditFilters = {}, pagination?: PaginationOptions): PaginatedResult<AuditLog> {
-    const store = getStore();
-    let filtered = [...store.auditLogs];
+  async findAllAsync(filters?: AuditFilters, pagination?: PaginationOptions): Promise<PaginatedResult<AuditLog>> {
+    await connectToDatabase();
 
-    if (filters.userId) {
-      filtered = filtered.filter(a => a.userId === filters.userId);
+    const query: Record<string, unknown> = {};
+    if (filters?.userId) query.userId = filters.userId;
+    if (filters?.resource) query.resource = filters.resource;
+    if (filters?.action) query.action = filters.action;
+    if (filters?.branchId) query.branchId = filters.branchId;
+
+    const total = await AuditLogModel.countDocuments(query).exec();
+
+    if (pagination) {
+      const { page, pageSize } = pagination;
+      const docs = await AuditLogModel.find(query)
+        .sort({ timestamp: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .lean<AuditLog[]>();
+
+      return {
+        data: docs,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
     }
 
-    if (filters.resource) {
-      filtered = filtered.filter(a => a.resource === filters.resource);
-    }
-
-    if (filters.action) {
-      filtered = filtered.filter(a => a.action === filters.action);
-    }
-
-    if (filters.branchId) {
-      filtered = filtered.filter(a => a.branchId === filters.branchId);
-    }
-
-    if (filters.startDate) {
-      filtered = filtered.filter(a => a.timestamp >= filters.startDate!);
-    }
-
-    if (filters.endDate) {
-      filtered = filtered.filter(a => a.timestamp <= filters.endDate!);
-    }
-
-    // Sort by most recent
-    filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-    return paginate(filtered, pagination);
+    const docs = await AuditLogModel.find(query).sort({ timestamp: -1 }).lean<AuditLog[]>();
+    return {
+      data: docs,
+      total,
+      page: 1,
+      pageSize: docs.length,
+      totalPages: 1,
+    };
   },
 
-  create(data: Omit<AuditLog, "id" | "timestamp">): AuditLog {
-    const store = getStore();
+  async createAsync(data: Omit<AuditLog, "id">): Promise<AuditLog> {
+    await connectToDatabase();
     const log: AuditLog = {
       ...data,
       id: generateId("AUD"),
-      timestamp: new Date().toISOString(),
     };
-    store.auditLogs.unshift(log);
-    persistStore();
+    await AuditLogModel.create(log);
     return log;
   },
 
-  // Utility to log actions
-  log(
+  async findByIdAsync(id: string): Promise<AuditLog | null> {
+    await connectToDatabase();
+    return await AuditLogModel.findOne({ id }).lean<AuditLog | null>();
+  },
+
+  async logAsync(
     userId: string,
     userName: string,
     action: string,
     resource: string,
-    resourceId: string,
+    resourceId?: string,
     details?: Record<string, unknown>,
     ipAddress?: string,
     branchId?: string
-  ): AuditLog {
-    return this.create({
+  ): Promise<AuditLog> {
+    return this.createAsync({
       userId,
       userName,
       action,
       resource,
-      resourceId,
+      resourceId: resourceId || "-",
       details,
       ipAddress,
       branchId,
+      timestamp: new Date().toISOString(),
     });
   },
 };

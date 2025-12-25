@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { authService, auditService } from "@/modules/services";
+import { userRepository, notificationRepository } from "@/modules/database";
 import { connectToDatabase } from "@/modules/database/mongoose";
 import { UserModel } from "@/modules/database/models";
 import { hashPassword } from "@/modules/database/password";
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     const actor = await authService.getUserById(actorUserId);
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actorUserId,
       userName: actor?.name ?? null,
       action: "create_admin_user",
@@ -103,7 +104,29 @@ export async function POST(request: NextRequest) {
       ipAddress,
     });
 
+    // Notify other Super Admins
+    try {
+      const superAdmins = await userRepository.findSuperAdminsAsync();
+      const creator = await userRepository.findByIdAsync(actorUserId);
+      for (const admin of superAdmins) {
+        if (admin.id === actorUserId) continue;
+        await notificationRepository.createAsync({
+          userId: admin.id,
+          type: "system_announcement",
+          title: "New Admin Created",
+          message: `${creator?.name || "A Super Admin"} has created a new branch admin: ${user.name}`,
+          priority: "medium",
+          status: "unread",
+          read: false,
+          data: { userId: user.id, role: user.role, branchId: user.branchId }
+        });
+      }
+    } catch (e) {
+      console.warn("User creation notification failed", e);
+    }
+
     return successResponse(
+
       {
         id: user.id,
         name: user.name,

@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "create_staff",

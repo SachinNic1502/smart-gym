@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { successResponse, errorResponse, getPaginationParams } from "@/lib/api/utils";
+import { successResponse, errorResponse, parseBody, getPaginationParams } from "@/lib/api/utils";
 import { notificationRepository } from "@/modules/database";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
 import type { Notification, NotificationType, NotificationStatus } from "@/lib/types";
@@ -26,8 +26,9 @@ export async function GET(request: NextRequest) {
     const branchScope = resolveBranchScope(session, searchParams.get("branchId"));
     if ("response" in branchScope) return branchScope.response;
 
+    const requestedUserId = searchParams.get("userId");
     const filters = {
-      userId: session.role === 'super_admin' ? searchParams.get("userId") || undefined : session.sub, // Super admin can view any user's, others view their own
+      userId: session.role === 'super_admin' ? (requestedUserId || session.sub) : session.sub,
       type: searchParams.get("type") as NotificationType || undefined,
       status: searchParams.get("status") as NotificationStatus || undefined,
       priority: searchParams.get("priority") as "low" | "medium" | "high" | "urgent" || undefined,
@@ -52,12 +53,18 @@ export async function POST(request: NextRequest) {
     const auth = await requireSession(["super_admin", "branch_admin"]);
     if ("response" in auth) return auth.response;
 
-    const body = await request.json();
+    const body = await parseBody<any>(request);
+
+    if (!body) {
+      return errorResponse("Invalid request body");
+    }
+
     const { userId, type, title, message, priority, data, actionUrl, imageUrl, expiresAt, branchId } = body;
 
     if (!userId || !type || !title || !message) {
       return errorResponse("Missing required fields: userId, type, title, message", 400);
     }
+
 
     // Resolve branch scope if branchId is provided
     const scope = resolveBranchScope(auth.session, branchId);

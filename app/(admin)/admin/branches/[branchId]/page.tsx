@@ -40,6 +40,7 @@ import { useBranch } from "@/hooks/use-branches";
 import { useDevices } from "@/hooks/use-devices";
 import { attendanceApi, membersApi, paymentsApi } from "@/lib/api/client";
 import type { Member } from "@/lib/types";
+import Link from "next/link";
 
 export default function BranchDetailPage() {
   const params = useParams();
@@ -438,7 +439,9 @@ export default function BranchDetailPage() {
               </div>
               <Button className="rounded-2xl h-14 px-8 font-black uppercase tracking-widest gap-3 shadow-lg shadow-emerald-100">
                 <Plus className="h-5 w-5" />
-                Add Hardware
+                <Link href="/admin/devices">
+                  Add Device
+                </Link>
               </Button>
             </CardHeader>
             <CardContent className="p-0">

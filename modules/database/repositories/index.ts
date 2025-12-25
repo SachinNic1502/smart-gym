@@ -19,3 +19,4 @@ export * from "./audit.repository";
 export * from "./communication.repository";
 export * from "./notification.repository";
 export * from "./diet-log.repository";
+export * from "./otp.repository";

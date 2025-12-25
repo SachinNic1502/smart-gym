@@ -24,10 +24,12 @@ import {
     Activity,
     Utensils,
     PieChart,
-    ChevronRight
+    ChevronRight,
+    RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Separator } from "@/components/ui/separator";
+import { useSettings } from "@/lib/hooks/use-settings";
 
 interface SidebarItem {
     icon: React.ElementType;
@@ -118,11 +120,24 @@ const BRANCH_ADMIN_GROUPS: SidebarGroup[] = [
 
 const MEMBER_GROUPS: SidebarGroup[] = [
     {
-        title: "Menu",
+        title: "Overview",
         items: [
-            { icon: Fingerprint, label: "Check In / Out", href: "/portal/attendance" },
+            { icon: LayoutDashboard, label: "Dashboard", href: "/portal/dashboard" },
+            { icon: Activity, label: "Daily Activity", href: "/portal/attendance" },
+        ]
+    },
+    {
+        title: "Health & Fitness",
+        items: [
             { icon: Dumbbell, label: "Workouts", href: "/portal/workouts" },
             { icon: Utensils, label: "Diet Plan", href: "/portal/diet" },
+        ]
+    },
+    {
+        title: "Account",
+        items: [
+            { icon: CreditCard, label: "Payments", href: "/portal/payments" },
+            { icon: RefreshCw, label: "Renewal", href: "/portal/renewal" },
             { icon: UserCog, label: "Profile", href: "/portal/profile" },
         ]
     }
@@ -131,6 +146,7 @@ const MEMBER_GROUPS: SidebarGroup[] = [
 export function Sidebar({ role, className, onNavigate }: SidebarProps) {
     const { logout } = useAuth();
     const pathname = usePathname();
+    const { settings } = useSettings();
 
     let groups: SidebarGroup[] = role === 'super_admin' ? SUPER_ADMIN_GROUPS : role === 'branch_admin' ? BRANCH_ADMIN_GROUPS : MEMBER_GROUPS;
 
@@ -138,11 +154,16 @@ export function Sidebar({ role, className, onNavigate }: SidebarProps) {
         <div className={cn("flex flex-col h-screen w-72 bg-white border-r border-gray-100", className)}>
             {/* Logo Header */}
             <div className="flex items-center gap-3 px-6 py-8">
-                <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-bold shadow-sm">
-                    SF
+                <div
+                    className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-bold shadow-sm"
+                    style={{ backgroundColor: `${settings?.primaryColor}20`, color: settings?.primaryColor }}
+                >
+                    {settings?.siteName?.charAt(0) || "S"}{settings?.siteName?.split(" ")[1]?.charAt(0) || "F"}
                 </div>
                 <div>
-                    <span className="text-xl font-bold text-slate-800 tracking-tight block leading-none">SmartFit</span>
+                    <span className="text-xl font-bold text-slate-800 tracking-tight block leading-none">
+                        {settings?.siteName || "SmartFit"}
+                    </span>
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{
                         role === 'super_admin' ? 'Super Admin' :
                             role === 'branch_admin' ? 'Branch Admin' : 'Member Portal'

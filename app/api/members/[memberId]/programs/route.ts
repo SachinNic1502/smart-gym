@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, parseBody } from "@/lib/api/utils";
 import { memberService } from "@/modules/services";
+import { notificationRepository } from "@/modules/database";
 import { requireSession, resolveBranchScope } from "@/lib/api/require-auth";
+import { getRequestUser } from "@/lib/api/auth-helpers";
 
 interface RouteParams {
   params: Promise<{ memberId: string }>;
@@ -68,6 +70,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!result.success) {
       return errorResponse(result.error || "Failed to assign programs", 404);
+    }
+
+    // Notify member
+    try {
+      const actor = await getRequestUser();
+      await notificationRepository.createAsync({
+        userId: memberId,
+        type: "lead_assigned", // Closest match or generic
+        title: "New Programs Assigned",
+        message: `Your coach has updated your ${body.workoutPlanId ? 'Workout' : ''} ${body.workoutPlanId && body.dietPlanId ? '&' : ''} ${body.dietPlanId ? 'Diet' : ''} plan. Check them out in your dashboard!`,
+        priority: "medium",
+        status: "unread",
+        read: false,
+        data: { workoutPlanId: body.workoutPlanId, dietPlanId: body.dietPlanId, assignedBy: actor.userName },
+        branchId: member.data.branchId
+      });
+    } catch (e) {
+      console.warn("Failed to notify member about program assignment", e);
     }
 
     return successResponse({

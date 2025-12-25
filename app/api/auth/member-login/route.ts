@@ -11,11 +11,11 @@ interface MemberLoginRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const limited = rateLimit(request, "auth:member-login");
+    const limited = await rateLimit(request, "auth:member-login");
     if (limited) return limited;
 
     const body = await parseBody<MemberLoginRequest>(request);
-    
+
     if (!body || !body.phone) {
       return errorResponse("Phone number is required");
     }
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     // If OTP provided, verify it
     if (otp) {
       const result = await authService.verifyOtp(phone, otp);
-      
+
       if (!result.success) {
         return errorResponse(result.error || "Invalid OTP", 401);
       }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     // Send OTP
     const result = await authService.sendOtp(phone);
-    
+
     if (!result.success) {
       return errorResponse(result.error || "Failed to send OTP", 400);
     }

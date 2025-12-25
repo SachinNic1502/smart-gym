@@ -10,8 +10,8 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
-function getConfig() {
-  const settings = settingsService.getSettings();
+async function getConfig() {
+  const settings = await settingsService.getSettingsAsync();
 
   const enabled = settings.apiRateLimitEnabled ?? false;
   const windowSeconds = settings.apiRateLimitWindowSeconds ?? 60;
@@ -24,8 +24,8 @@ function getConfig() {
   };
 }
 
-export function rateLimit(request: NextRequest, key: string): Response | null {
-  const { enabled, windowMs, maxRequests } = getConfig();
+export async function rateLimit(request: NextRequest, key: string): Promise<Response | null> {
+  const { enabled, windowMs, maxRequests } = await getConfig();
   if (!enabled) return null;
 
   const ip = getRequestIp(request) ?? "unknown";

@@ -69,7 +69,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "update_staff",
@@ -143,7 +143,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const actor = await getRequestUser();
     const ipAddress = getRequestIp(request);
 
-    auditService.logAction({
+    await auditService.logAction({
       userId: actor.userId,
       userName: actor.userName,
       action: "delete_staff",

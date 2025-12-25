@@ -15,3 +15,8 @@ export * from "./class.model";
 export * from "./workout-plan.model";
 export * from "./diet-plan.model";
 export * from "./diet-log.model";
+export * from "./setting.model";
+export * from "./audit-log.model";
+export * from "./notification.model";
+export * from "./communication.model";
+export * from "./otp.model";
